@@ -22,8 +22,7 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 REFERENCE_PDFS = [
-    PDF_DIR / "에코인사이트글로벌_웹개발.pdf",
-    PDF_DIR / "엔테크서비스_풀스택 웹개발자.pdf",
+    PDF_DIR / "삼성전자_AI센터_SW개발.pdf",
 ]
 
 CATEGORIES = [
@@ -67,9 +66,10 @@ keywords: 기술스택, 역량 키워드
             )
             return json.loads(response.text)
         except Exception as e:
-            if "429" in str(e) and attempt < retries - 1:
+            err = str(e)
+            if ("429" in err or "503" in err) and attempt < retries - 1:
                 wait = 60
-                print(f"    ⚠ Rate limit. {wait}초 대기 후 재시도 ({attempt+1}/{retries})...")
+                print(f"    ⚠ 서버 응답 없음({err[:10]}). {wait}초 대기 후 재시도 ({attempt+1}/{retries})...")
                 time.sleep(wait)
             else:
                 raise
