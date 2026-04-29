@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from google import genai
 from google.genai import types
 from docling.document_converter import DocumentConverter
-from chunkers import cover_letter
+from chunkers import document
 
 # llm 활용 자소서 json 변형
 
@@ -128,19 +128,21 @@ def run():
         print('='*60)
 
         raw_text = converter.convert(str(pdf_path)).document.export_to_text()
-        chunks = cover_letter.chunk(raw_text, pdf_path.stem)
+        chunks = document.chunk(raw_text, pdf_path.stem)
         print(f"청킹 완료: {len(chunks)}개 → Gemini 추출 시작\n")
 
         for i, c in enumerate(chunks):
-            print(f"  [{i+1}/{len(chunks)}] {c['sub_section'][:40]} 처리 중...")
+            label = f"{c['section']} / {c['sub_section']}"
+            print(f"  [{i+1}/{len(chunks)}] {label[:40]} 처리 중...")
             extracted = extract_with_gemini(c["text"])
 
             full_chunk = {
                 "id": f"{c['source']}_{i:03d}",
                 "source": c["source"],
                 "doc_type": c["doc_type"],
-                "category": extracted["category"],
+                "section": c["section"],
                 "sub_section": c["sub_section"],
+                "category": extracted["category"],
                 "keywords_str": ", ".join(extracted["keywords"]),
                 "text": c["text"],
                 "key_points": extracted["key_points"],
