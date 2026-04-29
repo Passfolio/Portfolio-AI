@@ -22,12 +22,13 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 REFERENCE_PDFS = [
-    PDF_DIR / "삼성전자_AI센터_SW개발.pdf",
+    PDF_DIR / "네이버_TechSw개발.pdf",
 ]
 
 CATEGORIES = [
-    "지원동기", "직무역량", "문제해결경험", "협업태도",
-    "자기소개", "취미", "프로젝트경험", "경력", "기타"
+    "지원동기", "입사포부", "직무역량", "문제해결경험",
+    "협업태도", "리더십", "자기소개", "성장과정",
+    "취미", "프로젝트경험", "경력", "사회이슈", "기타"
 ]
 
 converter = DocumentConverter()
@@ -43,13 +44,51 @@ class ChunkExtraction(BaseModel):
     keywords: list[str]
 
 
-def extract_with_gemini(text: str, retries: int = 3) -> dict:
+
+CATEGORY_DEFINITIONS = {
+    "지원동기":    "해당 기업 또는 직무에 지원하게 된 이유, 관심 계기",
+    "입사포부":    "입사 후 이루고 싶은 목표, 성장 계획, 기여 방향",
+    "직무역량":    "직무 수행에 필요한 전문 기술, 지식, 자격",
+    "문제해결경험": "문제를 발견하고 분석하여 해결한 구체적 경험",
+    "협업태도":    "팀원과의 소통, 갈등 조율, 협력 방식에 관한 경험",
+    "리더십":      "팀을 이끌거나 주도적으로 역할을 맡은 경험",
+    "자기소개":    "성격, 장단점, 가치관 등 자신에 대한 소개",
+    "성장과정":    "성장 배경, 가치관 형성에 영향을 준 사건이나 인물",
+    "취미":        "여가 활동, 관심사",
+    "프로젝트경험": "참여한 프로젝트의 역할, 과정, 결과",
+    "경력":        "인턴, 직장 경험, 학력, 자격증, 수상 이력",
+    "사회이슈":    "사회적 현상이나 이슈에 대한 본인의 견해",
+    "기타":        "위 카테고리에 해당하지 않는 내용",
+}
+
+CATEGORY_GUIDE = "\n".join(
+    f"  - {k}: {v}" for k, v in CATEGORY_DEFINITIONS.items()
+)
+
+
+def extract_with_gemini(text: str, retries: int = 5) -> dict:
     prompt = f"""다음 자기소개서 텍스트를 분석해서 JSON으로 변환해주세요.
 
-category는 반드시 다음 중 하나만 선택: {", ".join(CATEGORIES)}
-key_points: 핵심 내용 2~3문장
-achievements: 수치나 성과가 포함된 문장 (없으면 빈 배열)
-keywords: 기술스택, 역량 키워드
+[category 선택 기준]
+반드시 아래 중 하나만 선택하세요. 각 항목의 정의를 참고하여 문맥에 가장 적합한 카테고리를 고르세요:
+{CATEGORY_GUIDE}
+
+[key_points 작성 기준]
+- 지원자의 구체적인 행동과 그 결과 중심으로 2~3문장 작성
+- 단순 요약이 아닌, 지원자가 무엇을 했고 어떤 변화/성과가 있었는지 명확히 서술
+
+[achievements 작성 기준]
+- 수치(%, 배수, 개수, 금액, 시간 등)가 포함된 정량적 성과
+- 수치가 없더라도 명확한 결과(도입 완료, 구축 완료, 수주, 채택, 수상, 게재 등)가 있는 문장
+- "~를 달성했다", "~로 이어졌다", "~를 수주했다" 등 긍정적 결론이 명시된 문장
+- 단순 과정 설명이나 계획은 제외
+- 해당 내용이 없으면 빈 배열 []
+
+[keywords 작성 기준]
+- 기술 스택(언어, 프레임워크, 툴)
+- 직무 역량 키워드(예: 데이터 분석, 알고리즘 최적화)
+- 도메인 키워드(예: MLOps, 스마트팩토리, 자율주행)
+- 중복 없이 핵심 키워드만 추출
 
 텍스트:
 {text}"""
@@ -57,9 +96,14 @@ keywords: 기술스택, 역량 키워드
     for attempt in range(retries):
         try:
             response = client.models.generate_content(
-                model="gemini-3-flash-preview",
+                model="gemini-3.1-flash-lite-preview",
                 contents=prompt,
                 config=types.GenerateContentConfig(
+                    system_instruction=(
+                        "당신은 채용 전문가이자 자기소개서 분석 AI입니다. "
+                        "지원자의 자기소개서를 읽고 핵심 내용, 성과, 기술 키워드를 정확하게 추출합니다. "
+                        "카테고리 분류는 문맥을 깊이 이해하여 가장 적합한 항목을 선택하세요."
+                    ),
                     response_mime_type="application/json",
                     response_schema=ChunkExtraction,
                 ),
@@ -73,7 +117,6 @@ keywords: 기술스택, 역량 키워드
                 time.sleep(wait)
             else:
                 raise
-
 
 # ── 메인 ──────────────────────────────────────────────────────────────
 def run():
