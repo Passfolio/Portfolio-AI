@@ -1,59 +1,27 @@
 from chunkers import cover_letter, resume
 
+Literal = str  # "resume" | "cover_letter"
 
-def chunk(text: str, source: str) -> list[dict]:
+
+def chunk(text: str, source: str, doc_type: Literal) -> list[dict]:
     """
-    이력서+자소서 혼합 문서를 통합 청킹.
+    doc_type에 따라 청킹 방식 라우팅.
 
-    - 이력서 섹션(인적사항, 학력 등): 엔티티 단위 청킹
-    - 자기소개서 섹션: 대제목/소제목 단위 청킹
-    - 이력서 섹션이 전혀 없으면 순수 자소서로 fallback
+    Args:
+        text: docling으로 추출한 raw 텍스트
+        source: 파일명 등 출처 식별자
+        doc_type: "resume" | "cover_letter"
 
     Returns:
         통합 청크 리스트. 스키마: {source, doc_type, section, sub_section, text, char_count}
     """
-    cleaned = resume.clean(text)
-    sections = resume.split_sections(cleaned)
-
-    has_resume_sections = any(
-        k not in ("기타_상단", "자기소개서") for k in sections
-    )
-    if not has_resume_sections:
+    if doc_type == "resume":
+        return resume.chunk(text, source)
+    else:
         return _normalize_cover_letter(cover_letter.chunk(text, source))
-
-    final = []
-    for entity, content in sections.items():
-        content = content.strip()
-        if not content:
-            continue
-
-        if entity == "자기소개서":
-            cl_chunks = cover_letter.chunk(content, source)
-            final.extend(_normalize_cover_letter(cl_chunks))
-        else:
-            if len(content) > resume.MAX_CHARS:
-                for i in range(0, len(content), resume.MAX_CHARS):
-                    piece = content[i:i + resume.MAX_CHARS]
-                    final.append(_resume_chunk(source, entity, piece))
-            else:
-                final.append(_resume_chunk(source, entity, content))
-
-    return final
-
-
-def _resume_chunk(source: str, entity: str, text: str) -> dict:
-    return {
-        "source": source,
-        "doc_type": "resume",
-        "section": entity,
-        "sub_section": entity,
-        "text": text,
-        "char_count": len(text),
-    }
 
 
 def _normalize_cover_letter(chunks: list[dict]) -> list[dict]:
-    """cover_letter.chunk() 출력을 통합 스키마로 변환."""
     return [
         {
             "source": c["source"],

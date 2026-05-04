@@ -1,7 +1,7 @@
 import re
 
 RE_MAIN_SECTION = re.compile(r'^(■\s*.+|\d+[\.\)]\s+.+)$', re.MULTILINE)
-RE_SUB_SECTION = re.compile(r'^\[(.+?)\]', re.MULTILINE)
+RE_SUB_SECTION = re.compile(r'^\[(.+?)\]|^"(.+)"$', re.MULTILINE)
 
 MAX_CHARS = 1500
 
@@ -78,7 +78,8 @@ def chunk(text: str, source: str) -> list[dict]:
             buffer = []
         elif RE_SUB_SECTION.match(line.strip()):
             flush(current_main, current_sub, buffer)
-            current_sub = RE_SUB_SECTION.match(line.strip()).group(1)
+            m = RE_SUB_SECTION.match(line.strip())
+            current_sub = m.group(1) or m.group(2)
             buffer = [line]
         else:
             buffer.append(line)
