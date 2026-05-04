@@ -11,7 +11,9 @@ from pydantic import BaseModel
 from google import genai
 from google.genai import types
 from docling.document_converter import DocumentConverter
-from chunkers import document
+from chunkers import resume, cover_letter
+
+_converter = DocumentConverter()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -22,8 +24,6 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 REFERENCE_PDFS = [
     (PDF_DIR / "삼성전자_DS부문_SW개발.pdf", "cover_letter"),
 ]
-
-converter = DocumentConverter()
 
 RPM_DELAY = 13  # 분당 4회 (5 RPM 미만 유지)
 
@@ -154,7 +154,6 @@ def extract_resume(text: str, section: str) -> dict:
         ),
     )
 
-
 # ── 메인 ──────────────────────────────────────────────────────────────
 def run():
     resume_chunks = []
@@ -165,12 +164,13 @@ def run():
         print(f"파일: {pdf_path.name}  [{doc_type}]")
         print('='*60)
 
-        raw_text = converter.convert(str(pdf_path)).document.export_to_text()
-        chunks = document.chunk(raw_text, pdf_path.stem, doc_type)
+        if doc_type == "resume":
+            chunks = resume.chunk(str(pdf_path), pdf_path.stem)
+        else:
+            text = _converter.convert(str(pdf_path)).document.export_to_text()
+            chunks = cover_letter.chunk(text, pdf_path.stem)
 
-        resume_count = sum(1 for c in chunks if c["doc_type"] == "resume")
-        cl_count = sum(1 for c in chunks if c["doc_type"] == "cover_letter")
-        print(f"청킹 완료: 이력서 {resume_count}개 / 자소서 {cl_count}개 → Gemini 추출 시작\n")
+        print(f"청킹 완료: {len(chunks)}개 → Gemini 추출 시작\n")
 
         for i, c in enumerate(chunks):
             label = f"[{c['doc_type']}] {c['section']} / {c['sub_section']}"

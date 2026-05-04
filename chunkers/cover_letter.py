@@ -64,7 +64,7 @@ def chunk(text: str, source: str) -> list[dict]:
             chunks.append({
                 "source": source,
                 "doc_type": "cover_letter",
-                "main_section": main,
+                "section": main,
                 "sub_section": sub or "본문",
                 "text": content,
                 "char_count": len(content),
