@@ -22,7 +22,7 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 REFERENCE_PDFS = [
-    (PDF_DIR / "삼성전자_DS부문_SW개발.pdf", "cover_letter"),
+    (PDF_DIR / "software_gabia.pdf", "resume"),
 ]
 
 RPM_DELAY = 13  # 분당 4회 (5 RPM 미만 유지)
@@ -58,11 +58,14 @@ CATEGORY_GUIDE = "\n".join(
 
 
 # ── 이력서 스키마 ──────────────────────────────────────────────────────
-class ResumeExtraction(BaseModel):
+class ResumeSection(BaseModel):
     section: str
     facts: list[str]
     skills: list[str]
     period: str
+
+class ResumeFullExtraction(BaseModel):
+    sections: list[ResumeSection]
 
 
 def _call_gemini(prompt: str, schema: type, system: str, retries: int = 5) -> dict:
@@ -124,14 +127,18 @@ def extract_cover_letter(text: str) -> dict:
     )
 
 
-def extract_resume(text: str, section: str) -> dict:
-    prompt = f"""다음은 이력서의 '{section}' 섹션입니다. 사실(fact) 중심으로 JSON으로 변환해주세요.
+def extract_resume_full(markdown: str) -> dict:
+    prompt = f"""다음은 이력서 전체를 마크다운으로 변환한 텍스트입니다.
+섹션별로 사실(fact) 정보를 추출해서 JSON으로 변환해주세요.
+
+[section 작성 기준]
+- 인적사항 / 학력사항 / 경력사항 / 수상및활동 / 자격및어학 / 병역사항 / 기타 중 적합한 이름 사용
+- 마크다운 헤더나 테이블 헤더를 참고해 판단
 
 [facts 작성 기준]
 - 각 항목을 "기간 / 기관 / 내용" 형태로 정리 (해당 정보가 있을 경우)
-- 인적사항은 이름, 연락처, 주소 등 개인 정보 항목별로 분리
+- 인적사항은 이름, 연락처, 이메일, 주소 등 항목별로 한 줄씩
 - 사실 그대로 추출하며 해석이나 요약 금지
-- 항목당 한 줄로 작성
 
 [skills 작성 기준]
 - 기술 스택, 자격증, 어학 점수 등 역량 관련 항목만 추출
@@ -141,15 +148,15 @@ def extract_resume(text: str, section: str) -> dict:
 - 해당 섹션의 전체 기간 범위 (예: "2019.03 ~ 2023.02")
 - 기간 정보가 없으면 빈 문자열 ""
 
-텍스트:
-{text}"""
+이력서:
+{markdown}"""
 
     return _call_gemini(
         prompt=prompt,
-        schema=ResumeExtraction,
+        schema=ResumeFullExtraction,
         system=(
             "당신은 이력서 파싱 전문 AI입니다. "
-            "이력서의 각 섹션에서 사실 정보를 정확하게 추출하고 정형화합니다. "
+            "이력서 전체를 읽고 섹션을 스스로 파악한 뒤, 각 섹션의 사실 정보를 정확하게 추출합니다. "
             "해석이나 평가 없이 원문에 충실하게 추출하세요."
         ),
     )
@@ -165,35 +172,37 @@ def run():
         print('='*60)
 
         if doc_type == "resume":
-            chunks = resume.chunk(str(pdf_path), pdf_path.stem)
+            md_chunks = resume.chunk(str(pdf_path), pdf_path.stem)
+            if not md_chunks:
+                print("  ⚠ 추출된 텍스트 없음, 건너뜀")
+                continue
+            print(f"markdown 변환 완료 → Gemini 1회 호출\n")
+            extracted = extract_resume_full(md_chunks[0]["text"])
+            for i, sec in enumerate(extracted["sections"]):
+                resume_chunks.append({
+                    "id": f"{pdf_path.stem}_{i:03d}",
+                    "source": pdf_path.stem,
+                    "doc_type": "resume",
+                    "section": sec["section"],
+                    "sub_section": sec["section"],
+                    "facts": sec["facts"],
+                    "skills": sec["skills"],
+                    "period": sec["period"],
+                    "char_count": sum(len(f) for f in sec["facts"]),
+                })
+                print(f"  섹션 추출: {sec['section']}")
+            time.sleep(RPM_DELAY)
+
         else:
             text = _converter.convert(str(pdf_path)).document.export_to_text()
             chunks = cover_letter.chunk(text, pdf_path.stem)
+            print(f"청킹 완료: {len(chunks)}개 → Gemini 추출 시작\n")
 
-        print(f"청킹 완료: {len(chunks)}개 → Gemini 추출 시작\n")
-
-        for i, c in enumerate(chunks):
-            label = f"[{c['doc_type']}] {c['section']} / {c['sub_section']}"
-            print(f"  [{i+1}/{len(chunks)}] {label[:50]} 처리 중...")
-
-            if c["doc_type"] == "resume":
-                extracted = extract_resume(c["text"], c["section"])
-                full_chunk = {
-                    "id": f"{c['source']}_{i:03d}",
-                    "source": c["source"],
-                    "doc_type": "resume",
-                    "section": c["section"],
-                    "sub_section": c["sub_section"],
-                    "facts": extracted["facts"],
-                    "skills": extracted["skills"],
-                    "period": extracted["period"],
-                    "text": c["text"],
-                    "char_count": c["char_count"],
-                }
-                resume_chunks.append(full_chunk)
-            else:
+            for i, c in enumerate(chunks):
+                label = f"{c['section']} / {c['sub_section']}"
+                print(f"  [{i+1}/{len(chunks)}] {label[:50]} 처리 중...")
                 extracted = extract_cover_letter(c["text"])
-                full_chunk = {
+                cover_letter_chunks.append({
                     "id": f"{c['source']}_{i:03d}",
                     "source": c["source"],
                     "doc_type": "cover_letter",
@@ -206,10 +215,8 @@ def run():
                     "achievements": extracted["achievements"],
                     "keywords": extracted["keywords"],
                     "char_count": c["char_count"],
-                }
-                cover_letter_chunks.append(full_chunk)
-
-            time.sleep(RPM_DELAY)
+                })
+                time.sleep(RPM_DELAY)
 
     # JSON 저장
     resume_path = OUTPUT_DIR / "resume_chunks.json"
