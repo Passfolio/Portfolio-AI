@@ -22,7 +22,7 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 REFERENCE_PDFS = [
-    (PDF_DIR / "software_gabia.pdf", "resume"),
+    (PDF_DIR / "펄어비스_웹개발[프로그래밍].pdf", "cover_letter"),
 ]
 
 RPM_DELAY = 13  # 분당 4회 (5 RPM 미만 유지)

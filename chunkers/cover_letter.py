@@ -1,6 +1,6 @@
 import re
 
-RE_MAIN_SECTION = re.compile(r'^(■\s*.+|\d+[\.\)]\s+.+)$', re.MULTILINE)
+RE_MAIN_SECTION = re.compile(r'^([■□●○◆◇▶▷◀◁★☆※→➤•]\s*.+|\d+[\.\)]\s*.+)$', re.MULTILINE)
 RE_SUB_SECTION = re.compile(r'^\[(.+?)\]|^"(.+)"$', re.MULTILINE)
 
 MAX_CHARS = 1500
