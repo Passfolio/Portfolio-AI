@@ -1,0 +1,87 @@
+[
+  {
+    "id": "software_gabia_000",
+    "source": "software_gabia",
+    "doc_type": "resume",
+    "section": "인적사항",
+    "sub_section": "인적사항",
+    "facts": [
+      "이름 / / 류*현",
+      "영문 / / Ryu",
+      "나이 / / 24세",
+      "휴대폰 / / 010",
+      "E-mail / / @gmail.com",
+      "주소 / / 울산광역시중구남외1길"
+    ],
+    "skills": [],
+    "period": "",
+    "char_count": 80
+  },
+  {
+    "id": "software_gabia_001",
+    "source": "software_gabia",
+    "doc_type": "resume",
+    "section": "학력사항",
+    "sub_section": "학력사항",
+    "facts": [
+      "19.03.04~24.02.21 / 명지대학교융합소프트웨어학부 / 졸업 (3.89/4.5)",
+      "16.03.02~19.02.15 / 울산학성여자고등학교 / 졸업"
+    ],
+    "skills": [],
+    "period": "2016.03.02 ~ 2024.02.21",
+    "char_count": 85
+  },
+  {
+    "id": "software_gabia_002",
+    "source": "software_gabia",
+    "doc_type": "resume",
+    "section": "수상및활동",
+    "sub_section": "수상및활동",
+    "facts": [
+      "24.07.08~24.12.18 / 우리에프아이에스 / 우리FISA클라우드 엔지니어링 수료",
+      "23.03.21 ~24.02.02 / 중소기업기술혁신협회, 명지대학교 / SW/컨텐츠분야 벤처스타트업 아카데미 수료",
+      "22.03.19~23.03.11 / 피티피플 / 프리젠테이션 연합동아리 피티피플 수료",
+      "23.03~23.02 / 중소벤처기업부 / 벤처스타트업 아카데미(SW/컨텐츠 분야) 우수상",
+      "23.03~23.02 / 중소벤처기업부 / 벤처스타트업 아카데미 캡스톤 디자인 과정 포트폴리오 장려상"
+    ],
+    "skills": [],
+    "period": "2022.03.19 ~ 2024.12.18",
+    "char_count": 267
+  },
+  {
+    "id": "software_gabia_003",
+    "source": "software_gabia",
+    "doc_type": "resume",
+    "section": "경력사항",
+    "sub_section": "경력사항",
+    "facts": [
+      "23.09~23.12 / 보안그룹모비딕 / 웹 및앱모의해킹 및 인프라검겁 보안성심의프로젝트 진행"
+    ],
+    "skills": [],
+    "period": "2023.09 ~ 2023.12",
+    "char_count": 53
+  },
+  {
+    "id": "software_gabia_004",
+    "source": "software_gabia",
+    "doc_type": "resume",
+    "section": "자격및어학",
+    "sub_section": "자격및어학",
+    "facts": [
+      "24.03.20 / Amazon Web Services / AWS Certified Solutions Architect",
+      "23.09.01 / 한국산업인력공단 / 정보처리기사",
+      "21.10.01 / 한국데이터진홍원 / SQLD",
+      "21.07.02 / 한국정보통신진홍협회 / 리눅스마스터2급",
+      "24.08.11 / Intermediate High / OPIC"
+    ],
+    "skills": [
+      "AWS Certified Solutions Architect",
+      "정보처리기사",
+      "SQLD",
+      "리눅스마스터2급",
+      "OPIC Intermediate High"
+    ],
+    "period": "2021.07.02 ~ 2024.08.11",
+    "char_count": 187
+  }
+]
