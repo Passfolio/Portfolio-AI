@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from google import genai
 from google.genai import types
 from docling.document_converter import DocumentConverter
-from chunkers import resume, cover_letter
+from chunkers import resume, cover_letter, portfolio
 
 _converter = DocumentConverter()
 
@@ -22,10 +22,14 @@ OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 REFERENCE_PDFS = [
-    (PDF_DIR / "펄어비스_웹개발[프로그래밍].pdf", "cover_letter"),
+    # (PDF_DIR / "펄어비스_웹개발[프로그래밍].pdf", "cover_letter"),
 ]
 
-RPM_DELAY = 13  # 분당 4회 (5 RPM 미만 유지)
+PORTFOLIO_PDFS = [
+    PDF_DIR / "output예시 포폴.pdf",
+]
+
+RPM_DELAY = 1  # 유료 티어 - 요청 간 최소 딜레이
 
 
 # ── 자소서 스키마 ──────────────────────────────────────────────────────
@@ -68,6 +72,19 @@ class ResumeFullExtraction(BaseModel):
     sections: list[ResumeSection]
 
 
+# ── 포트폴리오 스키마 ──────────────────────────────────────────────────
+class PortfolioProject(BaseModel):
+    section_type: str        # 프로젝트 / 기술스택 / 자기소개 / 경력 / 기타
+    project_name: str
+    period: str
+    role: str
+    tech_stack: list[str]
+    summary: str
+    contributions: list[str]
+    achievements: list[str]
+    keywords: list[str]
+
+
 def _call_gemini(prompt: str, schema: type, system: str, retries: int = 5) -> dict:
     for attempt in range(retries):
         try:
@@ -83,8 +100,13 @@ def _call_gemini(prompt: str, schema: type, system: str, retries: int = 5) -> di
             return json.loads(response.text)
         except Exception as e:
             err = str(e)
-            if ("429" in err or "503" in err) and attempt < retries - 1:
-                wait = 60
+            if attempt < retries - 1:
+                if "429" in err:
+                    wait = 30
+                elif "503" in err:
+                    wait = 5
+                else:
+                    raise
                 print(f"    ⚠ 서버 응답 없음({err[:10]}). {wait}초 대기 후 재시도 ({attempt+1}/{retries})...")
                 time.sleep(wait)
             else:
@@ -123,6 +145,43 @@ def extract_cover_letter(text: str) -> dict:
             "당신은 채용 전문가이자 자기소개서 분석 AI입니다. "
             "지원자의 자기소개서를 읽고 핵심 내용, 성과, 기술 키워드를 정확하게 추출합니다. "
             "카테고리 분류는 문맥을 깊이 이해하여 가장 적합한 항목을 선택하세요."
+        ),
+    )
+
+
+def extract_portfolio(text: str) -> dict:
+    prompt = f"""다음은 포트폴리오의 한 섹션입니다. 내용을 분석해서 JSON으로 변환해주세요.
+
+[section_type 선택 기준]
+- 프로젝트: 개발/기획/디자인 프로젝트 경험
+- 기술스택: 보유 기술, 언어, 프레임워크 목록
+- 자기소개: 프로필, 소개, 목표
+- 경력: 인턴, 직장, 대외활동, 수상
+- 기타: 위에 해당하지 않는 내용
+
+[contributions 작성 기준]
+- 본인이 직접 수행한 역할과 구현 내용
+- "~구현", "~개발", "~설계", "~담당" 형태로 구체적으로
+
+[achievements 작성 기준]
+- 수치(%, 배수, 시간, 건수 등)가 포함된 정량적 성과
+- 수치가 없어도 명확한 결과(출시, 수상, 채택 등)가 있으면 포함
+- 없으면 빈 배열 []
+
+[tech_stack 작성 기준]
+- 언어, 프레임워크, 라이브러리, 인프라, 툴 등
+- 텍스트에 언급된 것만 추출, 없으면 빈 배열 []
+
+텍스트:
+{text}"""
+
+    return _call_gemini(
+        prompt=prompt,
+        schema=PortfolioProject,
+        system=(
+            "당신은 포트폴리오 분석 전문 AI입니다. "
+            "지원자의 포트폴리오 섹션을 읽고 프로젝트 정보, 기여 내용, 기술 스택, 성과를 정확하게 추출합니다. "
+            "원문에 없는 내용은 절대 추가하지 마세요."
         ),
     )
 
@@ -218,19 +277,61 @@ def run():
                 })
                 time.sleep(RPM_DELAY)
 
+    # ── 포트폴리오 파이프라인 ──────────────────────────────────────────
+    portfolio_chunks = []
+
+    for pdf_path in PORTFOLIO_PDFS:
+        print(f"\n{'='*60}")
+        print(f"파일: {pdf_path.name}  [portfolio]")
+        print('='*60)
+
+        chunks = portfolio.chunk(str(pdf_path), pdf_path.stem)
+        if not chunks:
+            print("  ⚠ 추출된 텍스트 없음, 건너뜀")
+            continue
+        print(f"청킹 완료: {len(chunks)}개 → Gemini 추출 시작\n")
+
+        for i, c in enumerate(chunks):
+            project = c.get("project", c["section"])
+            label = f"{c['section']} / {project}"
+            print(f"  [{i+1}/{len(chunks)}] {label[:50]} 처리 중...")
+            extracted = extract_portfolio(c["text"])
+            portfolio_chunks.append({
+                "id": f"{c['source']}_{i:03d}",
+                "source": c["source"],
+                "doc_type": "portfolio",
+                "section": c["section"],
+                "project": project,
+                "section_type": extracted["section_type"],
+                "project_name": extracted["project_name"],
+                "period": extracted["period"],
+                "role": extracted["role"],
+                "tech_stack": extracted["tech_stack"],
+                "summary": extracted["summary"],
+                "contributions": extracted["contributions"],
+                "achievements": extracted["achievements"],
+                "keywords": extracted["keywords"],
+                "char_count": c["char_count"],
+            })
+            time.sleep(RPM_DELAY)
+
     # JSON 저장
     resume_path = OUTPUT_DIR / "resume_chunks.json"
     cl_path = OUTPUT_DIR / "coverletter_chunks.json"
+    portfolio_path = OUTPUT_DIR / "portfolio_chunks.json"
 
     with open(resume_path, "w", encoding="utf-8") as f:
         json.dump(resume_chunks, f, ensure_ascii=False, indent=2)
     with open(cl_path, "w", encoding="utf-8") as f:
         json.dump(cover_letter_chunks, f, ensure_ascii=False, indent=2)
+    with open(portfolio_path, "w", encoding="utf-8") as f:
+        json.dump(portfolio_chunks, f, ensure_ascii=False, indent=2)
 
     print(f"\n{'='*60}")
     print(f"저장 완료:")
-    print(f"  이력서  → {resume_path}  ({len(resume_chunks)}개)")
-    print(f"  자소서  → {cl_path}  ({len(cover_letter_chunks)}개)")
+    print(f"  이력서    → {resume_path}  ({len(resume_chunks)}개)")
+    print(f"  자소서    → {cl_path}  ({len(cover_letter_chunks)}개)")
+    print(f"  포트폴리오 → {portfolio_path}  ({len(portfolio_chunks)}개)")
     print('='*60)
 
     for c in resume_chunks:
@@ -246,7 +347,16 @@ def run():
         print(f"  achievements: {c['achievements']}")
         print(f"  keywords    : {c['keywords']}")
 
-    return resume_chunks, cover_letter_chunks
+    for c in portfolio_chunks:
+        print(f"\n[{c['id']}] {c['section_type']} / {c['project_name']}")
+        print(f"  project       : {c['project']}")
+        print(f"  period        : {c['period']}")
+        print(f"  role          : {c['role']}")
+        print(f"  tech_stack    : {c['tech_stack']}")
+        print(f"  contributions : {c['contributions']}")
+        print(f"  achievements  : {c['achievements']}")
+
+    return resume_chunks, cover_letter_chunks, portfolio_chunks
 
 
 if __name__ == "__main__":
