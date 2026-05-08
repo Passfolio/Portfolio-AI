@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.pipeline_options import PdfPipelineOptions, EasyOcrOptions
 from docling.datamodel.base_models import InputFormat
 from docling.chunking import HybridChunker
 from docling_core.types.doc import (
@@ -30,8 +30,10 @@ from docling_core.types.doc import (
 
 # ── 1. 컨버터 (싱글톤) ──────────────────────────────────────
 _pipeline = PdfPipelineOptions()
-_pipeline.do_table_structure = True          # 표 구조 인식
-_pipeline.do_ocr = False                     # 텍스트 레이어 있는 PDF는 OCR 생략
+_pipeline.do_table_structure = True
+_pipeline.do_ocr = True
+_pipeline.ocr_options = EasyOcrOptions(lang=["ko", "en"])
+_pipeline.images_scale = 1.5  # 기본 2.0 → 메모리 절약
 
 _converter = DocumentConverter(
     format_options={
@@ -64,12 +66,11 @@ def _extract_meta(text: str) -> dict:
     return meta
 
 
-def _serialize_item(item) -> str:
+def _serialize_item(item, doc=None) -> str:
     """DoclingDocument 아이템 → 문자열 직렬화."""
     if isinstance(item, TableItem):
-        # 표는 마크다운 테이블로 변환
         try:
-            return item.export_to_markdown()
+            return item.export_to_markdown(doc) if doc is not None else item.export_to_markdown()
         except Exception:
             return "[표]"
 
@@ -145,25 +146,22 @@ def _build_project_chunks(
         level = _heading_level(item)
 
         if level is not None and level <= split_level - 1:
-            # H1: 상위 섹션 변경 (flush는 하지 않고 레이블만 갱신)
             flush()
             buffer_lines.clear()
             current_h1 = item.text.strip()
             buffer_lines.append(f"# {current_h1}")
 
         elif level is not None and level == split_level:
-            # H2: 프로젝트 경계 → flush 후 새 프로젝트 시작
             flush()
             buffer_lines.clear()
             current_project = item.text.strip()
             buffer_lines.append(f"## {current_project}")
 
         elif level is not None and level > split_level:
-            # H3~: 프로젝트 내부 소제목 → 그냥 본문에 포함
             buffer_lines.append(f"{'#' * level} {item.text.strip()}")
 
         else:
-            serialized = _serialize_item(item)
+            serialized = _serialize_item(item, doc)
             if serialized:
                 buffer_lines.append(serialized)
 

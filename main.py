@@ -18,6 +18,7 @@ _converter = DocumentConverter()
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 PDF_DIR = Path(__file__).parent / "pdfsample"
+PORTFOLIO_DIR = Path(__file__).parent / "portfoliosample"
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
@@ -26,7 +27,10 @@ REFERENCE_PDFS = [
 ]
 
 PORTFOLIO_PDFS = [
-    PDF_DIR / "output예시 포폴.pdf",
+    PORTFOLIO_DIR / name for name in [
+        "박중헌_포트폴리오.pdf",
+        # "output예시 포폴.pdf",
+    ]
 ]
 
 RPM_DELAY = 1  # 유료 티어 - 요청 간 최소 딜레이
