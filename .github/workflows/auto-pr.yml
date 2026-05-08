@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - 'feature/**'
+      - 'chore/**'
+      - 'fix/**'
+      - 'refactor/**'
+      - 'docs/**'
+      - 'infra/**'
 
 permissions:
   contents: read
@@ -30,7 +35,7 @@ jobs:
         id: build
         run: |
           BRANCH="${{ github.ref_name }}"
-          ISSUE_NUM=$(echo "$BRANCH" | sed -E 's/feature\/([0-9]+)-.*/\1/')
+          ISSUE_NUM=$(echo "$BRANCH" | sed -E 's/^[^/]+\/#?([0-9]+)-.*/\1/')
           SUMMARY=$(git log origin/main..HEAD --oneline | tail -1 | sed 's/^[a-f0-9]* //')
           COMMITS=$(git log origin/main..HEAD --oneline | sed 's/^[a-f0-9]* /- /')
 
