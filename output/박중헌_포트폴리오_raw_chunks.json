@@ -1,0 +1,524 @@
+[
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "링크",
+    "project": "소개",
+    "text": "# 링크\n이름 : Hea\n새로운 기술 탐 구 에 SAS 가진 시 및 데이터 전문가 지 망 생 으로서, 변 화 를 추 구 하며 능 동 적 으로 행 동 합니다. 현재 LLM, RAG, 클라우드 인 프 라 에 대한 깊은 관 심 을 가지고 전 문 성 을 키워 나가며, 이를 활용 한 창 의 적 이고 실질적인 문제 해 결 에 도 전 하고 있습니다.",
+    "meta": {},
+    "char_count": 189
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "A... 주요 기술 스택",
+    "project": "소개",
+    "text": "# A... 주요 기술 스택\n블로그 링크:\nMAIN\n: 해당 기 술 을 사용한 33] 이상의 프로젝트 경 엄 보유 _ 5086 : 해 딩\n언어\n:\nPython JavaScript C++ Python JavaScript C4]\nTECH BLOG\n~ LangChain LangGraph Ray, Optuna\n데이터 프 레 임 워크\n:\nApache Spark\n깃 허브 링크:\n웹 프 레 임 워크\n:\nDjango FastAPl Streamiit\nGITHUB\n머 신 러 닝 라이브러리\n:\nPyTorch OpenAl Scikit-learn Keras|\n링 크 드 인 링크:\nLINKEDIN\n~ 다 1 16 0 오\n시각화 라이브러리\n:\nplotly, matplotlib seaborn PyGWalker vis.js",
+    "meta": {
+      "tech_stack": "블로그 링크:"
+    },
+    "char_count": 392
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "참여 프로젝트 주요 성과",
+    "project": "소개",
+    "text": "# 참여 프로젝트 주요 성과\n2700 여 개의 상장 기업 및 1 만 여 개의 스 타 트 업 데이터 수집 및 전 저리 9 억 여 건의 비 트 코인 트 랜 젝 션 데이터 수집 및 전 저리 10 여 건의 프 로 젝 트 에서 클라우드 아키텍처 설계 및 구 죽 4 여 건의 프 로 젝 트 에서 RAG PIPELINE 설계 및 구 죽 기 운 영 중인 기업 서 스 개 선 시 켜 사용자 GSE 50% 향상 1 0\n존 에 비 를 (CSAT) 22 22",
+    "meta": {
+      "outcome": "2700 여 개의 상장 기업 및 1 만 여 개의 스 타 트 업 데이터 수집 및 전 저리 9 억 여 건의 비 트 코인 트 랜 젝 션 데이터 수집 및 전 저리 10 여 건의 프 로 젝 트 에서 클라우드 아키텍처 설계 및 구 죽 4 여 건의 프 로 젝 트 에서 RAG PIPELINE 설계 및 구 죽 기 운 영 중인 기업 서 스 개 선 시 켜 사용자 GSE 50% 향상 1 0"
+    },
+    "char_count": 244
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "Museitfy",
+    "project": "소개",
+    "text": "# Museitfy\n사용자 관심사 기반 문화 콘텐츠 추천 AWE 시스템\n대 화 형 Agent -Chatbot 웹 애플리케이션 개발\nModuler RAG 파 이 프 라인 설계 및 구축\nOCR Model Fine-tuning",
+    "meta": {},
+    "char_count": 123
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "BIDS",
+    "project": "소개",
+    "text": "# BIDS\n~ 휴리스틱 알고리즘 기반 점수 기반 결정 및 클 러 스 터 링 을 이용한 거래 흐름 추적\nJOONG-HEON'S\n[프로젝트 목차]\n프로젝트 소개\n아키텍처\n실험 | 흐름\n성과 및 피드백\n01",
+    "meta": {
+      "outcome": "01"
+    },
+    "char_count": 113
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "jobAdream",
+    "project": "소개",
+    "text": "# jobAdream\n27008 개 상 장 기업 및 1 만 여 개 스 타 트 업 의 재 무 / 비 재무 데이터 수집 및 전처리 전처리 데 이 터 를 기 반 하여 성장률 Ws 모델 개발\n예측 및 분석 데이터 시각화",
+    "meta": {},
+    "char_count": 118
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "vAlscanbox",
+    "project": "소개",
+    "text": "# vAlscanbox\nPE HEADER 정 보 와 CODE SECTIONS] 특 활 =T 멀 웨어 탐지 모델 개발\n시 기 반 멀 웨어 탐지 기능 통합 스토리지 서비스 1000 여 개의 멀 웨어 샘플 데이터 수집 및 전 저리 징 을 용 한 파일 실제 확장자 및 멀 웨어 예측 결과 시각화\n삼 여 한 프 로 젝 트 들 중 주요 프로젝트 4 개 를 소 개 해 드리고 있습니다.\n비 트 코인 사이버 범죄 추적 수사 지원 솔루션 9 억 여 건의 비 트 코 인 트 랜 젝 션 데이터 전 저리 0 그 NETWORK VIEWS 형 태 의 데이터 시각화\n03\n02\n04",
+    "meta": {
+      "outcome": "삼 여 한 프 로 젝 트 들 중 주요 프로젝트 4 개 를 소 개 해 드리고 있습니다."
+    },
+    "char_count": 310
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "사 용 자 _ 관 시 더 MIWSIE AI 기반 문화 BoA AHA Ai = A. 시스 p=",
+    "project": "소개",
+    "text": "# 사 용 자 _ 관 시 더 MIWSIE AI 기반 문화 BoA AHA Ai = A. 시스 p=\n(1 자 AGILE) > A'S (24} AGILE)\n기여도 : 62% (PMO, PL/RAG 파 이 프 라 인 구축, OCR 모델 파인 튜닝)\n개발 기간 : 2024.11.14 ~ 2024.01.01\neg crh ton\nmane\na 건식\n호 NAD\n전시 TOP 10",
+    "meta": {
+      "period": "2024.11.14 ~ 2024.01.01"
+    },
+    "char_count": 203
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "< _ 2 Muse Chat",
+    "project": "소개",
+    "text": "# < _ 2 Muse Chat\nARQ? CIARA] Ub TTA S! 주절 가이드\n반\n고\n호\n와\n같은\n닫\n인상주의\n화\n가\n의\n전\n시\n를\n보\n시어.\n$510] 화가 반 고 흐 른 주 제 로 한 이번 전 시 는 2924 넌 11.53 298 FE] 2025 넌 2B 16 원 까지 엑슨 OPE 잔 가 람 미술관 GOAL 개 죄 힙니다. 이 전 시 는 빈 DO] 생 에 와 작 품 을 동해 그가 남긴 멍 작음 한 자 리 데서 김 상 할 수 있는 기 회 윤 제 공 갑 니다. 방 문 객 음 은 표 년 만여 Bale 반 고흐 의 진품 명 화 전 윤 Sep] Bees 색 채 와 EA 있는 SAS Re SELLA 4 있",
+    "meta": {},
+    "char_count": 341
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "SITE GITHUB",
+    "project": "소개",
+    "text": "# SITE GITHUB\n언어\n:\nPython\n프 레 임 워크\n:\nLangChain LangGraph RAGAs PyTorch Streamlit\n데이터베이스\n:\nMongoDB\nDevops\n:\nLangSmith AWS Docker Git/Github 2118 Slack",
+    "meta": {},
+    "char_count": 149
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[개요]",
+    "project": "소개",
+    "text": "# [개요]\nㅇ 병렬 프로젝트\nㅇ 이미지 멀 티 모달 LLM 전 시 외 추 전 대 와 영 Agent RAG 첫 봇\n지 컬 추천 시스템 \"0 ㅇ DeepFM Bcid 모 델 을 활 용 한\nㅇ 사용자 관심사 기반 주전 시스템 LL.\n[담당 SZ]\nㅇ PythonS 사용한 RAG Pipeline 구축 및 OCR 모델 파 인 튜닝 ㅇ (001, 601 기 법 을 응 용 한 Prompt Engineering\nㅇ LangChain, LangGraphS 사용한 Modular RAG Pipeline 73\nㅇ PyTorchS 사용한 OCR 모델 파 인 튜닝\nGit/Github, ZiraS 이용한 프로젝트 및 팀 관리 0\nAWS 클라우드 아키텍처 설계 및 구축 0\nLangSmith, RAGAsS 이용한 RAG Pipeline 성능 및 비 용 / 오 류 모니터링 0\n0 이상 지 표 에 대한 Slack Logging Alert 기능 구현",
+    "meta": {
+      "role": "ㅇ PythonS 사용한 RAG Pipeline 구축 및 OCR 모델 파 인 튜닝 ㅇ (001, 601 기 법 을 응 용 한 Prompt Engineering"
+    },
+    "char_count": 462
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "주요 사용 서비스 및 선정 사유]",
+    "project": "소개",
+    "text": "# 주요 사용 서비스 및 선정 사유]\nㅇ MongoDB Atlas\n© Vector Search 기능 지원\nㅇ 비용 효율성 (MongoDB Atlas VS MongoDB on AWS}\nㅇ 멀티 클라우드 인프라 확장 가능 =E| 클라우드 인프라 왁 상 가증\nㅇ 유 연 성 ( 유 연한 데이터 구조)\no 환 장 성 및 가 요 성 -부하 부 산 ( 클 러 스 터 리 Abo OO A Is oT 때 =i 1S, he)\nㅇ Batch Workload\no 비용 82 (Fargate Spot(telel)S 사용)\nㅇ EventBridge\n. . ㅇ SchedularS 이용한 Batch Workload 자동화\nㅇ 전체 아 키 템 처 에서 자동화 부하 분산 및 미 도 입 구 축 안 과 비 교 했을 때 전체 아 키 텍 처 에서 자동화, 부하 분산 및 batch 미 도 입 구 죽 안 과 비 교 했 을 때 기 대 비용 죄 대 80% 절감 가능\n'",
+    "meta": {},
+    "char_count": 464
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "AGENT 흐름도 및 동작 예시",
+    "project": "소개",
+    "text": "# AGENT 흐름도 및 동작 예시\n이\nHyDE: 사용자 쿼 리 에 따라 Supervisor7; 적절한 LLMS 선 택 하고, 해당 프롬프트 체 인 을 통해 가상 SMS 생 성 한 뒤 임 베 딩 과 정 을 수행\nRetriever: MongoDB Atlas Vector SearchS 통해 Vector DBO|A| 유사한 tes 검색\nReranker: Dongjin-kr, BAAI 등 Reranker 모 델 들 의 결 과 를 비 교 하 여 해당 파 이 프 라 인 에 가장 적합한 RerankerS 선 정 하고, 이를 BSo 검색 StS 재 정 렬 하는 과 정 을 수행\nmu 뜨 EJ zc SZ 으 -아 Hu 42 [0 jh: 02 4. Chat-history : 대 와 Multi-turn 기 능 을 수 행 하기 위해 결 과 ( 질 문 -답 쌍 ) 를 History DBO 저장 > LLM(CoT + GoT)0| Query2} History\nHyDE Rewritter : 사 용 자 와의 상 호 삭 용 (24[0810-10-1116-Ｌ000) 을 통해 실시간 PRLS 반 영 하여 다시 가 상 의 문 서 를 생 성 한 S 타 MASS 주전",
+    "meta": {},
+    "char_count": 581
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "MODULAR RAG PIPELINE 구현",
+    "project": "소개",
+    "text": "# MODULAR RAG PIPELINE 구현\n-- Sela TlomCe mm MU LCIZHYDEN Sasa = Cimip.cacirne aim Gen be (Gane. eAD)AQ). 패 000 (65\n나아 mainWgnaphkemotateGhaphGhaphotate) JFaphvaddsnode(@sing lezhydememsing le2HyDENGde(®)) lainegraphedddmode@mu Lei2hy deme Mu LCi2HyDENGde@)) 9123014000000060(650089100000@6077#4500891001) 0010191.0010820080000(@100000 main®oraphzadd dimode@ pludgeNode(®)) UPCIiV1SO GeO UD CTV: onNode®)\n<\n노\n드\n할\n당\n>\n< 기 능 별 SS 구 분 되 어 있는 노드 모 듈 >\n0 잡 한 RAG 파 이 프 라 인 을 LangGraph 기 반 으로 노드 WU] PAS 모듈화\noO 사용자 쿼 리 에 따라 유 동 적 으로 Multi-modal 또는 Single-modal ModelS Of 비용 절감 ($1.25(multi) or $0.075(single) / 1 M input tokens) MSO\nRetriever, Reranker 등 의 노드 간 연 © 년\nLangGraph= Gs 독립적 죄 적화 및 효율적인 두자 스 ㄱㄱ 선체 = 1m 35st 에서\nReranking 및 Similarity 평 가 를\n사용자 기반 만 \" = 도 SES 반영한 '\nㅇ 사용자 피드 HH 4]\n) MaLn'grap naintgraph Fadd Fer JeLSLAR Ae 4] 는 ~ ~ iB: ae FS SU 06 1015010 : SUPELVASOLG)S fi ㆍ 99009! eynoda ANU aU tie moda Lap ul tae eige 'eSubracal 10 = ue\n<\n그\n래\n프\n구\n조\n>\nCOLES\nLES\nTS@teSi\nZe yp yal Ud Ll\n00000\nprecision;\n09999999999\nS101\nsZo250iul\nscale\nO\nx10\n120220\nUmi\nLevaliCy;\nOE,\n84\n01\nanswerpre\n0700\n,\nPeel;\nd\n'\nyes",
+    "meta": {},
+    "char_count": 1111
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "정량적 성과",
+    "project": "소개",
+    "text": "# 정량적 성과\nLangGraphé 이 용 하 여 각 에 이 전 트 의 파 이 프 라인 전 제 동작 속 도 를 10 35s 에서 306+ 로 대폭 개선\n사용자 쿼 리 에 따라 유 동 적 으로 HyDE FAS 수 행 하는 모 델 을 변 경 하여 비용 절 김 저가\nㅇ 이 미 지 가 SS 경우 발생 비용: $1.25 (Multi)\no 텍 스 트 만 들어올 경우 발생 비용: $0.075(Single) ㅁ 7|Z2:1M Inout Tokens\nRAGAS 0.2 버 전 에 서 100 개 의 LangChain Documents} 3 개 의 HEALS 사용한 각 평 가 지표 부 문 에서 평균 점수 0.94~1.0 이상 달성\nEasy-OCR 22S Fine-tuningst Confidence Scores 기존 평균 0.6104] 0.9762 AS 개선",
+    "meta": {
+      "outcome": "LangGraphé 이 용 하 여 각 에 이 전 트 의 파 이 프 라인 전 제 동작 속 도 를 10 35s 에서 306+ 로 대폭 개선"
+    },
+    "char_count": 416
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "정 성 적 성과",
+    "project": "소개",
+    "text": "# 정 성 적 성과\n0 Is 로 젝 트 에서 사 용 되 던 일부 DSS 재 사 용 해 At 상점 극대화 기존 ㅎㅎ 23\nRAG, Ｌ ㄴ 에 사 용 되 는 노드 및 분기 처리 함수, 도구 듈 을 저 장 해 놓 는 Module In Repository 시 스 템 을 구 죽 하여 다양한 파 이 프 라 인 에서 사용할 수 있게끔 구 연 HO\nLangSmith 및 RAGAsS 이 용 하 여 성능 및 비 용 을 Slack] 특정 값 에 대해 실 시 간 으로 모 니 터 링 할 수 있는 자동 모니터링 Alert 시스템 개발\n[RAG Pipeline]\nㅇ LangGraphoOlAl2] 효율적인 상태 관리 방 식 은 더 고 민 해 봐야 할 거 같음.\nㅇ 다양한 페 르 소 나 를 가진 Multi ^4067[ 으 로 LLM OrchestrationS 통한 고도화 주천 방식 고려\nㅇ 기억 메 모 리 에서 『[006310 를 설 정 하 여 561[reflectionO| [|=Memory RetrievalS 통한 최적화 고려\n[Prompt Engeneering]\nㅇ 다양한 파생 BETES Waote Prompt Maker Al 와 기 존 에 진 행 했 던 RAGAS 평 가 지 표 프롬프트 개선 병 합 하 어 ESTES 자 동 으로 개 선 시켜 주는 O",
+    "meta": {
+      "outcome": "0 Is 로 젝 트 에서 사 용 되 던 일부 DSS 재 사 용 해 At 상점 극대화 기존 ㅎㅎ 23"
+    },
+    "char_count": 638
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "피드백",
+    "project": "소개",
+    "text": "# 피드백\n01\nJOBADREAM 서비스 ©\n(1 자 AGILE) > -> 8 명 (2 자 AGILE)\n기여도 : 65% (PM/EO/E] 파 이 프 라인 구 죽 , 모델 개발)\n개발 기간 : 2024.07.29 ~ ( 꺼 oat 「\nGITHUB\n[기술 스택] | Used Team Used\n언어\n:\nPython YavaScript TypeScript Vava\n프 레 임 워크\n:『3514&0 ㅁ 1(0104 BE) Apache Spark Vue.js Spring Boot(New BE)\n데이터베이스\n:\nPostgreSQL\nDevops :\nAWS Docker Git/Github Swagger\nㅇ 대기업, 중 견 기 업 , 강 소 기업 뿐 아니라 비 재무 데 이 터 를 SSot 중소기업 및\nㅇ 이를 기 반 으로 구 직 자 에게 채용 공 고 와 기업 평가 정 보 를 제공 [담당 역할]\nㅇ Pythons 사용한 데이터 전처리 및 모델\nㅇ AWS SDKS 이용한 데이터 수집 Lambda Batch 워 크 구현\n개발 모듈, 로 드\nㅇ PyGWalker& 이용한 시각적 데이터 분석\nㅇ PySparkS 활 용 한 데이터 전처리 Glue 파 이 프 라인 개발\nㅇ Pytorch, Scikit-learnS 사용한 예측 모델 개발\n© Git/Github Issue, ProjectS 이용한 프로젝트 및 팀 관리\nㅇ AWS 클라우드 아 키 텍 저 설계 및 구축",
+    "meta": {
+      "period": "2024.07.29 ~ ( 꺼 oat 「",
+      "role": "ㅇ Pythons 사용한 데이터 전처리 및 모델",
+      "tech_stack": "언어"
+    },
+    "char_count": 699
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[수요 사용 서비스]",
+    "project": "소개",
+    "text": "# [수요 사용 서비스]\nOo RDS : & 서 비 스 에 APS Sl = 데이터 \"이 관계형 데이터베이스 서비스\noO S3: 머 신 러 닝 모델 파일, 프 론 트 엔 드 파일, 데이터 레이크 파일 보관 스토리지\nOo CLOUDFRONT : 정적 콘 텐 츠 와 미디어 파 일 의 캐싱 및 SRA 배포 네트워크\nROUTESS : 도메인 네임 시 스 템 ( ㅁ 245) 서비스 |A\nECR : 백 엔 드 도 커 이미지 저장\nECS : FARGATES 통해 서 버 리 스 방 식 으로 컨 테 이 더 관리 및 오 토 스케일링\nCODE PIPELINE : 자 동 와 된 Cl/CD 파이프 라 인 을 구축\nFLB: 사용자 EDS 여러 컨테이너 인 스 턴 스 에 분산 L _ -\nCM: SSL/TLS 인 증 서 를 관리 -HTTPS At S 모 저 ao 17 71\nLAMBDA : 데이터 수 집 API FETCH & DB LOAD 자동화 모듈\nBATCH : 데이터 크롤 및 모델 추론 워 크 로드 자동화\nGLUE : APACHE SPARKS 사용한 대규모 데이터 전 저리\nEVENTBRIDGE : 데이터 수집 스케줄 및 GLUE 이벤트 버스",
+    "meta": {},
+    "char_count": 575
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "데이터 아 키 텍 저 -상세",
+    "project": "소개",
+    "text": "# 데이터 아 키 텍 저 -상세\n[데이터 수집 -Batch, Lambda]\n© Crawling Workload : Startup 투자 정보\nㅇ API Fetcher: 시장 채용\n수식, 지표, FA, 정보 등\n[데이터 전처리 -Glue]\nㅇ 각 데 이 터 는 숫 자 형 데 이 터 와 자연어 데 이 터 로 구 분 하 여 파 이 프 라 인 을 거침.\nㅇ 자연어 저리\nㅇ 감 성 분 석 진 행 을 위해 KoFiINBERT, KLUE-BERTS] 성능 비교\nㅇ KLUE-BERT 모 델 로 금융 감성 LABLES 사 전 학 습 하여 금융 감성 BAS > 해당 BAS 토대로 문 장 별 LABEL 비 율 과 기사 수 를 파 생 변 수로 생성 진행 | a <\n| RU  3391.46  [1.97%  po  INNES  TIM  &#124;  20045  11628  ENING  &#124;  2025.82  [1.17%  summarize  content  &#124;  LSTM_&#124;  477,07  &#124;  2.1%  &#124;  ee  eee  3818.08  Oo  ENNESTIM  &#124;  47768  [2.29%  KIUEBERT.  &#124;.  +ttue  &#124;&#124;  OSIM  7065.0  209  GRU  2404.66  &#124;  60  」  es  es  4600  &#124;  51515  그  &#124;  다  2497.49  summarize  content_&#124;  5500  14338.72  103  ee  ㅠ  ㄴㅇ  4241.11  GRU   |\n|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\npo EINES\nTIM\n3374.21\n[1.86%\n<KOFINBERT2? KLUE-BERT2| 성 비\n등 교 >\n< 데 이터 전처리 레 이 어 >\n02\n<KLUE-BERT 기반 CNN-GRU 모델 de>",
+    "meta": {},
+    "char_count": 1348
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[데이터 분석 2]",
+    "project": "소개",
+    "text": "# [데이터 분석 2]\nㅇ 숫 자 형 데이터 처리\nㅇ 결 측 치가 있는 기 업 을 단순 제거 시 너무 많은 데 이 터 가 소 실 되는 문제 발생 > 각 피 처 의 특 성 을 고 려 하 여 결 측 치는 0 으 로 대체\nㅇ MICES 사 용 하여 조건부 tS 반 영 하 여 최종 데 이 터 셋 | + - SEES S30] 결 측 치를 예 측 하 고, 결 측 치 의 물 왁 실 성 과 성 하 는 방 식 으로 다중 대체 때\n다 변 수 에 대해 평균 및 주가 범 0 7 SS 생 성 하여 저리\nㅇ 서 비 스 에 서 시각화 될 정 보 들 은 Lambda GES 통해 RDSO|| 저장",
+    "meta": {},
+    "char_count": 320
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[모델링 및 예측 -Batch]",
+    "project": "소개",
+    "text": "# [모델링 및 예측 -Batch]\no Feature 117001[30068 와 SHAPES 적 용 해 어떤 어떤 변 수 가 성 장 율 에 주요한 영 향 을 미치는지 분 석 한 후 예측 모 델 에 해당 값 을 반영 < ㄴㄴ\nㅇ 개 선 된 모 델 에서 Zt 비 재 무 적 요 인 이 모 델 에 미치는 영 향 을 해 석 하고 중 요 도 를 파악\nㆍ\nAlo =o",
+    "meta": {},
+    "char_count": 199
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[문제 & 목표]",
+    "project": "소개",
+    "text": "# [문제 & 목표]\nㅇ 문제: 연재 나 와 있 해주고 있어서 구 직 ㅅ 00 ule > 또 OH in ~ lo [ 오 at = 그 [ 오 1 ㅇ Wal HL win 00 Wr £0 Ot HL\nㅇ 목표 : 구 직 자도 쥐 업 에 기 업 의 전 망 ( 성 [ 오 10 04! HI i 고 Ok) ne lie +> 수 OF 요 00 a 07 [0 2 1 건 2 고",
+    "meta": {},
+    "char_count": 201
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[가설]",
+    "project": "소개",
+    "text": "# [가설]\nㅇ 기존 예 측 에 사 용 되 던 재 무 제표 파 시장 지표 등 을 이 용 하 면 기업\n[실험 및 검증\nㅇ 성장성 관련 > HH\nㅇ 총자산, on\n0 추 가 적 으 rir at | > ON ete > i! 긍정 기사 등 이 예 측 에 S",
+    "meta": {},
+    "char_count": 139
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "업",
+    "project": "소개",
+    "text": "# 업\n머 신 러 닝 을 이용한 소상공인 창 업 기 업 의 페 OL LU7ALh 도 소 명 산 업 을 중 심 으로 A Study on the Development of Predictive Model for Gosure of Smull Business Start-ups using Machine Leaming: Focusing on the Wholesole & Retail Industry\nMBps 괴 점 © ep y gor\ncll\nuh)\n'\n는\na\n1\nne\n4\nNase\nda\n.\n0]\n그\n보\nF\nee\nee\nage\nVe\nBE\nUAE\nAero\n쿠\n방열",
+    "meta": {},
+    "char_count": 306
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "< 요 약 >",
+    "project": "소개",
+    "text": "# < 요 약 >\nny a ole 회 . 본 연 구 에서는 FAP ave Eyl dee TMI 42 AE Ae 4, et 별 호 파이 AVE 전업 중 가장 MA abe Sas Ad 가 Sala ASU AGASE Atvaidt. se 둘레 AY ute! AMA 감 소 적 리디 sie APS 지천 형 안에 머 를 걸 론 과 장 베지 합의한 Sout. Fe, 본 얀 꾸는 ge 4 즉 덤 억지, 머 잔 리 팅 리 ave 실 고 리 승 을 alana B4jd 분류 AY 분해 환희 y J : . 1< Py = Wie GaGoct 소 상 공 인 의 AG 가 능 살 을 Asa AR 애 옥 모 밍 읍 Bal 마 A 히비 봉해 븐 현 고는 aged Sada ad eset Aitele 9a 4 1) FIV AL Sa Ay ay 지 사 산 하 있다\nea el a ey eee 잔 펴 , 그 중 파 핑 eel 들게 sid at 넘 호 타 스 프 가 aE SAAR tga 벤 탐 보 데 프 파탈 lie ASNMYS 2920 AM 커 둥 있 들 A Rat 정 하 도 가 9307 버 다 도가 9241, 파 라 토 는 (0056. ACC 또한 OL bade] Aa 본 헨 구 자 Me Aes] Adee 체스터 픈데 외 이 시 FS VSS 파 검 마고 할 수 하다. th AVIA Ad eee WPA FEN PARA Reg oa RNS BPA. 동 열 럽 꽃 경 행 느 좌 로 험한 점 ote ota RAO TEs 띠 자 테 에 서는 Ad aad 지 현 턴 fee Ae ed mele) ae ee St 수 De Aalst.\na aly \"2 PAG AVE A A See , Ce eS eay SPER Pe Dpe 기 eee ee 달 에 작은 eit Carey fey PER Vee asses\nHed seit\n$9090 shucia\ner ga eb\neer ae\n대작전\nPd\norn\n백\n타\n기\nCy bE\nES)\nhe PALACE\nAEE\nroe.\nelke)\nEten\nalae dad, chin\n18\ngroan?\n040:\nLb Det Jahtue Peace OE Ss 제 고 트 메 교 보 토 구 2 See Al EA RE oe td keh\n< 사 전 연 구 >\n| Selected  Features  &#124;  MSE  All  Features  w/o  multicollinearity  features  w/o  low  importance  features  w/o  multicollinearity  &  low  importance  features  10404.85  4836.22  6478.19  $121.39   |\n|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n< 주 요 피처 선택 과 정 >\nJ tet taker \"yet FOES Peeentire SEa. SP =5t\nPAS\nPies\ndard\nifr\nEnds\nDout=)0t)\nrege\nAL.\neg\npeli\nbig\nfr eT a el 익 | 도코 계 티나",
+    "meta": {},
+    "char_count": 1640
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "온라인 언 급 이 기업 Az 뉴스 감 성 분 석 을 똥 [에 미치는 염 향 분석 : ASE 주가 에 쓰 *",
+    "project": "소개",
+    "text": "# 온라인 언 급 이 기업 Az 뉴스 감 성 분 석 을 똥 [에 미치는 염 향 분석 : ASE 주가 에 쓰 *\nws 란 잉 애 핵과 일루 Ft Ses ys a dali ier\nava eee Pe, oh Cl ee - a 고\n김종우 eh LE Face! herr ee 고 i}\nJournal of the Kotean Lecture of aduscnal Exzeneees 보아도\nboop ion org'l0 7292 IKE 202840 4240 -",
+    "meta": {},
+    "char_count": 248
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "걸 가 연 '= 이 복지 ㆍ 이준영 = 억 계회\"",
+    "project": "소개",
+    "text": "# 걸 가 연 '= 이 복지 ㆍ 이준영 = 억 계회\"\n국 던 다 리 고 BAG A RUA! Ase dA\n「 a 1 ' a ' 1 . ' Kospi Index Prediction using a Financial-specific Sentiment a -= 더 , ㅋ Analysis and Deep Learning-based Time Scrics Prediction Model Gaycot Jeng' « Iytedye Loe' » Ieryeoeg Lee! 2) Uae'\n\"Deaurnmest of Deena, Kook mae (pn erry *Depertncat of Al, Bog Daca & Mangy once, Kock Vanency\nThat pant preetsie 고 echedsdigy fot predacung We KOSPT andes weg © hes date eed peated sey HI ' 4 ! eee 18167 10 몬 98 0 인 1802 31000! as tha 16610 1600 6 자 박서 죄 회 Cok as tewmces scores were wnod as micpenicrs 괴도 We 6108 and pecpresctved the ROSPH teaind 1 ec mi fhe i oweatire fhe seacmeed score Py were te ete of De pau entice. Subsceets, fhe KUUT-BLRT model-based serlimeet soure by dsic wal the Kol wFRT maveL-bad semimest were Py dee wore eva ied LSTM, GRU, ChN-LSTM, 20d CNN-GRD were med 차 bree serie predation Inkl AL 4 rere of condacheg om ctpenment 테다 af wuuablcs god mackie, the Bel peifemece 두타 sched whet MLLE-BERT 볼 arebed 66 he sewed arte 34 Be CSS-G2U med weit und.\nKeyeoréc Deep Leuress, BERT, Seotmaest Asahi, LSTM, Regu lakes Protea\n| Ae ww PT CLE eCere aA SY 버 비 곳 엇다 ESAT ED As etd A P44 09Gb se CA gab 44 ia A448 ULES 과 틱 터는 WH 748d 5 보 스 퍼 지 우로 Eee Ute as Orda KA 근 노 유물 TOL E 4 LSTA G4 Tec rial pedo 4 시 TE EELE LLL MLE Lote ck BAZ UGE 미 투 이 다 (1626. 1961 4, TAME BB, EAAGE ICAL AP PAL YT e eta 4  DEIR Fak 주제 편다 크리너 ea 주기 애가 티탄 론 구 들 촌 추도 eA 퍼 포 기 란 의 yee 당 유 비 몬 디 (Ape 체 관권 20090] 거 울 복 분 섹 픈 고 직 주 가 네 버 터 를 브루 데니 버 래 헤 F468 dG PEELS, FSA 보리 O84 Shab Mee 백 너 투 사 ( 녀 0.66098 Feu 겨 OST Fe 벨뷰 Ot Baas Fane 울적 Lt 기근 비축 CCEA ATO Sd Add esas 2 eG MMe 7 999 C04 Coe TD 시 근 패는 SEY 44g 4048 Halhs cae As 시 발 본 때 변 펴 노노. GA R24 FMS BY ded 2 론가 CTE 4 TENT 분 더 토너. 14. beeabe ed thee, S08, Hae, 2021] 기 립 레 AE Ee EE   |\n|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n= 해당 PROJECT\nLEADER(O|6F PL) 7[\n및 유 지 보 수 를 할 수 있도록 프로젝트 구조 설계 및 관\n단위 일간 스 크 럼 보 고 을 나뉘 발한 소통 진행\nHAF Stet # 우 선 순 위 _ 배 정 # 일 정 _ 관리 HCODE CONVENTION\nJOBADREAM",
+    "meta": {},
+    "char_count": 2635
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "프로젝트 기획",
+    "project": "소개",
+    "text": "# 프로젝트 기획\n프로젝트 개요, 주진 체계, 주진 All, 작업 명세, 시스 템 구조, API 설계, 요 구 사 항 , DATABASE 설계, 스 토 리 보드 SS 문서화\n전반적인 프로젝트 기 획 은 본 인 이 담 당 하였으며 각 팀 원 들 에게 기타 설계 업 무 를 배 정 함 - a @O\n#ISSUE #PULL REQUEST #ROLES #RULES",
+    "meta": {
+      "role": "S"
+    },
+    "char_count": 198
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "정량적 성과",
+    "project": "소개",
+    "text": "# 정량적 성과\n© 2024-10-01 기준 1 자 AGILE 프로젝트 ㅇ 누적 사용자 1053 명 집계 ( 오 픈 톡 방 , A 학교 커뮤 집 계 지표 니티, 교 육 지점 등에 마케팅)\no 각 기 업 에 대한 조회수 데이터 714 건 을 수 집 하여 사 용 자 의 관심 기 업 에 대해 집계\n2707 개 의 상 장 기 업 및 10074 개 의 스 타 트 업 데이터 수집 ( 재 무 제표, 비 재 무 제표, 뉴스, 거 시 경 제 지 표 등)\n회 고 ([1\\06 ㄷ 116) 과 정 을 통해 업 개 선 하여, 1 차 AGILE 대비 WBS 진 행 도 20% 향상 무 프로세스\nJOBADREAM",
+    "meta": {
+      "outcome": "© 2024-10-01 기준 1 자 AGILE 프로젝트 ㅇ 누적 사용자 1053 명 집계 ( 오 픈 톡 방 , A 학교 커뮤 집 계 지표 니티, 교 육 지점 등에 마케팅)"
+    },
+    "char_count": 330
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "정 성 적 성과 x",
+    "project": "소개",
+    "text": "# 정 성 적 성과 x\n기존 프로젝트 대비 다수 인 원 의 팀 조직 관리 경험\nAWS 시 스 템 / 데 이터 아키텍처 설계 및 구축 경험\nGIT PROJECTS 이용한 고유 프로젝트 관리 경험\nSCRUM 미팅 및 GIT 이슈 관 리 를 통해 팀 간의 정보 공 유 와 협업 완화, 의 사 소통 문 제 로 인한 업무 지 연 이 기존 프로젝트 대비 크게 감소\n7|\\2| 설계 문서화\n서 비스 _ 사 용 자 _ 분석 # 프 로 젝트 _ 조 직화 #^611『 ㄷ _ 프 로 젝 트",
+    "meta": {
+      "outcome": "기존 프로젝트 대비 다수 인 원 의 팀 조직 관리 경험"
+    },
+    "char_count": 263
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[AWS]",
+    "project": "소개",
+    "text": "# [AWS]\nㅇ LAMBDA CI/CD PIPELINE 73 필요\nㅇ ECSHE SAS 다 음 과 같은 이유로 을 루 / 그 린 배포 방 식 으로 전환 고려\nㅇ /&/6 테 스 트 로 활용 가능\nㅇ 문제 상왕 빠르게 감지",
+    "meta": {},
+    "char_count": 124
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[데이터]",
+    "project": "소개",
+    "text": "# [데이터]\nㅇ 수 집 한 서비스 데 이 터 를 AARRR 분석 42! 이 용 하 여 3 자 ^&61Ｌ ㄴ 에서\nㅇ 주가 수집 데 이 터 를 Seo 모델 성능 개선 필요",
+    "meta": {},
+    "char_count": 95
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "비 트 코인 사이버 범죄 주적 수사 지원 SS X ㄴㄴ",
+    "project": "소개",
+    "text": "# 비 트 코인 사이버 범죄 주적 수사 지원 SS X ㄴㄴ\n기여도 : 25% (PE/Process API 개발, 시각화 모듈 개발)\n개발 기간: 2023.05.15 ~ 2023.12.22 (SF 7 개 월)",
+    "meta": {
+      "period": "2023.05.15 ~ 2023.12.22 (SF 7 개 월)"
+    },
+    "char_count": 115
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "BTDS",
+    "project": "소개",
+    "text": "# BTDS\nㅇ 고 용 노 동 부 가 주 관 하는 ' 미 래 내일 AAS 사 업 ' 으 로 진행\nㅇ 9 억 여 건 에 달하는 트 랜 젝 션 데이터 수집 및 전처리\nㅇ 비 트 코인 거래가 진행된 사이버 범죄 추적 시 그래프 형 태 로 시각화\nㅇ 단 순 와 된 데 이 터 를 바 탕 으로 범죄 수 사 의 SBS 높이고 자동 주석 기 능 을 Sol",
+    "meta": {},
+    "char_count": 191
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[ 2 <",
+    "project": "소개",
+    "text": "# [ 2 <\no Bitcoin Core S LES 운 영 하 여 트랜잭션 데 이 터 를 수집\n© BlockSciS 사용한 비 트 코 인 트랜잭션 데이터 분석 및 전처리",
+    "meta": {},
+    "char_count": 94
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "GHURUB",
+    "project": "소개",
+    "text": "# GHURUB\n= 매 매 매 매번 Le Ce |\n----ygg eee\nDevops\n:\nAWS Git/Github Notion.so JIRA' Zeplin Bitcoin-core NGINX Atlas",
+    "meta": {},
+    "char_count": 111
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "아 키 템 저 & SEE",
+    "project": "소개",
+    "text": "# 아 키 템 저 & SEE\n=\n사 용 자 가 웹 애 플 리 케 이 션 을 통해 비 트 코인 SHAMS 소 외 하거나 특정 주소 정보 를 요정\n요 정 된 데 이 터 는 웹 서 버 에서 API SSS 통해 비 트 코인 을 목 체 인 에 저장된 데 이 터 흘 조 회 하 기 위한 BlockScis 사용\n-ㄱ 로 변 ㄱ ㄷㄷ ㄴㄴ 2 | , 년 -ㄱ 8 6 력 값 , 수수료, 수신 주소 SS MongoDBe¥el 추 가 로 조 회 하여 클 라 이 언 트 에게 반 _ 완\n40000128 에 서 비 트 코인 주 소 나 트 랜 잭 션 에 대한 메 타 데 이터 및 프로필 데 이 터 를 서 장 하고 제공\n주어진 비 트 코인 주 소 에 Chet 트랜잭션 내 역 을 소 외 하 고, 관련 정 보 를 MongoDBoll 서 가져와 주가 분석\nneo4jlAj 그래프 형 태 로 노드 간의 관 계 를 분 ef 네 트 워 크 를 시 각 석 으로 표현 」 소 와 and 뜨 | M1 al ro 1) b> | 구 ale) r2 ins yO 고\nvisjs 라 이 브 러 리 를 사용해 프 론 트 엔 드 에 서 이러한 네트워크 시 각 화 를 처 리 하고, 이 ㄴㄴ 2 를 웹 인 터 페 이 스 로 사 용 자 에게 제공",
+    "meta": {},
+    "char_count": 610
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[문제 & =F]",
+    "project": "소개",
+    "text": "# [문제 & =F]\nㅇ 문제 : 블 록 체인 데이터 및 거래 흐름 구 조 가 복 잡 하여 가 상 화 폐 범죄 추 적 이 힘들다 문제 : 플 독 제 인 x SS 구 소 가 Syo 와 폐 범죄 주 석 이 SS\n모 0 여 은 쉬게 츠 저 한 스 이 =O )| 가 송송 = ㅇ 목표 : 비 트 코인 거래 USS 쉽게 주 적 알 수 있도록 거래 SSS 시 각 화 하 여 제공",
+    "meta": {},
+    "char_count": 205
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "-re [ 「 =]",
+    "project": "소개",
+    "text": "# -re [ 「 =]\nOOo xX eK Ce <) CI 223 ㅇ 거래 주 적 에 가장 큰 어 려 움 을 주는 것은 TEAS 유무 때 문 이 크다. 따라서 잔돈 can} tt. | = A. AGS 식 별 해 낸 다 면 거래 흐름 주적 정 확 도 가 ASS 것이다\n수소 요 &oloAa mo 자 크 oled DOH GHalA =o Ooa/AE! Ot 0 수소 재사용, oO 릴 한 Tt a, 가 징 ㄴㄴ 벼 ㄱㄱ 2 ㄱㄱ; 어 aT So 여러 휴리스틱 랄 고리 AO - ^ - 슴 을 사 용 한 다 면 잔 돈 지 갑 수소 식 별 률 이 높 0 질 것이다.",
+    "meta": {},
+    "char_count": 310
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "식혀 Ol 건즈 [2S A 검증]",
+    "project": "소개",
+    "text": "# 식혀 Ol 건즈 [2S A 검증]\no 드 래 재 셔 대 사은 므 자의 MHS SAIAEIL 저요 고 저 주 류 ()| 높 으 AME -L 7) LE | oe TT 위 = [ 여 TT I~ ee -J | 거 보고 ㄱ ㅇ = | mee | ies o L 랭크 들 매겨 그 룹 을 3 개 로 나눔\nㅇ AS 결과 동일한 주소 BM 주소 재사용 휴 리 스 틱 의 적 중 률 이 가상 높음.\n거즈 P&S EFO 가 oO \"a 트 | ~] = Sea ~*~ = - ~ A| XH (》 ° oo 내 oF 바 탕 으로 기 유 리 스 1 -변 마다 oT TISAI = 다르게 주어 4 Oo 석 으로 . | 점수 7 | 반 결 정 을 내 력 성 확 도 앙상 |\n그 (ㅣ > ~ 즈 - 0 ㅇ 클러스터링 단일 사용 때 보 다 점수 기반 결정 로직 주가 사용 때 의 ASSO! 약 12%20 모 HI ill\n03\n>\n- ~ 1 < 휴 리 스 틱 흐름 추적 -동일한 주소 E>",
+    "meta": {
+      "outcome": "거즈 P&S EFO 가 oO \"a 트 | ~] = Sea ~*~ = - ~ A| XH (》 ° oo 내 oF 바 탕 으로 기 유 리 스 1 -변 마다 oT TISAI = 다르게 주어 4 Oo 석 으로 . | 점수 7 | 반 결 정 을 내 력 성 확 도 앙상 |"
+    },
+    "char_count": 478
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "정량적 성과",
+    "project": "소개",
+    "text": "# 정량적 성과\n비동기 작업 병렬 처리, 부분 조회, 주 데이터 캐싱 AI 리로 데이터 처리 시간 1 분 > 1 초 감소\nBitcoin Core RPCOlA] BlockSci2 프 로 세 서 를 변 74\nㅇ 1. 게이터 접근 속도 50~100 배 향상\nㅇ 2. 주소 기반 트 랜 젝 션 검색 속도 1~2 분 에서 1~2 조로 단축\nAWS Neptuneol|A| Neo4j= Graph DBS 변 경 하 TH AWS 부가 비 용 을 감 죽 시켜 약 20%~50%Q| 비용 ad\n2023 상반기 프로젝트 경 진 대외 죄 우수상",
+    "meta": {
+      "outcome": "비동기 작업 병렬 처리, 부분 조회, 주 데이터 캐싱 AI 리로 데이터 처리 시간 1 분 > 1 초 감소"
+    },
+    "char_count": 292
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "정 성 적 성과",
+    "project": "소개",
+    "text": "# 정 성 적 성과\n리세 설계서, 요 구 사 항 명세서, 보고서 등과 같은 문서화 작업 경 혐\nJira 통한 작업 관리 진행 경험 ㄷ ㅋ\n팀 내부 코드 스타일 및 네이밍 규 직 을 지 정 해 보며 엽\n\\15.15 를 사용한 그래프 형태 가시화\n다양한 AWS 서 비 스 (6062, Neptune 등 ) 를 사 용 / 시 도 한 프로젝트 경험\n대용량 트 래 픽 을 『 ㄷ /6 ㄷ 에서 처 리 해 보 는 경험\n03",
+    "meta": {
+      "outcome": "리세 설계서, 요 구 사 항 명세서, 보고서 등과 같은 문서화 작업 경 혐"
+    },
+    "char_count": 230
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "피드백",
+    "project": "소개",
+    "text": "# 피드백\nㅇ 코어 서 버 가 무거워 성 등 모 니 터 링 이 필 요 하 다고 판단 된\n> AWS CLOUDWATCHS!| 같은 도 구 를 사용해 EC2 인 스 턴 스 와 각종 데 이 터 베 이 스 의 성 능 을 모니터 링 하고, 리소스 사 용 량 에 대한 분석 ie of 우 lis 0 ro 40\n= 0 00 구 NJ 은 | In WO EJ HO 구 HU win AO ea ! 아",
+    "meta": {},
+    "char_count": 213
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "&1 기 반 멀 웨어 탐지 기능 통합 클라우드 스토리지 서비스",
+    "project": "소개",
+    "text": "# &1 기 반 멀 웨어 탐지 기능 통합 클라우드 스토리지 서비스\n기여도 : 40% ( ㅁ ㄷ / 데 이터 수집, 모델 개발, 시각화 모듈 개발)\n개발 기간: 2022.12.01 ~ 2023.02.28 (3 개 월)",
+    "meta": {
+      "period": "2022.12.01 ~ 2023.02.28 (3 개 월)"
+    },
+    "char_count": 120
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "af 멀 웨어 탐지 기능 통합 클라우드 스토리지 서비스",
+    "project": "소개",
+    "text": "# af 멀 웨어 탐지 기능 통합 클라우드 스토리지 서비스\n[기술 스택] | Used Team Used\n언어\n: Python JavaScript TypeScript\n프 레 임 워크\n: Capstone Vue.js FastAP]j Nest.js\n데이터베이스\n:\nMongoDB MariaDB\nDevops :\nAWS Git/Github Docker, NGINX Zeplin Atlas",
+    "meta": {
+      "tech_stack": "언어"
+    },
+    "char_count": 211
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[개요]",
+    "project": "소개",
+    "text": "# [개요]\nㅇ 비 회 원 일 시 에 는 파일 검사 기 능 만 회 원 일 시 에 는 추가적으로 AWS 53 클라우드 스토리지 저장 옵션 제공\nㅇ 기존 시 그 니 저 기반 탐지 방식 뿐 아니라 신규 HSL! 멀 웨어 탐 지 도 가능 로 파 일 의 해시 값 을 이 용 하 어 이미 검 사 된 파 일 은 DBA 즉시 한 서비스 ats 제공\nㅇ 신규 파 일 은 | 셔 버 에 서 위 험 도 를 분 석 한 후 결과 [담당 역할]\n전달\nㅇ PythonS 사용한 멀 웨어 탐지 모델 개발\nㅇ Capstoness 이용한 어셈블리 코드 분석 및 특징 분류\nㅇ KerassS 사용한 CNN/DNN 모델 개발 및 비교\nㅇ / 46.]5 를 사용한 멀 웨어 탐지 결과 시각화",
+    "meta": {
+      "role": "전달",
+      "outcome": "전달"
+    },
+    "char_count": 365
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "아 키 텍 저",
+    "project": "소개",
+    "text": "# 아 키 텍 저\nClient7} 파일 전송\nㅇ [ 이 전 에 검 사 한 결 과 가 있을 경우]\ni. MariaDB 서 버 에 이전 검사 기 록 이 있는지 조회\n검사 기 록 이 존재할 경우 MongoDBoll 있는 이전 검사 기록 조회\no [ 이 전 에 검 사 한 결 과 가 없을 경우]\n~ 1. = DBO] 파 일 의 hash 정 보 를 각각 저장\n받은 파 일 을 Al 서 버 에 전달\niii. 해당 파 일 의 PE Header & Code Section & Real File Type 분석\niv. 예측 결 과 를 업 데 이 트 하 여 MongoDBoll 저장\nv. [028 에 서 결과 조회\n멀 웨어 예측 결과 페이지 SS\n\"",
+    "meta": {
+      "outcome": "멀 웨어 예측 결과 페이지 SS"
+    },
+    "char_count": 352
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[문제 & 목표]",
+    "project": "소개",
+    "text": "# [문제 & 목표]\nㅇ 문제 : 기 존 의 시 그 니 처 기 반 의 멀 웨어 탐지 데 한 계 가 있다. 방 식 은 새로 형 의 멀 2 ilu om Ral 위 [| © oO TT T 0\nㅇ 목표 : 시 Gals 활용 하여 새로운 멀 웨어 THES 탐 지 할 수 있게 한다.",
+    "meta": {},
+    "char_count": 152
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "[가설]",
+    "project": "소개",
+    "text": "# [가설]\nㅇ PE Header 정 보 와 Code Sectione| BAS 활용 하면, 멀 웨어 탐 지 의 정 확 도 가\na 사\na 사\n0 ~ | I at 부 [ 모 [ 부 ia > \" lo HI. in Im a) a a +t NS Hu 」 아 띠 > ~ atid ie 무\nㅇ 전 저리 데 이 터 를 활 용 하여 CNN/DNN 모 델 을 학 습 시킨 S © DNNO| CNNEE; 7%P 더 놓은 정 확 도 를 보임.\n04\n<\n정\n적\n데이터\n분\n분석\n및\n분\n리\n>\n=a\n특징\n2\neo\n< 시 그 니 처 학습 및 라 벨 링 추가 학습 비 교 >\n<DNN2\nCNN2|\n정\n왁\n도\n비\n교\n>",
+    "meta": {},
+    "char_count": 329
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "fat",
+    "project": "소개",
+    "text": "# fat\n100004 개의 프로그램 수집\n10004 개 의 4-gram 어셈블리 코\n9555 개 의 PE 데이터 주 줄\nPE Header 정보 중 68 개 의 특징 추출\nCode Section2| 빈 줄 있는 100 개 의 =\n모델 멀 웨어 탐지 정확도 95.78%\n2022 하반기 프로젝트 경 진 대 회 죄 우 수상\nVA|scanBox",
+    "meta": {},
+    "char_count": 189
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "정 성 적 성과",
+    "project": "소개",
+    "text": "# 정 성 적 성과\nPE HEADER 정보 분석 경험\nN-GRAM 방 식 의 어셈블리 코드 분석 경험\nc\n멀 웨 어 _ 탐 지 #eele _ GS 제작 # 어 셈 블 리 _ 고 드 분 ala\n04",
+    "meta": {
+      "outcome": "PE HEADER 정보 분석 경험"
+    },
+    "char_count": 109
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "피드백",
+    "project": "소개",
+    "text": "# 피드백\nO| [ 아 [ 여 수요 노 드 에 대한 기능 주가 al\nCONTACT\nMAIL : ORATORIAQ89@GMAIL.COM\nPARK, JOONG-HEON PORTFOLIO",
+    "meta": {},
+    "char_count": 101
+  },
+  {
+    "source": "박중헌_포트폴리오",
+    "doc_type": "portfolio",
+    "section": "검토해 수 셔서 감 사 합 니다. FRANK VOU",
+    "project": "소개",
+    "text": "# 검토해 수 셔서 감 사 합 니다. FRANK VOU\nJOONG-HEON\n더 많은 프로젝트 YAS 보고 싶 으 시 다 면 하단 dae 접 속 해 주세요 PROJECTS",
+    "meta": {},
+    "char_count": 94
+  }
+]

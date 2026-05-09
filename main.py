@@ -34,6 +34,7 @@ PORTFOLIO_PDFS = [
 ]
 
 RPM_DELAY = 1  # 유료 티어 - 요청 간 최소 딜레이
+CHUNK_ONLY = True  # True: 청킹 결과만 저장 (LLM 호출 없음), False: 전체 파이프라인 실행
 
 
 # ── 자소서 스키마 ──────────────────────────────────────────────────────
@@ -293,8 +294,21 @@ def run():
         if not chunks:
             print("  ⚠ 추출된 텍스트 없음, 건너뜀")
             continue
-        print(f"청킹 완료: {len(chunks)}개 → Gemini 추출 시작\n")
+        print(f"청킹 완료: {len(chunks)}개\n")
 
+        if CHUNK_ONLY:
+            for i, c in enumerate(chunks):
+                project = c.get("project", c["section"])
+                print(f"  [{i+1}/{len(chunks)}] section={c['section']} / project={project} ({c['char_count']}자)")
+                print(f"    {c['text'][:120].replace(chr(10), ' ')}...")
+                print()
+            raw_path = OUTPUT_DIR / f"{pdf_path.stem}_raw_chunks.json"
+            with open(raw_path, "w", encoding="utf-8") as f:
+                json.dump(chunks, f, ensure_ascii=False, indent=2)
+            print(f"청킹 결과 저장 완료 → {raw_path}")
+            continue
+
+        print("Gemini 추출 시작\n")
         for i, c in enumerate(chunks):
             project = c.get("project", c["section"])
             label = f"{c['section']} / {project}"
