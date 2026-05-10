@@ -28,13 +28,11 @@ REFERENCE_PDFS = [
 
 PORTFOLIO_PDFS = [
     PORTFOLIO_DIR / name for name in [
-        "output예시 포폴.pdf",
-        # "output예시 포폴.pdf",
+        "박중헌_포트폴리오.pdf",
     ]
 ]
 
 RPM_DELAY = 1  # 유료 티어 - 요청 간 최소 딜레이
-CHUNK_ONLY = True  # True: 청킹 결과만 저장 (LLM 호출 없음), False: 전체 파이프라인 실행
 
 
 # ── 자소서 스키마 ──────────────────────────────────────────────────────
@@ -76,18 +74,6 @@ class ResumeSection(BaseModel):
 class ResumeFullExtraction(BaseModel):
     sections: list[ResumeSection]
 
-
-# ── 포트폴리오 스키마 ──────────────────────────────────────────────────
-class PortfolioProject(BaseModel):
-    section_type: str        # 프로젝트 / 기술스택 / 자기소개 / 경력 / 기타
-    project_name: str
-    period: str
-    role: str
-    tech_stack: list[str]
-    summary: str
-    contributions: list[str]
-    achievements: list[str]
-    keywords: list[str]
 
 
 def _call_gemini(prompt: str, schema: type, system: str, retries: int = 5) -> dict:
@@ -154,41 +140,6 @@ def extract_cover_letter(text: str) -> dict:
     )
 
 
-def extract_portfolio(text: str) -> dict:
-    prompt = f"""다음은 포트폴리오의 한 섹션입니다. 내용을 분석해서 JSON으로 변환해주세요.
-
-[section_type 선택 기준]
-- 프로젝트: 개발/기획/디자인 프로젝트 경험
-- 기술스택: 보유 기술, 언어, 프레임워크 목록
-- 자기소개: 프로필, 소개, 목표
-- 경력: 인턴, 직장, 대외활동, 수상
-- 기타: 위에 해당하지 않는 내용
-
-[contributions 작성 기준]
-- 본인이 직접 수행한 역할과 구현 내용
-- "~구현", "~개발", "~설계", "~담당" 형태로 구체적으로
-
-[achievements 작성 기준]
-- 수치(%, 배수, 시간, 건수 등)가 포함된 정량적 성과
-- 수치가 없어도 명확한 결과(출시, 수상, 채택 등)가 있으면 포함
-- 없으면 빈 배열 []
-
-[tech_stack 작성 기준]
-- 언어, 프레임워크, 라이브러리, 인프라, 툴 등
-- 텍스트에 언급된 것만 추출, 없으면 빈 배열 []
-
-텍스트:
-{text}"""
-
-    return _call_gemini(
-        prompt=prompt,
-        schema=PortfolioProject,
-        system=(
-            "당신은 포트폴리오 분석 전문 AI입니다. "
-            "지원자의 포트폴리오 섹션을 읽고 프로젝트 정보, 기여 내용, 기술 스택, 성과를 정확하게 추출합니다. "
-            "원문에 없는 내용은 절대 추가하지 마세요."
-        ),
-    )
 
 
 def extract_resume_full(markdown: str) -> dict:
@@ -290,48 +241,39 @@ def run():
         print(f"파일: {pdf_path.name}  [portfolio]")
         print('='*60)
 
-        chunks = portfolio.chunk(str(pdf_path), pdf_path.stem)
+        chunks = portfolio.chunk(str(pdf_path), source=pdf_path.stem)
         if not chunks:
             print("  ⚠ 추출된 텍스트 없음, 건너뜀")
             continue
         print(f"청킹 완료: {len(chunks)}개\n")
 
-        if CHUNK_ONLY:
-            for i, c in enumerate(chunks):
-                project = c.get("project", c["section"])
-                print(f"  [{i+1}/{len(chunks)}] section={c['section']} / project={project} ({c['char_count']}자)")
-                print(f"    {c['text'][:120].replace(chr(10), ' ')}...")
-                print()
-            raw_path = OUTPUT_DIR / f"{pdf_path.stem}_raw_chunks.json"
-            with open(raw_path, "w", encoding="utf-8") as f:
-                json.dump(chunks, f, ensure_ascii=False, indent=2)
-            print(f"청킹 결과 저장 완료 → {raw_path}")
-            continue
-
-        print("Gemini 추출 시작\n")
         for i, c in enumerate(chunks):
             project = c.get("project", c["section"])
-            label = f"{c['section']} / {project}"
-            print(f"  [{i+1}/{len(chunks)}] {label[:50]} 처리 중...")
-            extracted = extract_portfolio(c["text"])
+            print(f"  [{i+1}/{len(chunks)}] section={c['section']} / project={project} ({c['char_count']}자)")
+            print(f"    {c['text'][:120].replace(chr(10), ' ')}...")
+            print()
+            meta = c.get("meta", {})
             portfolio_chunks.append({
-                "id": f"{c['source']}_{i:03d}",
-                "source": c["source"],
-                "doc_type": "portfolio",
-                "section": c["section"],
-                "project": project,
-                "section_type": extracted["section_type"],
-                "project_name": extracted["project_name"],
-                "period": extracted["period"],
-                "role": extracted["role"],
-                "tech_stack": extracted["tech_stack"],
-                "summary": extracted["summary"],
-                "contributions": extracted["contributions"],
-                "achievements": extracted["achievements"],
-                "keywords": extracted["keywords"],
-                "char_count": c["char_count"],
+                "id":            f"{c['source']}_{i:03d}",
+                "source":        c["source"],
+                "doc_type":      "portfolio",
+                "section":       c["section"],
+                "project":       project,
+                "period":        meta.get("period", ""),
+                "role":          meta.get("role", ""),
+                "team":          meta.get("team", ""),
+                "tech_stack":    meta.get("tech_stack", []),
+                "contributions": meta.get("contributions", []),
+                "achievements":  meta.get("achievements", []),
+                "keywords":      meta.get("keywords", []),
+                "text":          c["text"],
+                "char_count":    c["char_count"],
             })
-            time.sleep(RPM_DELAY)
+
+        raw_path = OUTPUT_DIR / f"{pdf_path.stem}_raw_chunks.json"
+        with open(raw_path, "w", encoding="utf-8") as f:
+            json.dump(portfolio_chunks, f, ensure_ascii=False, indent=2)
+        print(f"청킹 결과 저장 완료 → {raw_path}")
 
     # JSON 저장
     resume_path = OUTPUT_DIR / "resume_chunks.json"
@@ -366,13 +308,13 @@ def run():
         print(f"  keywords    : {c['keywords']}")
 
     for c in portfolio_chunks:
-        print(f"\n[{c['id']}] {c['section_type']} / {c['project_name']}")
-        print(f"  project       : {c['project']}")
+        print(f"\n[{c['id']}] {c['section']} / {c['project']}")
         print(f"  period        : {c['period']}")
         print(f"  role          : {c['role']}")
         print(f"  tech_stack    : {c['tech_stack']}")
         print(f"  contributions : {c['contributions']}")
         print(f"  achievements  : {c['achievements']}")
+        print(f"  keywords      : {c['keywords']}")
 
     return resume_chunks, cover_letter_chunks, portfolio_chunks
 
