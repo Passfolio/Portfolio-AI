@@ -28,7 +28,7 @@ REFERENCE_PDFS = [
 
 PORTFOLIO_PDFS = [
     PORTFOLIO_DIR / name for name in [
-        "박중헌_포트폴리오.pdf",
+        "output예시 포폴.pdf",
         # "output예시 포폴.pdf",
     ]
 ]

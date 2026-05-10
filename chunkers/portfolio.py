@@ -238,28 +238,33 @@ def _get_converter(pdf_path: str) -> tuple[DocumentConverter, bool]:
 def _convert_in_batches(
     pdf_path: str,
     converter: DocumentConverter,
+    use_ocr: bool = True,
 ) -> DoclingDocument:
     """
-    BATCH_SIZE 페이지씩 분할 → 전처리 → 변환 → 마크다운 병합.
+    BATCH_SIZE 페이지씩 분할 → (OCR시 전처리) → 변환 → 마크다운 병합.
 
-    전처리 흐름:
+    전처리 흐름 (OCR 모드):
       원본 PDF
         └─ fitz로 N페이지 추출 → tmp_raw.pdf
-              └─ preprocess_pdf_to_image_pdf → tmp_pre.pdf (전처리 완료)
+              └─ preprocess_pdf_to_image_pdf → tmp_pre.pdf
                     └─ Docling(Tesseract) 변환 → 마크다운
+
+    텍스트 모드는 전처리 없이 페이지 분할만 적용 (Docling ML 모델 OOM 방지).
     임시 파일은 배치마다 즉시 삭제해 디스크 사용 최소화.
     """
     total = get_page_count(pdf_path)
 
     if total <= BATCH_SIZE:
-        # 단일 배치: 전처리만 적용 후 변환
-        tmp_pre = Path(pdf_path).with_suffix(".tmp_pre.pdf")
-        try:
-            preprocess_pdf_to_image_pdf(pdf_path, str(tmp_pre))
-            return converter.convert(str(tmp_pre)).document
-        finally:
-            if tmp_pre.exists():
-                tmp_pre.unlink()
+        if use_ocr:
+            tmp_pre = Path(pdf_path).with_suffix(".tmp_pre.pdf")
+            try:
+                preprocess_pdf_to_image_pdf(pdf_path, str(tmp_pre))
+                return converter.convert(str(tmp_pre)).document
+            finally:
+                if tmp_pre.exists():
+                    tmp_pre.unlink()
+        else:
+            return converter.convert(pdf_path).document
 
     print(f"[BATCH] 총 {total}페이지 → {BATCH_SIZE}페이지씩 분할 처리")
 
@@ -280,11 +285,15 @@ def _convert_in_batches(
             sub.save(str(tmp_raw))
             sub.close()
 
-            # ② 전처리 적용
-            preprocess_pdf_to_image_pdf(str(tmp_raw), str(tmp_pre))
+            if use_ocr:
+                # ② 전처리 적용 (OCR 모드)
+                preprocess_pdf_to_image_pdf(str(tmp_raw), str(tmp_pre))
+                target = str(tmp_pre)
+            else:
+                target = str(tmp_raw)
 
             # ③ Docling 변환
-            result = converter.convert(str(tmp_pre))
+            result = converter.convert(target)
             md = result.document.export_to_markdown()
             if md.strip():
                 markdown_parts.append(md.strip())
@@ -488,7 +497,7 @@ def chunk(
         [{"source", "doc_type", "section", "project", "text", "meta", "char_count"}, ...]
     """
     converter, use_ocr = _get_converter(pdf_path)
-    doc = _convert_in_batches(pdf_path, converter) if use_ocr else converter.convert(pdf_path).document
+    doc = _convert_in_batches(pdf_path, converter, use_ocr=use_ocr)
 
     chunks = _build_project_chunks(doc, source, split_level=split_level)
     chunks = _split_oversized(chunks, doc, max_tokens=max_tokens, embed_model_id=embed_model_id)
@@ -498,10 +507,8 @@ def chunk(
 def get_markdown(pdf_path: str) -> str:
     """PDF를 마크다운 문자열로 변환 (디버깅 / 구조 확인용)."""
     converter, use_ocr = _get_converter(pdf_path)
-    if use_ocr:
-        doc = _convert_in_batches(pdf_path, converter)
-        return doc.export_to_markdown()
-    return converter.convert(pdf_path).document.export_to_markdown()
+    doc = _convert_in_batches(pdf_path, converter, use_ocr=use_ocr)
+    return doc.export_to_markdown()
 
 
 def get_structure_summary(pdf_path: str) -> str:

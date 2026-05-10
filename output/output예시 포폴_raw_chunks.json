@@ -1,0 +1,751 @@
+[
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "프로젝트",
+    "project": "소개",
+    "text": "# 프로젝트\n경력\n수상내역\n학력\n자격증\nIT Developer\n캄보디아 ITS 시범 구축 사업\n안전공단 첨단모빌리티 현황조사 시각화\n성남시 ITS 구축 사업\n서울동행맵 앱 고도화\n카본제로-캄보디아\n러닝메이트:Running Mate\nWalk Planet\nPrice Quotation Tool\nLeave Diary\n2024-01-26 ~ 유아이네트웍스 재직중\n2020 천안아산 지역 대학교 기업분석경진대회 장려상\n2022 백석대학교 컴퓨터공학부 C언어프로그래밍 경진대회 동상\n2022 백석대학교 컴퓨터공학부 JAVA프로그래밍 경진대회 은상\n2024 백석대학교 정보보호학과 졸업\n2018 우신고등학교 졸업\n2025 정보처리기사\n2021 정보처리 산업기사",
+    "meta": {
+      "tech_stack": "Leave Diary"
+    },
+    "char_count": 362
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "산업기능요원",
+    "project": "소개",
+    "text": "# 산업기능요원\n2024-01-26 ~ 2025-12-29\n2024-01-31 산업기능요원 편입\n2024-06-13 ~ 2024-07-04 훈련소 수료\n담당 업무:\n프론트엔드\nReact-typescript\n앱\nFlutter\n백엔드\nJAVA Spring Boot,\ne-Government Framework\n프로젝트:\n캄보디아 ITS 시범 구축 사업\n안전공단 첨단 모빌리티 현황조사 시각화\n성남시 ITS 구축 사업\n서울동행맵 앱 고도화\n카본제로-캄보디아",
+    "meta": {
+      "role": "프론트엔드"
+    },
+    "char_count": 251
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "박기찬의 프로그래밍 프로젝트",
+    "project": "소개",
+    "text": "# 박기찬의 프로그래밍 프로젝트\n캄보디아 ITS 시범 구축 사업 안전공단 첨단모빌리티 현황조사 시각화 성남시 ITS 구축 사업 서울동행맵 앱 고도화\n카본제로-캄보디아\n협업 프로젝트 사이드 프로젝트\n러닝메이트:RunningMate\nWalk Planet\nPrice\n이별일기",
+    "meta": {},
+    "char_count": 150
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "포트폴리오",
+    "project": "소개",
+    "text": "# 포트폴리오\n웹사이트\n제 프로젝트와 기술 경험을 보다 자세히 보고 싶으시다면 아래 링크에서 포트폴리오 페이지를 확인하실 수 있습니다. URL : https://kichani.com/kichan/main",
+    "meta": {},
+    "char_count": 113
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "01. 캄보디아 ITS 시범 구축 사업",
+    "project": "소개",
+    "text": "# 01. 캄보디아 ITS 시범 구축 사업\n2025-03-06 ~ 2025-11-21 캄보디아 프놈펜의 교통량, 교차로 상태, 속도, CCTV 영상을 실시간으로 수집·분석하여 하나의 대시보드에서 시각화함으로써 효율적인 교통 관제를 지원하는 시범 구축 사업\n역할: 상황판 풀스택 개발 (Front-end / Back-end / WebSocket Server)\n웹:\nReact(TypeScript) 18 + Vite\n앱 API: Spring Boot 3.4.1\n서버: 사내 개발서버\n데이터베이스:\nPostgreSQL (with PostGIS), ClickHouse, Redis\nCI/CD: Jenkins",
+    "meta": {
+      "role": "상황판 풀스택 개발 (Front-end / Back-end / WebSocket Server)"
+    },
+    "char_count": 335
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd: React 18, Vite, TypeScript, React Router, TanStack React Query, Mapbox GL JS, react-map-gl, deck.gl(interleaved mode), Emotion/styled-components, D3.js, amCharts, Axios, Socket.IO Client, EventSource(SSE), hls.js, react-hls-player, Video.js, zustand, react-i18next\nBackEnd: Spring Boot 3.4.1, Spring Security, MyBatis, QueryDSL 5.0.0, JWT, Swagger(SpringDoc), SSE(SseEmitter)\nWebSocket: Node.js\nSocket.IO\nDatabase: PostgreSQL(PostGIS), ClickHouse, Redis\nInfra/DevOps: Docker, Jenkins, Nginx, Spring Cloud Gateway, Auth Server(SSO 연동)",
+    "meta": {
+      "tech_stack": "FrontEnd: React 18, Vite, TypeScript, React Router, TanStack React Query, Mapbox GL JS, react-map-gl, deck.gl(interleaved mode), Emotion/styled-components, D3.js, amCharts, Axios, Socket.IO Client, EventSource(SSE), hls.js, react-hls-player, Video.js, zustand, react-i18next"
+    },
+    "char_count": 556
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Architecture",
+    "project": "소개",
+    "text": "# Architecture\nReact > Spring Cloud Gateway > Auth Server(JWT) > Spring Boot API > PostgreSQL\nReact > Socket.IO Server(Node.js) > PostgreSQL LISTEN/NOTIFY\nReact > SSE(Spring Boot) > ClickHouse",
+    "meta": {},
+    "char_count": 192
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n요구사항\n교통량·신호·교차로·CCTV 데이터를 실시간으로 모니터링 가능해야 했다.\n다중 지표 기반 지도/차트 시각화와 빠른 화면 갱신 성능을 확보해야 했다.\n초 단위 TickChart(주식 차트 형태)의 실시간 교통량 스트리밍을 지원해야 했다.\n현지 외 국가에도 확장 가능한 범용 글로벌 플랫폼 구조가 필요했다.",
+    "meta": {},
+    "char_count": 179
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\n상황판 프론트엔드: React 18\nTypeScript + Vite 기반 SPA, Socket.IO 클라이언트 및 EventSource(SSE) 실시간 데이터 수신\n상황판 백엔드: Spring Boot 3.4.1 RESTful API, MyBatis/QueryDSL 복합 쿼리, SSE 스트리밍 엔드포인트 구현\nWebSocket 서버: Node.js\nSocket.IO + PostgreSQL LISTEN/NOTIFY 기반 실시간 메시징 서버\nDB 이중화: PostgreSQL(5분 단위 가공 데이터, 실시간 조회)\nClickHouse(초 단위 원천 데이 터, 대용량 통계)\nSSE 실시간 스트리밍: ClickHouse 초 단위 데이터 폴링 → SseEmitter → EventSource → TickChart 업데이트\nMSA Gateway 연동: Spring Cloud Gateway를 통한 API 라우팅, 쿠키 기반 JWT 인증 필터 통 합\nAuth 서버 연동: 기 구축된 Spring Boot 기반 JWT 인증 서버와 SSO 구현\n글로벌 타임존 처리: 프론트엔드에서 국가 코드 전달 → 백엔드에서 UTC 기준 변환 → 통계 API 시간 범위 계산\n지도 시각화: Mapbox GL JS\ndeck.gl interleaved mode로 레이어 렌더링 이슈 해결, 교통 데이터 오버레이\n차트 및 통계: D3.js, amCharts를 활용한 다양한 시각화, SSE 기반 실시간 TickChart\nCI/CD: Jenkins 파이프라인 (빌드 → 테스트 → Docker 이미지 생성 → 컨테이너 배포)\nDocker 컨테이너화: Front-end, Back-end, WebSocket 서버 각각 Dockerfile 작성 및 배포 자동화\n디바운싱 처리: PostgreSQL 고빈도 NOTIFY를 5초 디바운싱으로 WebSocket 트래픽 최적화\n성능 테스트: Python으로 실제와 유사한 대량 교통 데이터 생성 프로그램 개발, PostgreSQL/ClickHouse INSERT를 통한 실시간·대용량 데이터 처리 시나리오 검증\nHLS 영상 스트리밍: 협력사 HLS 서버 연동, hls.js 기반 CCTV 실시간 영상 재생, 다중 영상 동시 모니터링 UI 구현",
+    "meta": {},
+    "char_count": 1100
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "주요",
+    "project": "소개",
+    "text": "# 주요\n이슈 & 해결\n지도 레이어가 지도 레이블을 가리는 문제 → interleaved: true 옵션을 사용해 deck.gl 레이어를 Mapbox 내부 레이어 스택에 삽입하여 레이블과 도로명이 정상적으로 노출되도록 개선\n여러 국가에 공통 적용 가능한 시간 관리 방식 부재 → DB·백엔드 시간을 UTC로 통일하고 프론 트의 국가 코드 기반 타임존 변환 로직을 도입해 해외 ITS 사업 확장성 확보\nDB 변경사항을 실시간으로 대시보드에 반영하기 어려움 → PostgreSQL LISTEN/NOTIFY\nNode.js Socket.IO 연동으로 DB 트리거 발생 시 즉시 WebSocket 브로드캐스팅\n고빈도 실시간 이벤트로 인한 WebSocket 과부하 → 채널별 5초 디바운싱 처리로 다수 알림을 단 일 알림으로 통합해 트래픽 및 리렌더링 부담 해소\n1초/5초 교통량을 주식 차트처럼 실시간 스트리밍해야 하는 요구 → ClickHouse > SSE > EventSource 기반 단방향 스트리밍 구조로 TickChart 실시간 렌더링 구현\nMSA 환경 내에서의 JWT 인증 처리 복잡성 → Spring Cloud Gateway에서 쿠키 기반 JWT 검 증 후 사용자 정보를 헤더에 포함해 각 서비스로 전달",
+    "meta": {},
+    "char_count": 619
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "설계",
+    "project": "소개",
+    "text": "# 설계\n기술 선정 기준: 유행이 아닌 '문제를 가장 확실하게 해결할 수 있는지'를 기준으로 기술 스택을 선 택.\n지도 시각화: MapboxOverlay\ninterleaved 모드로 Mapbox GL과 deck.gl을 동일 WebGL 스택에서 렌더링해 레이블 가림 문제 방지.\n실시간 통신: Kafka 대신 PostgreSQL LISTEN/NOTIFY\nSocket.IO를 채택하여 요구사항 대 비 최적 비용·저지연 구조 구현.\n초 단위 스트리밍: TickChart는 양방향 통신이 불필요하므로 WebSocket 대신 SSE 기반 단방향 실시간 스트리밍으로 구성.\n시간 관리 전략: 백엔드·DB를 UTC 고정, 프론트 국가코드 기반 타임존 변환으로 해외 다국가 확 장성 확보.\n핵심 설계 원칙: 다양한 기술 도입보다 '왜 이 기술이어야 했는가'를 설명할 수 있는 선택을 우선.",
+    "meta": {
+      "tech_stack": "지도 시각화: MapboxOverlay"
+    },
+    "char_count": 433
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "성과",
+    "project": "소개",
+    "text": "# 성과\n상황판 전체를 단독 개발하여 실시간 교통 모니터링 대시보드 구축 완료\n해외 여러 ITS 사업에 범용 적용 가능한 UTC 기반 글로벌 플랫폼 설계\nPostgreSQL LISTEN/NOTIFY\nSocket.IO 조합으로 저지연 실시간 데이터 전파 시스템 구현\nSSE 기반 실시간 TickChart로 VDS/ANPR 장비의 1초/5초 단위 교통량 시각화\nClickHouse 도입으로 대용량 통계 쿼리 성능 대폭 향상 및 DB 이중화로 역할 분산\ndeck.gl interleaved mode 적용으로 이전 프로젝트의 레이어 렌더링 이슈 해결\nMSA Gateway/Auth 서버 연동으로 쿠키 기반 SSO 통합 인증 환경 구축\nJenkins\nDocker 기반 CI/CD 파이프라인으로 배포 자동화 및 안정성 향상\n디바운싱 처리를 통한 WebSocket 트래픽 최적화로 클라이언트 성능 개선",
+    "meta": {
+      "role": "deck.gl interleaved mode 적용으로 이전 프로젝트의 레이어 렌더링 이슈 해결",
+      "outcome": "상황판 전체를 단독 개발하여 실시간 교통 모니터링 대시보드 구축 완료"
+    },
+    "char_count": 441
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "02. 안전공단 첨단모빌리티 현황조사 시각화",
+    "project": "소개",
+    "text": "# 02. 안전공단 첨단모빌리티 현황조사 시각화\n2024-11-10 ~ 2025-03-21 국가 법정 '첨단모빌리티 현황조사' 결과를 한눈에 보여주는 인터랙티브 시각화 대시보드로, 지자체 정책 의사 결정을 지원합니다.\n역할: 원천 데이터 가공, 첨단모빌리티 현황조사 시각화\n웹:\nReact(TypeScript)\n데이터 가공: Python\nCI/CD: Jenkins(개발시에만)\nURL: https://www.kotsa.or.kr/ptc/common/cdSheet.do",
+    "meta": {
+      "role": "원천 데이터 가공, 첨단모빌리티 현황조사 시각화",
+      "outcome": "역할: 원천 데이터 가공, 첨단모빌리티 현황조사 시각화"
+    },
+    "char_count": 261
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd: React(TypeScript), deck.gl(GeoJson/Text/Tile)\nData Processing: Python(ETL)\nInfra/DevOps: Jenkins(개발시), OSM Dark Tiles(지도 베이스)",
+    "meta": {
+      "tech_stack": "FrontEnd: React(TypeScript), deck.gl(GeoJson/Text/Tile)"
+    },
+    "char_count": 148
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n요구사항\nExcel 원천 데이터를 ETL 파이프라인으로 가공해야 했다.\n지표(만족도, 수요응답형, 앱 사용, PSI, 인프라)를 표준화해야 했다.\n라이센스 비용 없는 운영을 해야 했다.",
+    "meta": {},
+    "char_count": 108
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\n데이터 파이프라인(ETL): Excel → GeoJSON 변환, 좌표계(WGS84) 정합·센트로이드 계산, 스 키마 표준화.\n정적 데이터 제공: 가공 결과를 JSON으로 산출해 프론트에서 즉시 로딩 가능하게 구성.\n지도 시각화: deck.gl GeoJsonLayer로 영역 채움, TextLayer로 시군구 라벨·값 표시.\n탐색/인터랙션: Top 10 테이블과 지도 연동(행 클릭 시 해당 지자체로 fly-to).\n성능 최적화: useMemo와 updateTriggers를 활용해 필요한 경우만 리렌더링.",
+    "meta": {
+      "outcome": "지도 시각화: deck.gl GeoJsonLayer로 영역 채움, TextLayer로 시군구 라벨·값 표시."
+    },
+    "char_count": 292
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "설계",
+    "project": "소개",
+    "text": "# 설계\nETL 중심 구조: 원천 Excel을 Python으로 전처리 후 JSON으로 제공, 프론트 단 단순화.\n데이터 시각화 전략: 라이선스 이슈 없는 OSM 타일 사용, deck.gl 레이어 기반으로 확장성 확보.",
+    "meta": {},
+    "char_count": 121
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "03. 성남시 ITS 구축 사업",
+    "project": "소개",
+    "text": "# 03. 성남시 ITS 구축 사업\n2024-11-10 ~ 2025-03-21 성남시의 교통량·신호·교차로 상태·CCTV 영상 정보 등을 실시간으로 수집·분석하고, 이를 대시보드 형태로 시각화하여 효율적인 교통관제와 관리를 지원\n역할: 성남시 ITS 대시보드 풀스택 개발\n웹:\nReact(TypeScript) 18 + Vite\n앱 API: Spring Boot 2\n서버: 성남시청 폐쇄망\n데이터베이스:\nTibero\nCI/CD: Jenkins",
+    "meta": {
+      "role": "성남시 ITS 대시보드 풀스택 개발"
+    },
+    "char_count": 246
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "개요",
+    "project": "소개",
+    "text": "# 개요\n성남시의 교통량·신호·교차로 상태·CCTV 영상 데이터를 실시간 수집·분석해 대시보드로 시각 화.\n교통관제 인력이 효율적으로 모니터링·대응할 수 있도록 지원하는 시스템.",
+    "meta": {},
+    "char_count": 99
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd: React 18, Vite, TypeScript/JavaScript, React Router, TanStack React Query, Mapbox GL JS, react-map-gl, deck.gl, Kakao Maps SDK, Emotion/styledcomponents, D3.js, Axios, Video.js, React HLS Player, amCharts\nBackEnd: Spring Boot 2, MyBatis, QueryDSL 5.0.0, JWT, Swagger(SpringDoc), HikariCP\nWebSocket: Spring Boot STOMP\nDatabase: Tibero(ITS/BIS/Dashboard 3 스키마)\nInfra/DevOps: 성남시청 폐쇄망, Nginx, Jenkins",
+    "meta": {
+      "tech_stack": "FrontEnd: React 18, Vite, TypeScript/JavaScript, React Router, TanStack React Query, Mapbox GL JS, react-map-gl, deck.gl, Kakao Maps SDK, Emotion/styledcomponents, D3.js, Axios, Video.js, React HLS Player, amCharts"
+    },
+    "char_count": 420
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n요구사항\n교통량 그래프와 CCTV 영상을 실시간으로 제공해야 했다.\n교차로 상세 UI와 실시간 차량 데이터 성능을 최적화해야 했다.\n대규모 WebSocket(STOMP) 메시지 처리에서 안정성을 확보해야 했다.\n통계분석 페이지에서 다양한 지표·필터 기반 데이터 시각화를 지원해야 했다.",
+    "meta": {},
+    "char_count": 164
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\n교통량 그래프 API: 교차로·접근로·시간버킷 단위 집계 스키마 정의 → Spring Boot\nMyBatis/QueryDSL로 API 제공.\n프론트 연동/시각화: React Query로 API 바인딩, amCharts로 팝업 내 그래프 렌더링 및 로딩/ 에러 처리 구현.\n데이터 정합성 확보: 집계 기준(시간대·장비 상태 코드·조인 방식) 재정의 후 쿼리 리팩토링, 대시 보드 표출값 불일치 문제 해결.\n지도 나침반 위젯: Mapbox bearing 기반 나침반 구현, 방위 표시와 클릭 스냅 기능으로 상황판 공간 인지성 강화.\n긴급차량 경로 보정: 속도·거리 기반 비정상 좌표 자동 감지·보정, 경로 단절 없이 매끄럽게 연결.\n실시간 차량 데이터 최적화: 초기 렌더링 10초 → STOMP 메시지 중복 제거(Set)\nuseMemo 캐싱 적용, <1초 단축.\n메모리 안정화: WebSocket(STOMP) 데이터 슬라이딩 윈도 전략 적용, 장시간 실행에서도 Out of Memory 방지.\n통계분석 페이지: amCharts 도입·표준화, 기간/권역/교차로 필터 적용, 교차로 방향(동·서·남· 북) 시각화 컴포넌트 구현.\nPDF/Excel 내보내기: 화면 조건(필터/기간)을 반영해 동일 데이터로 산출물 생성, 교차로 이미지 +표 동시 포함.",
+    "meta": {
+      "period": "PDF/Excel 내보내기: 화면 조건(필터/기간)을 반영해 동일 데이터로 산출물 생성, 교차로 이미지 +표 동시 포함."
+    },
+    "char_count": 649
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "주요",
+    "project": "소개",
+    "text": "# 주요\n이슈 & 해결\n초기 차량 렌더링 지연(10초 이상) → STOMP 메시지 중복 제거\nuseMemo 캐싱 → 1초 미만으 로 단축.\n장시간 구동 시 메모리 누수 발생 → 슬라이딩 윈도 방식으로 최신 데이터만 유지 → 장시간 안정 구동 확보.\nMapbox 팝업이 deck.gl에 가려짐 → 기획자와 협의해 우측 패널 UI로 대체 → 일정 지연 방지.\n교통량 지표 불일치 → 집계 기준 재정의 및 쿼리 리팩토링 → API·화면 데이터 정합성 확보.",
+    "meta": {},
+    "char_count": 252
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "설계",
+    "project": "소개",
+    "text": "# 설계\n실시간 통신(WebSocket/STOMP): Spring Boot STOMP를 채택, 클라이언트 구독/발행 구조 로 안정적인 실시간 데이터 전송.\nUI 전략: deck.gl 오버레이 대신 패널 UI를 적용, 유지보수성과 일정 안정성 확보.\n차트 표준화: amCharts를 공통 컴포넌트화, 필터·상태 변경 시 로딩/에러 처리 일관성 확보.\n산출물 구조: PDF·Excel 내보내기에 동일 데이터 소스를 반영, 운영 효율성 강화.",
+    "meta": {
+      "outcome": "차트 표준화: amCharts를 공통 컴포넌트화, 필터·상태 변경 시 로딩/에러 처리 일관성 확보."
+    },
+    "char_count": 244
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "성과",
+    "project": "소개",
+    "text": "# 성과\n실시간 차량 데이터 렌더링 속도를 10초 → <1초로 단축.\nSTOMP 데이터 메모리 관리 개선으로 장시간 구동 안정성 확보.\n통계·시각화 페이지 표준화로 유지보수성 강화.\n대시보드 데이터 정합성 확보로 운영 신뢰도 제고.",
+    "meta": {
+      "outcome": "실시간 차량 데이터 렌더링 속도를 10초 → <1초로 단축."
+    },
+    "char_count": 129
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "04. 서울동행맵 앱 고도화",
+    "project": "소개",
+    "text": "# 04. 서울동행맵 앱 고도화\n2024-08-20 ~ 2024-11-30 교통 약자에게 맞춤형 교통 정보를 제공해 대중교통 접근성을 높이고 이용을 활성화 하기 위한 교통 약자 앱\n역할: 앱 개발 고도화, 전체적인 프로젝트 유지 보수\n앱: Flutter\n앱 API: e-Government Framework\n서버: 상암 에스플렉스 센터 폐쇄망\n데이터베이스: PostgreSQL, PostGIS\nCI/CD: API는 직접 빌드하여 폐쇄망에 배포 앱은 플레이스토어, 앱스토어, 원스토어에 배포\nPlay Store: https://play.google.com/store/apps/details?id=kr.go.seoul.mydata&hl=ko App Store: https://apps.apple.com/kr/app/%EC%84%9C%EC%9A%B8%EB%8F%99%ED%96%89%EB%A7%B5/id1555649324 One Store: https://m.onestore.co.kr/ko-kr/apps/appsDetail.omp?prodId=0000753480",
+    "meta": {
+      "role": "앱 개발 고도화, 전체적인 프로젝트 유지 보수"
+    },
+    "char_count": 536
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "개요",
+    "project": "소개",
+    "text": "# 개요\n교통 약자에게 맞춤형 대중교통 정보를 제공해 접근성을 높이는 앱.\nFlutter 기반 앱, 폐쇄망 API, OTP(OpenTripPlanner) 미들웨어를 연동해 서비스 품질을 개선.",
+    "meta": {},
+    "char_count": 107
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd(App): Flutter\nBackEnd(API): e-Government Framework\nMiddleware: OTP(OpenTripPlanner), 경로탐색 미들웨어\nDatabase: PostgreSQL(+PostGIS)\nInfra: 상암 에스플렉스 센터 폐쇄망, Jenkins(로컬 빌드/배포)",
+    "meta": {
+      "tech_stack": "FrontEnd(App): Flutter"
+    },
+    "char_count": 189
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Architecture",
+    "project": "소개",
+    "text": "# Architecture\nFlutter(App) > API(e-Gov Framework) > Middleware(OTP) > DB(PostgreSQL+PostGIS)",
+    "meta": {},
+    "char_count": 93
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n요구사항\n스크린리더 기반 접근성을 강화해야 했다.\n지도 중심 UX의 한계를 보완할 대체 UI가 필요했다.\nOTP 기반 경로 탐색 품질을 개선해야 했다.\n저상버스·편의시설 등 교통 약자 특화 정보를 제공해야 했다.",
+    "meta": {},
+    "char_count": 123
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\n접근성 개선: 버튼/이미지 라벨링, 읽기 순서 정리, 중복 읽힘 제거.\n지도 대체 UX: 마커 목록·상세를 패널 위젯으로 제공, 전용 확대/축소 버튼 추가.\n시각적 개선: 색상 대비 ≥3:1 조정, 활성/선택 상태를 색상+굵기로 병행 표현.\n교통 약자 기능: 내 위치 실시간 토글, 저상버스 예약 현황 갱신, 편의시설(경사로·복지시설·충전 소·장애인 화장실) 필터 제공.\n길찾기 UI 개선: 소요시간 막대에 노선 정보 표기, 앱 시작 시 공지 팝업 제공.\n경로탐색 파이프라인: GTFS\nOSM 기반 Graph.obj 빌드, router-config.json 튜닝(환승/대 기/도보 가중치)으로 탐색 정확도 개선.",
+    "meta": {},
+    "char_count": 352
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "주요",
+    "project": "소개",
+    "text": "# 주요\n이슈 & 해결\n지도 접근성 한계 → 위젯 패널로 대체 UI를 제공해 스크린리더 사용자도 탐색 가능.\n저상버스 예약 현황 지연 → 갱신 버튼 및 API 로직 추가로 실시간 반영 가능.\n경로 탐색 품질 저하 → OTP 파라미터(환승·대기·도보 가중치) 조정으로 경로 품질 개선.",
+    "meta": {},
+    "char_count": 158
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "설계",
+    "project": "소개",
+    "text": "# 설계\n접근성 전략: 스크린리더·시각 대비를 병행 적용해 시각장애인 사용성을 강화.\nOTP 미들웨어: 경로 탐색 전용 계층으로 구성해 다중 소스(버스·지하철·도보)를 통합 처리.\n데이터 소스 관리: 버스는 사내 DB, 지하철은 웹 크롤링, 도보 네트워크는 my-T 편집 툴로 가공.",
+    "meta": {},
+    "char_count": 158
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "성과",
+    "project": "소개",
+    "text": "# 성과\n스크린리더와 대체 위젯 UX를 통해 접근성을 확보.\nOTP 튜닝과 다중 소스 통합으로 경로 탐색 정확도 향상.\n교통 약자 대상 편의 기능 추가로 실사용 탐색 흐름 개선.",
+    "meta": {
+      "outcome": "스크린리더와 대체 위젯 UX를 통해 접근성을 확보."
+    },
+    "char_count": 99
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "05. 카본제로 -캄보디아",
+    "project": "소개",
+    "text": "# 05. 카본제로 -캄보디아\n2024-01-31 ~ 2024-08-10 기후 행동을 통해 CTs(포인트)를 얻어 CTreeMall(교환소)에서 CTs로 물건을 살 수 있는 기후 행동 앱\n역할: 관리자 페이지 풀 스택 개발, 앱 API 개발, 서버 및 데이터베이스 구축(EC2, RDS, nginx, SSL, 로드밸런서)\n앱: Flutter\n관리자\n페이지: React(typescript)\n앱 API, 관리자 페이지 API: Spingboot 2.5.6\n서버: AWS-EC2(Amazon Linux\n데이터베이스: AWS-RDS(PostgreSQL), Redis\nCI/CD: Jenkins(2.440.2 버전)",
+    "meta": {
+      "role": "관리자 페이지 풀 스택 개발, 앱 API 개발, 서버 및 데이터베이스 구축(EC2, RDS, nginx, SSL, 로드밸런서)"
+    },
+    "char_count": 340
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "개요",
+    "project": "소개",
+    "text": "# 개요\n기후 행동을 통해 포인트(CTs)를 얻고, 교환소(CTreeMall)에서 물건을 구매할 수 있는 기후 행동 앱.\n관리자 페이지, 앱 API, 서버 및 데이터베이스를 포함한 전반적인 시스템을 구축.",
+    "meta": {},
+    "char_count": 114
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd: React(TypeScript), MUI, styled-components, Redux Toolkit, Redux Saga, Persist, i18next, moment, Axios\nBackEnd: Spring Boot 2.5.6, JPA/QueryDSL, MyBatis, JWT, Swagger\nApp: Flutter\nDatabase: AWS RDS (PostgreSQL), Redis\nInfra: AWS EC2(Amazon Linux 2), Nginx, Route53, ACM(SSL), ALB, Jenkins, S3(+Lambda)",
+    "meta": {
+      "tech_stack": "FrontEnd: React(TypeScript), MUI, styled-components, Redux Toolkit, Redux Saga, Persist, i18next, moment, Axios"
+    },
+    "char_count": 323
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Architecture",
+    "project": "소개",
+    "text": "# Architecture\nRoute53 → ALB(ACM TLS) → Nginx/EC2 → App(API) · RDS(PostgreSQL) · Redis · S3(+Lambda)",
+    "meta": {},
+    "char_count": 100
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n요구사항\n앱과 관리자 페이지를 분리 운영해야 했다.\n글로벌 사용자를 위해 다국어(i18n)를 지원해야 했다.\n대규모 데이터 테이블과 무한 스크롤 UX를 안정적으로 제공해야 했다.\n포인트 정책·랭킹 모듈을 확장 가능한 구조로 개발해야 했다.\nAWS 기반 인프라에서 무중단 운영 및 CI/CD 체계를 갖춰야 했다.",
+    "meta": {},
+    "char_count": 178
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\n다국어 표준화: react-i18next\nJSON 번역팩, LocalStorage 기반 사용자 언어 고정.\n모바일 운영 모드: 로그인만 반응형, 나머지는 모바일 전용 화면 별도 개발.\n대용량 테이블: 서버사이드 정렬·페이지네이션 전환으로 성능 안정화.\n무한 스크롤 개선: 프리패치(pre-fetch)\nTOP 버튼 제공.\n포인트 정책 리팩토링: 복잡한 보상 로직을 구조화해 유지보수성 확보.\n랭킹 모듈 구현: MyBatis\nCTE(WITH) 기반, 개인/소속별 주간·누적 랭킹 지원.\n보안/세션: JWT 기반 Access/Refresh 토큰 전략 적용.\n커뮤니티 신고·숨김 기능: 출시 블로커를 단기 내 해결.\n인프라 설계: AWS EC2/Nginx\nRoute53/ACM/ALB, Redis 세션 관리, S3+Lambda 이미지 리사이징, Jenkins CI/CD.",
+    "meta": {},
+    "char_count": 437
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "주요",
+    "project": "소개",
+    "text": "# 주요\n이슈 & 해결\ni18n 언어 고정 문제 → react-i18next 표준화\nLocalStorage 저장으로 해결.\nMUI DataGrid 성능 저하 → 서버사이드 정렬/페이지네이션으로 전환, 성능 안정화.\n무한 스크롤 지연 → 프리패치\nTOP 버튼 적용, UX 개선.\n랭킹 계산 정확성 부족 → MyBatis\nCTE 쿼리 리팩토링, 정확성 및 유지보수성 강화.\n보상 악용 취약점 → 당일 인증 여부 검증 추가, 중복 보상 차단.\n스토어 출시 반려(신고·숨김 부재) → 커뮤니티 신고/숨김 기능 급구현, 출시 완료.",
+    "meta": {},
+    "char_count": 292
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "성과",
+    "project": "소개",
+    "text": "# 성과\n다국어 환경에서 안정적 운영 구조 확보.\n대용량 테이블과 무한 스크롤 UX 성능 개선.\n랭킹·포인트 정책 구조화로 운영 효율성 강화.\nAWS 기반 무중단 배포와 CI/CD 파이프라인 확보.",
+    "meta": {
+      "outcome": "다국어 환경에서 안정적 운영 구조 확보."
+    },
+    "char_count": 110
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "06. 러닝메이트 :RunningMate",
+    "project": "소개",
+    "text": "# 06. 러닝메이트 :RunningMate\n2025-01-14 ~ 2025-08-12 러닝 기록/인사이트(속도·히트맵·요일 경로)와 페이스·크루·채팅·팔로우, 랭킹을 제공하는 커뮤니티형 러닝 앱.\n앱: React Native\n앱 API: Spring-boot 3\n웹소켓: node.js(socket.io)\n서버: iwinv(CentOS\n데이터베이스: CentOS서버 내에 구축(PostgreSQL, PostGis), redis\nCI/CD: 윈도우\n로컬 환경에 Jenkins 구축, 앱은 플레이스토어에 배포 Play Store: https://play.google.com/store/apps/details?id=com.runningmateapp",
+    "meta": {},
+    "char_count": 360
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "개요",
+    "project": "소개",
+    "text": "# 개요\n러닝 기록과 분석(속도·히트맵·요일별 경로), 소셜 기능(게시글·팔로우·채팅·랭킹)을 통합한 커 뮤니티형 러닝 앱.\n실시간 트래킹과 데이터 분석, 커뮤니티 기능을 결합해 러너들의 참여 동기 부여를 강화.",
+    "meta": {},
+    "char_count": 118
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd(App): React Native(0.76.6), TypeScript, React Navigation, React Query, Zustand, FlashList, RN Maps, Notifee, Image Picker/Resizer, ViewShot, Share\nBackEnd(API): Spring Boot 3.4.1, JPA, QueryDSL, MyBatis, PostgreSQL(+PostGIS), Spring Security\nJWT, Swagger\nWebSocket: Node.js(Socket.IO)\nDatabase: PostgreSQL(+PostGIS), Redis\nInfra/DevOps: iwinv(CentOS 9), Jenkins(Windows 로컬), Google Play 배포",
+    "meta": {
+      "tech_stack": "FrontEnd(App): React Native(0.76.6), TypeScript, React Navigation, React Query, Zustand, FlashList, RN Maps, Notifee, Image Picker/Resizer, ViewShot, Share"
+    },
+    "char_count": 411
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Architecture",
+    "project": "소개",
+    "text": "# Architecture\nReact Native(App) > Spring Boot API > PostgreSQL(+PostGIS) / Redis / Socket.IO(WebSocket)",
+    "meta": {},
+    "char_count": 104
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n기능\n실시간 트래킹: GPS 데이터를 기반으로 안정적인 경로 기록 및 시각화.\n분석: 월간 히트맵, 요일별 경로, 평균 속도·페이스 등 데이터 인사이트 제공.\n소셜 기능: 게시글(페이스), 팔로우, 크루 채팅 지원.\n랭킹 시스템: 좋아요·댓글·조회·시간을 종합 반영한 점수 기반 순위.\n공유/광고: 코스 이미지 캡처·SNS 공유, AdMob 배너 및 전면 광고.",
+    "meta": {},
+    "char_count": 207
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\n지도/트래킹 안정화: RN Maps의 초기 region 흔들림 문제를 공식 문서(onMapReady 가이드) 기반으로 보정. 속도·거리 기반 아웃라이어 필터링으로 좌표 '튐' 현상 제거.\n백그라운드 기록 유지: Foreground Service\nNotifee 알림, 배터리 최적화 예외 설정으로 장시 간 러닝 기록 안정화.\n리스트 최적화: FlatList의 성능 한계를 FlashList로 교체. React Native 공식 문서를 참고해 프리 패치 로직 적용 → 대규모 피드도 지연 없이 탐색 가능.\nOAuth 안정화: 네이버 로그인 RN 0.76.6 환경에서 크래시 발생 → GitHub 이슈 분석 후 patch-package를 적용해 초기화 타이밍을 수정, 안정적 로그인 흐름 확보.\n채팅 unread 계산 최적화: 채팅방에 latest _ seq, 사용자별 last _ read _ seq를 관리해 두 값을 비 교. → 안 읽은 메시지 수와 읽은 인원을 즉시 계산, 조인 최소화.\n랭킹 성능 개선: Materialized View\n인덱스 튜닝, pg _ cron으로 주기적 갱신 → 대규모 환경에 서도 일정한 응답 속도 확보.\n대용량 조회 최적화: Keyset 페이지네이션으로 OFFSET 기반 지연 제거, 10만+ 데이터 기준에서 도 <1초 응답 유지.\n이미지 공유 기능: Polyline을 SVG/뷰로 렌더 → ViewShot 캡처 → 갤러리 저장 및 인스타 스토 리 공유 기능 구현.",
+    "meta": {
+      "team": "랭킹 성능 개선: Materialized View"
+    },
+    "char_count": 735
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "주요",
+    "project": "소개",
+    "text": "# 주요\n이슈 & 해결\n초기 지도 좌표 흔들림 → RN Maps 공식 문서(onMapReady 가이드) 참고 후 region 보정 → 첫 렌더 안정화.\n좌표 '튐' 현상 → 속도·거리 기반 아웃라이어 필터 적용 → 경로 단절 최소화.\n무한 스크롤 지연 → FlashList\n프리패치 적용(Shopify 가이드 참고) → 스크롤 UX 개선.\n네이버 OAuth 크래시 → GitHub 이슈 분석 후 patch-package로 초기화 타이밍 수정 → 앱 정 상화.\n채팅 unread 계산 부하 → last _ read _ seq vs latest _ seq 비교 방식으로 단순화 → DB 부하 최소 화.",
+    "meta": {},
+    "char_count": 334
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "설계",
+    "project": "소개",
+    "text": "# 설계\n실시간 통신 선택: Spring Boot STOMP는 RN 환경에서 호환성과 유지보수 부담이 커서 제외. Socket.IO를 선택해 모바일 환경에서 재연결·네임스페이스 관리가 단순하고 안정적으로 동작.\n채팅 seq 구조: 채팅방 단위로 latest _ seq를 기록, 사용자별 last _ read _ seq 저장. 두 값을 비교해 unread와 읽은 인원을 효율적으로 계산.\n보안/세션 관리: Redis 기반 JWT 세션 관리로 중복 로그인 차단, 블랙리스트 전략으로 만료·재사 용 제어.\n랭킹 구조: Materialized View 기반 캐싱으로 실시간성과 성능을 동시에 확보.",
+    "meta": {
+      "outcome": "채팅 seq 구조: 채팅방 단위로 latest _ seq를 기록, 사용자별 last _ read _ seq 저장. 두 값을 비교해 unread와 읽은 인원을 효율적으로 계산.",
+      "team": "보안/세션 관리: Redis 기반 JWT 세션 관리로 중복 로그인 차단, 블랙리스트 전략으로 만료·재사 용 제어."
+    },
+    "char_count": 330
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "성과",
+    "project": "소개",
+    "text": "# 성과\n지도·트래킹 안정화 및 소셜 기능 통합으로 사용자 체감 성능 대폭 개선.\nGitHub 이슈/공식 문서 기반 문제 해결 경험을 통해 기술 역량 검증.\n채팅 seq 구조로 읽음/안읽음 계산 성능 최적화.\n10만+ 데이터 환경에서도 <1초 응답 성능 달성.\n구글 플레이 스토어 정식 배포 완료.",
+    "meta": {
+      "outcome": "지도·트래킹 안정화 및 소셜 기능 통합으로 사용자 체감 성능 대폭 개선."
+    },
+    "char_count": 166
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "07. Walk Planet",
+    "project": "소개",
+    "text": "# 07. Walk Planet\n2024-06-01 ~ 2024-08-12 걸음 수를 측정하여 걸음 수를 기록하고 포인트로 전환하여 앱 내의 캐릭터인 WALK MATE를 꾸미는 앱\n앱: React Native\n웹뷰: React-typescript\n앱 API: Spring-boot 2.5.6\n서버: iwinv(CentOS\n데이터베이스: CentOS서버 내에 구축(PostgreSQL)\nCI/CD: 윈도우\n로컬 환경에 Jenkins 구축, 앱은 플레이스토어에 배포\nEmail: Test\nPassword: (입력하지 않습니다)\nWeb View URL: https://kichani.com/chan-web/login Play Store: https://play.google.com/store/apps/details?id=com.walkplanet",
+    "meta": {},
+    "char_count": 414
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "개요",
+    "project": "소개",
+    "text": "# 개요\n사용자의 걸음 수를 측정해 포인트로 전환하고, 앱 내 캐릭터(WALK MATE)를 꾸밀 수 있는 러 닝/헬스케어 앱.\n모바일 센서 기반의 걸음 측정과 React Native-WebView 연동 구조를 통해 앱과 웹이 동기화되 는 경험을 제공.",
+    "meta": {},
+    "char_count": 140
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd(Web): React(TypeScript), MUI, React Query, Redux\nApp: React Native(WebView), Android Native(SensorManager STEP _ DETECTOR, AlarmManager, Foreground Service, Notification)\nBackEnd(API): Spring Boot 2.5.6 (REST API)\nDatabase: PostgreSQL\nInfra: iwinv(CentOS 9), Nginx, Jenkins(Windows 로컬)",
+    "meta": {
+      "tech_stack": "FrontEnd(Web): React(TypeScript), MUI, React Query, Redux"
+    },
+    "char_count": 307
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Architecture",
+    "project": "소개",
+    "text": "# Architecture\nReact Native(App: WebView) > React(Web) > Spring Boot API > PostgreSQL",
+    "meta": {},
+    "char_count": 85
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n기능\n걸음 측정: Android STEP _ DETECTOR 센서를 기반으로 하루 걸음 수 기록.\n백그라운드 유지: Foreground Service로 앱 종료 시에도 카운트 지속.\n데이터 동기화: RN ↔ WebView ↔ Native 간 양방향 통신으로 걸음 수 일관성 유지.\n목표/누적 관리: StepGoals, StepHistory, StepTotal 도메인 모델을 설계해 하루 목표·이력·누 적 데이터를 구분 관리.\n포인트 전환/꾸미기: 누적 걸음을 포인트로 전환, 캐릭터 꾸미기에 활용.",
+    "meta": {},
+    "char_count": 283
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\n센서 선택/튜닝: 가속도계는 민감도 한계로 오차가 커 STEP _ DETECTOR로 전환. Foreground Service와의 궁합이 좋아 안정적인 카운팅 확보.\n자정 초기화 로직: AlarmManager 브로드캐스트로 매일 00:00에 카운터 리셋.\n데이터 정합성: 로그인 시 DB 값 → RN → Native로 역주입, 로그아웃 시 현재 걸음 수를 DB에 저장해 상태 불일치 방지.\n이미지 업로드 경량화: 모바일 업로드 실패를 해결하기 위해 blueimp-load-image로 리사이 즈/EXIF 보정 후 업로드.\n웹 데이터 패칭 개선: useState/useEffect 중심 구조를 React Query로 전환해 캐싱/중복요청 방지, 로딩 플리커 개선.\n배포 자동화: Jenkins\nPublish over SSH로 FE 빌드와 BE JAR을 원격 서버에 배포 자동화.",
+    "meta": {},
+    "char_count": 443
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "주요",
+    "project": "소개",
+    "text": "# 주요\n이슈 & 해결\n센서 정확도 문제 → 가속도계 기반 카운팅 오차 발생 → STEP _ DETECTOR로 교체해 정확도 개 선.\n앱 종료 시 카운팅 중단 → Foreground Service와 상시 알림 적용 → 백그라운드에서도 지속 측 정 가능.\n자정 이후 걸음 수 초기화 불가 → AlarmManager 브로드캐스트로 00:00 카운터 리셋 → 매일 정확한 초기화 확보.\n앱-웹-네이티브 간 값 불일치 → 로그인/로그아웃 시점에 DB ↔ RN ↔ Native 값 동기화 → 데 이터 일관성 보장.\nWebView SSL 오류 → 초기 배포 시 중간 인증서 미설치로 WebView 차단 발생 → fullchain 설 치로 해결.",
+    "meta": {},
+    "char_count": 354
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "설계",
+    "project": "소개",
+    "text": "# 설계\n걸음 수 구조: StepGoals(목표), StepHistory(일자별 이력), StepTotal(누적)로 분리해 확장성과 데이터 정합성 확보.\n통신 구조: RN ↔ WebView, RN ↔ Native 양방향 브릿지 통신으로 동기화 오류 최소화.\n인프라: 비용 최소화를 위해 S3 대신 서버 로컬 uploads/ 경로를 사용, Nginx로 단순 퍼블릭 서 빙.",
+    "meta": {
+      "outcome": "통신 구조: RN ↔ WebView, RN ↔ Native 양방향 브릿지 통신으로 동기화 오류 최소화."
+    },
+    "char_count": 207
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "성과",
+    "project": "소개",
+    "text": "# 성과\n모바일 센서 기반 걸음 측정 정확도와 백그라운드 지속성을 확보.\n하루 목표/이력/누적 데이터 일관성 유지로 사용자 신뢰도 강화.\nReact Query 전환으로 데이터 패칭 UX 개선.\n구글 플레이 스토어 정식 배포 완료.",
+    "meta": {
+      "outcome": "모바일 센서 기반 걸음 측정 정확도와 백그라운드 지속성을 확보."
+    },
+    "char_count": 128
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "08. Price Quotation Tool",
+    "project": "소개",
+    "text": "# 08. Price Quotation Tool\n2025-06-09 ~ 2025-08-26 대용량 엑셀 품목을 초보자도 빠르게 견적서로 만들 수 있게 한 Windows 데스크톱 견적 툴\n윈도우 앱:\nTauri + React + TypeScript + Vite\n토큰 키 생성기: Python",
+    "meta": {
+      "tech_stack": "2025-06-09 ~ 2025-08-26 대용량 엑셀 품목을 초보자도 빠르게 견적서로 만들 수 있게 한 Windows 데스크톱 견적 툴"
+    },
+    "char_count": 161
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "개요",
+    "project": "소개",
+    "text": "# 개요\n대용량 엑셀 품목을 빠르게 견적서로 변환하는 Windows 데스크톱 툴.\n오프라인/로컬 환경에서 누구나 동일한 품질의 견적서를 산출할 수 있도록 구현.\nElectron 기반 프로토타입을 Tauri로 전환해 설치·배포 용량과 성능을 대폭 개선.",
+    "meta": {},
+    "char_count": 140
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nDesktop: Tauri v2(Windows), React 19, TypeScript, Vite\nUI/상태: MUI v7, Zustand, Framer Motion, notistack\nExcel I/O: xlsx(읽기), ExcelJS(생성), file-saver(다운로드)\nVirtualization/DND: @tanstack/react-virtual, react-window, @hello-pangea/dnd\nStorage: @tauri-apps/plugin-store\n보안/토큰: Python(토큰 키 생성기, 암복호화 유틸)\n기타: React Router, i18next, Tauri opener, use-sound",
+    "meta": {
+      "tech_stack": "Desktop: Tauri v2(Windows), React 19, TypeScript, Vite"
+    },
+    "char_count": 362
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n기능\n엑셀 업로드/매핑: 파일 업로드 시 품목/옵션 자동 매핑, 정규식 기반 네이밍 규칙으로 단일/2종 세트 구분.\n테이블 커스터마이즈: 컬럼 드래그&드롭, On/Off 토글, 사용자 설정 자동 저장·복원.\n대용량 대응: 수천 행 데이터를 가상 스크롤로 부드럽게 처리.\n다국어/온보딩: i18next 기반 다국어 지원, 초보자 가이드/도움말 제공.\n내보내기: ExcelJS로 견적 파일 생성·다운로드, 클라이언트 양식 규칙 반영.\n사용성 강화: 라이트/다크 모드, 사운드 피드백, 커스텀 윈도우 버튼, 스플래시 화면.",
+    "meta": {},
+    "char_count": 294
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\nElectron → Tauri 전환: 런타임 경량화(100MB+ → ~6MB), 설치·업데이트 속도 개선.\n리스트/테이블 최적화: react-virtual, react-window 가상화와 메모이제이션 적용.\n정규식 매핑 로직: 품목 네이밍 규칙을 정규식으로 정의해 자동 매핑 정확도 향상.\n스토리지 관리: Tauri Store로 사용자별 컬럼·테마·가이드 진행도 영속화.\n보안 처리: 모든 데이터 로컬 처리, Python 토큰 키 발급기로 암호화/복호화 검증.",
+    "meta": {},
+    "char_count": 268
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "주요",
+    "project": "소개",
+    "text": "# 주요\n이슈 & 해결\nElectron 빌드 용량 과대(100MB+) → Tauri 전환으로 ~6MB 확보, 배포 부담 해소.\n대용량 테이블 버벅임 → react-virtual/메모이제이션 적용 → 수천 행도 원활히 렌더링.\n사용자 입력 오류 → 정규식 기반 자동 매핑으로 실수 최소화, 견적 흐름 단순화.\n스토리지 불안정 → Tauri Store 도입으로 사용자 설정 안정적 보관.",
+    "meta": {},
+    "char_count": 214
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "설계",
+    "project": "소개",
+    "text": "# 설계\n런타임/플랫폼 전환:\nElectron은 Node+Chromium 번들로 용량·메모리 사용량이 과다(100MB+).\nTauri는 OS WebView\nRust 백엔드를 활용해 패키지 용량 ~6MB, 낮은 메모리 사용, 빠른 구동 속도를 확보.\n보안: 민감 데이터는 네트워크 전송 없이 로컬에서만 처리. Python 기반 토큰 키 발급기와 엡 내 암복호화 로직으로 검증.\n로컬 우선 아키텍처: Excel 업로드/생성, 사용자 설정 저장까지 모든 기능을 로컬에서 수행, 오프 라인 환경에서도 완전 동작.\nUI 전략: 테이블\n드래그&드롭 + 다크 모드, 초보자도 직관적으로 사용 가능.",
+    "meta": {},
+    "char_count": 327
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "성과",
+    "project": "소개",
+    "text": "# 성과\n설치·배포 용량을 Electron 대비 90% 이상 절감(100MB+ → ~6MB).\n견적 작성 속도와 정확도를 개선해 업무 효율성 강화.\n초보자도 몇 번의 클릭으로 견적을 완성할 수 있는 사용성 확보.",
+    "meta": {
+      "outcome": "설치·배포 용량을 Electron 대비 90% 이상 절감(100MB+ → ~6MB)."
+    },
+    "char_count": 118
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "09. 이별 일기",
+    "project": "소개",
+    "text": "# 09. 이별 일기\n2024-08-13 ~ 2024-08-19 이별한 사람들을 위한 일기 웹사이트 입니다. 하루에 한번 이별 일기와 이별 지수를 기록할 수 있습니다.\n웹뷰: React-typescript\n앱 API: Spring-boot 2.5.6\n서버: iwinv(CentOS\n데이터베이스: CentOS서버 내에 구축(PostgreSQL)\nCI/CD: 윈도우\n로컬 환경에 Jenkins 구축 이별 일기 사이트\nURL: https://kichani.com/leave/login",
+    "meta": {},
+    "char_count": 267
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "Tech",
+    "project": "소개",
+    "text": "# Tech\nStack\nFrontEnd: React(TypeScript), React Query, Redux Store, MUI\nBackEnd: Spring Boot, JPA, JWT\nDatabase: PostgreSQL(iwinv 서버)\nInfra: Nginx, Jenkins(로컬), systemd 서비스",
+    "meta": {
+      "tech_stack": "FrontEnd: React(TypeScript), React Query, Redux Store, MUI"
+    },
+    "char_count": 172
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n기능\n하루 1회 작성 제한 정책(당일 중복 작성 차단).\n무한 스크롤(useInfiniteQuery\nuseInView).\n정렬 옵션(최신순, 오래된순).\n이별 디데이 계산 및 프로필 관리.",
+    "meta": {},
+    "char_count": 110
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "핵심",
+    "project": "소개",
+    "text": "# 핵심\n개발사항\nAPI 레벨에서 하루 1회 작성 정책 검증 로직 추가.\n무한 스크롤 데이터 로딩 최적화(React Query 캐시\n프리패치).\nJenkins\nSSH 배포 자동화, systemd로 서버 자동 실행 구성.",
+    "meta": {},
+    "char_count": 122
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "WORD IT SHOW",
+    "project": "소개",
+    "text": "# WORD IT SHOW\nWORLD IT SHOW는 IT에 관련된 여러 기 업들이 참여하는 전시회입니다. 분야별로 관람할 수 있게 여러 부스들이 있 었습니다. 소프트웨어는 물론이고 하드웨어 부분도 볼 수 있었습니다. 크게 ICTConvergence, Smart Living & Health Care, Robotics, Digital Twin & Metaverse, Block Chain & Security, IntelligentMobility의 종류가 전시돼 있었\n습니다.\n개인적으로 AI분야의 전시품목이 많은걸 느 꼈습니다. 전시회를 관람하고 AI가 지금의 트렌드라는 것을 느낄 수 있었습니다.",
+    "meta": {},
+    "char_count": 334
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "한국기술교육대학교",
+    "project": "소개",
+    "text": "# 한국기술교육대학교\n한국 기술 교육 대학교에서 제공하는 평생능력 개발 이러닝 과목으로 보안 운영관리 part1, 보안 운영관리 part2, 와이어샤크 네트워크 패킷 분석, 웹 앱 개발을 위한 Javascript 기초 를 이수했습니다.\nADDITIONAL",
+    "meta": {},
+    "char_count": 142
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "천안",
+    "project": "소개",
+    "text": "# 천안\n아산지역 대학교경진대회 대학교 별로 2팀씩 선발하여 참가할 수 있는 천안 아 산지역 기업분석 경진대회에 참가하여 장려상을 받았 습니다. SFA반도체 기업을 분석하였습니다. 기업 개요, 기업 분석, 취업 전략을 분석했습니다. 취업 전략으로 직접 모의 입사 지원서를 작성했습니 다. 2학년 때에 입사지원서를 작성해 봄으로써 미리 취업 전략을 세울 수 있는 경험이었습니다. 기업 분석 경진대회 장려상",
+    "meta": {},
+    "char_count": 225
+  },
+  {
+    "source": "output예시 포폴",
+    "doc_type": "portfolio",
+    "section": "ICPC",
+    "project": "소개",
+    "text": "# ICPC\n동아리\nICT학부의 기독교 동아리입 니다. 위 사진은 코로나로 인해 비 대면으로 동아리 모임을 진 행하는 사진입니다. 또 다른 사진은 제가 채플 찬 양팀에 속했을 때 기타를 치 는 사진입니다.\n박기찬\nrlgusrlcks00@gmail.com\n010-4855-9646\nhttps://blog.naver.com/qkrrlcks _ 99\nhttps://github.com/rlgusrlcks00",
+    "meta": {},
+    "char_count": 224
+  }
+]
