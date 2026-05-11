@@ -54,7 +54,7 @@ def insert_cover_letter_to_db(chunks: list[dict]):
             """,
             (
                 c["id"], c["source"], c["doc_type"],
-                c["category"], c["sub_section"], c["keywords_str"],
+                c["category"], c["section"], c["keywords_str"],
                 c["text"],
                 json.dumps(c["achievements"], ensure_ascii=False),
                 json.dumps(c["keywords"], ensure_ascii=False),
