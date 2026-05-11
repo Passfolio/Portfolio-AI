@@ -1,0 +1,16 @@
+# python
+__pycache__/
+*.pyc
+
+# Virtual env
+.venv/
+venv/
+
+# Env files
+.env
+.env.*
+!.eve.example
+
+# Claude files
+.claude
+superpowers
