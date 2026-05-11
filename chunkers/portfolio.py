@@ -3,28 +3,36 @@ portfolio_chunker.py
 ────────────────────────────────────────────────────────────
 Docling 기반 포트폴리오 PDF → 프로젝트 단위 청킹
 
-파이프라인:
-  1. PyMuPDF로 스캔본 여부 자동 감지
-  2. Docling 배치 변환 (BATCH_SIZE 페이지씩, bad_alloc 방지)
-  3. 병합 마크다운 → Gemini LLM으로 프로젝트 섹션 분리 + 메타 동시 추출
-  4. 섹션별 청크 dict 반환
+OCR + 청킹 전략 (환경변수 조합에 따라 자동 선택):
+  ① UPSTAGE_API_KEY + GEMINI_API_KEY  → Upstage OCR + Gemini LLM 청킹  (최고 품질)
+  ② UPSTAGE_API_KEY only              → Upstage OCR + 규칙 기반 청킹   (OCR 품질 우수)
+  ③ GEMINI_API_KEY only               → Docling OCR + Gemini LLM 청킹  (청킹 품질 우수)
+  ④ 둘 다 없음                         → Docling OCR + 규칙 기반 청킹   (폴백, 무료)
 
-수정 사항 (v2):
-  - meta를 정규식 대신 LLM이 직접 추출 → 형식에 무관한 정확한 값 반환
-  - <!-- image --> 태그 및 연속 빈 줄 후처리 제거
-
-OCR 전략:
-  - 텍스트 PDF  → OCR 생략
-  - 스캔본 PDF  → Tesseract (LSTM 엔진) + 전처리 파이프라인
+환경: Windows / CPU 전용 (Docling OCR 사용 시)
+Docling OCR 전략:
+  - PyMuPDF로 스캔본 여부 자동 감지
+  - 텍스트 PDF  → OCR 생략 (빠름)
+  - 스캔본 PDF  → Tesseract (LSTM 엔진)
+  - 혼합 PDF    → 스캔 페이지 비율로 판단 후 OCR 적용
 
 전처리 파이프라인 (저해상도/CPU 특화):
-  1. 130 DPI 렌더링
+  1. 130 DPI 렌더링 (72 기본 대비 인식률 개선, 메모리 안전)
   2. 1.5배 업스케일 (INTER_CUBIC)
   3. 노이즈 제거 (fastNlMeansDenoising, h=7)
   4. CLAHE 적응형 히스토그램 균등화
   5. 다크 배경 자동 감지 후 반전
   6. 적응형 이진화 (ADAPTIVE_THRESH_GAUSSIAN_C, blockSize=15)
   7. 형태학적 획 복원 (MORPH_CLOSE 2×2)
+
+메모리 최적화 (std::bad_alloc 방지):
+  - IMAGES_SCALE 0.7 : 이미지 해상도 낮춤 (기본 2.0 → 0.7)
+  - BATCH_SIZE       : 페이지 단위 배치 처리
+  - do_table_structure: 스캔본은 표 구조 분석 생략
+
+설치:
+  pip install docling pymupdf rapidocr-onnxruntime opencv-python
+  pip install docling-core[chunking] transformers
 """
 
 from __future__ import annotations
@@ -34,9 +42,9 @@ import json
 import os
 import re
 import time
+import requests
 from pathlib import Path
 from typing import Optional
-import html
 
 import cv2
 import fitz  # PyMuPDF
@@ -46,6 +54,14 @@ from pydantic import BaseModel
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.datamodel.pipeline_options import PdfPipelineOptions, TesseractCliOcrOptions
 from docling.datamodel.base_models import InputFormat
+from docling.chunking import HybridChunker
+from docling_core.types.doc import (
+    DoclingDocument,
+    SectionHeaderItem,
+    TextItem,
+    TableItem,
+    ListItem,
+)
 from google import genai as _genai
 from google.genai import types as _types
 
@@ -54,13 +70,15 @@ from google.genai import types as _types
 # 설정값
 # ═══════════════════════════════════════════════════════════════
 
-IMAGES_SCALE = 0.7
-BATCH_SIZE   = 5
-RENDER_DPI   = 130
+IMAGES_SCALE = 0.7   # Docling 내부 이미지 스케일 (메모리 절감용)
+BATCH_SIZE   = 5     # 한 번에 처리할 최대 페이지 수 (OOM 발생 시 2~3으로 낮출 것)
+RENDER_DPI   = 130   # 전처리용 렌더링 DPI (72=기본 / 130=안전 / 150=권장)
+                     # 메모리 부족 시 110~120으로 낮추고, 여유 있으면 150까지 올려볼 것
 
-TESSERACT_CMD        = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-_TEXT_CHAR_THRESHOLD = 50
-MIN_CHUNK_CHARS      = 80
+TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+_TEXT_CHAR_THRESHOLD = 50  # 페이지당 텍스트 글자 수 기준 (이하면 스캔본으로 판단)
+MIN_CHUNK_CHARS      = 80  # 청크 최소 길이 (이하면 드롭)
 
 _LLM_MODEL   = "gemini-3.1-flash-lite"
 _LLM_RETRIES = 3
@@ -71,6 +89,7 @@ _LLM_RETRIES = 3
 # ═══════════════════════════════════════════════════════════════
 
 def is_scanned_pdf(pdf_path: str, sample_pages: int = 3) -> bool:
+    """앞 sample_pages 페이지의 텍스트량으로 스캔본 여부 판단."""
     doc = fitz.open(pdf_path)
     pages_to_check = min(sample_pages, len(doc))
     scanned_count = sum(
@@ -89,20 +108,48 @@ def get_page_count(pdf_path: str) -> int:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 2. OCR 전처리 파이프라인
+# 2. OCR 전처리 파이프라인 (저해상도 / CPU 특화)
 # ═══════════════════════════════════════════════════════════════
 
 def _detect_dark_background(gray: np.ndarray) -> bool:
+    """평균 밝기로 다크 배경 여부 판단 (127 미만이면 다크)."""
     return float(np.mean(gray)) < 127
 
 
 def _ocr_preprocess(gray: np.ndarray) -> np.ndarray:
-    gray = cv2.resize(gray, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
+    """
+    저해상도 이미지를 Tesseract 인식에 최적화된 형태로 가공.
+
+    체인 순서:
+      업스케일 → 노이즈 제거 → CLAHE → 다크 반전 → 이진화 → 획 복원
+    """
+    # ── Step 1. 제한적 업스케일 ──────────────────────────────
+    # 2.0배는 메모리 부담이 크므로 1.5배로 제한.
+    # INTER_CUBIC이 엣지 보존에 유리 (INTER_LINEAR 대비 한글 획 선명도 향상).
+    gray = cv2.resize(
+        gray, None, fx=1.5, fy=1.5,
+        interpolation=cv2.INTER_CUBIC,
+    )
+
+    # ── Step 2. 노이즈 제거 ──────────────────────────────────
+    # h=7: 낮은 값으로 디테일(얇은 획) 보존 우선.
+    # h=10~15로 올리면 노이즈는 더 제거되지만 글자 번짐 위험.
     gray = cv2.fastNlMeansDenoising(gray, h=7)
+
+    # ── Step 3. CLAHE (적응형 히스토그램 균등화) ─────────────
+    # 저대비·불균일 조명 슬라이드에서 가장 효과적인 단일 기법.
+    # clipLimit=2.0: 과도한 노이즈 증폭 방지 (3.0 이상은 권장 안 함).
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
+
+    # ── Step 4. 다크 배경 감지 후 반전 ──────────────────────
+    # 포트폴리오 슬라이드에 다크 테마가 많으므로 반드시 처리.
     if _detect_dark_background(gray):
         gray = cv2.bitwise_not(gray)
+
+    # ── Step 5. 적응형 이진화 ────────────────────────────────
+    # blockSize=15: 저해상도에서 11보다 안정적 (너무 크면 디테일 손실).
+    # C=10: 배경 노이즈 억제 강도 (값이 클수록 배경 더 날림).
     binary = cv2.adaptiveThreshold(
         gray, 255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -110,22 +157,42 @@ def _ocr_preprocess(gray: np.ndarray) -> np.ndarray:
         blockSize=15,
         C=10,
     )
+
+    # ── Step 6. 형태학적 획 복원 ─────────────────────────────
+    # 저해상도에서 끊긴 한글 획을 연결. 2×2 커널로 과도한 뭉침 방지.
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-    return cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+
+    return binary
 
 
 def preprocess_pdf_to_image_pdf(src_path: str, dst_path: str) -> None:
+    """
+    각 페이지를 그레이스케일 이미지로 렌더링 → 전처리 → 새 PDF로 재조립.
+    Docling(Tesseract)은 이 전처리된 PDF를 OCR 대상으로 받는다.
+
+    RENDER_DPI=130 선택 이유:
+      72dpi(기본)보다 ~3.3배 선명, 150dpi 대비 메모리는 약 25% 절감.
+      CPU 노트북 환경에서 속도/품질 균형점.
+    """
     src = fitz.open(src_path)
     dst = fitz.open()
     mat = fitz.Matrix(RENDER_DPI / 72, RENDER_DPI / 72)
+
     for page in src:
+        # 그레이스케일로 렌더링 (RGB 대비 메모리 1/3)
         pix = page.get_pixmap(matrix=mat, colorspace=fitz.csGRAY)
-        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width)
+        img = np.frombuffer(pix.samples, dtype=np.uint8).reshape(
+            pix.height, pix.width
+        )
+
         processed = _ocr_preprocess(img)
+
         h, w = processed.shape
         new_page = dst.new_page(width=w, height=h)
         _, buf = cv2.imencode(".png", processed)
         new_page.insert_image(new_page.rect, stream=buf.tobytes())
+
     dst.save(dst_path)
     src.close()
     dst.close()
@@ -136,21 +203,25 @@ def preprocess_pdf_to_image_pdf(src_path: str, dst_path: str) -> None:
 # ═══════════════════════════════════════════════════════════════
 
 def _make_converter(use_ocr: bool) -> DocumentConverter:
+    """OCR 여부에 따라 Docling DocumentConverter 생성."""
     pipeline = PdfPipelineOptions()
     pipeline.images_scale = IMAGES_SCALE
+
     if use_ocr:
         pipeline.do_ocr = True
-        pipeline.do_table_structure = False
+        pipeline.do_table_structure = False  # 스캔본은 TableFormer 생략 (메모리↓)
         pipeline.ocr_options = TesseractCliOcrOptions(
             lang=["kor", "eng"],
             tesseract_cmd=TESSERACT_CMD,
-            psm=6,
         )
     else:
         pipeline.do_ocr = False
         pipeline.do_table_structure = True
+
     return DocumentConverter(
-        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline)}
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline)
+        }
     )
 
 
@@ -159,10 +230,13 @@ _converter_ocr:    Optional[DocumentConverter] = None
 
 
 def _get_converter(pdf_path: str) -> tuple[DocumentConverter, bool]:
+    """PDF 특성을 자동 감지해 (컨버터, use_ocr) 반환. 싱글턴으로 재사용."""
     global _converter_no_ocr, _converter_ocr
+
     scanned = is_scanned_pdf(pdf_path)
+
     if scanned:
-        print(f"[OCR ] 스캔본 감지 → Tesseract + 전처리: {Path(pdf_path).name}")
+        print(f"[OCR ] 스캔본 감지 → Tesseract + 전처리 배치: {Path(pdf_path).name}")
         if _converter_ocr is None:
             _converter_ocr = _make_converter(use_ocr=True)
         return _converter_ocr, True
@@ -174,15 +248,26 @@ def _get_converter(pdf_path: str) -> tuple[DocumentConverter, bool]:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 4. 배치 변환 → 마크다운 문자열 반환
+# 4. 배치 변환 (전처리 포함)
 # ═══════════════════════════════════════════════════════════════
 
 def _convert_in_batches(
     pdf_path: str,
     converter: DocumentConverter,
     use_ocr: bool = True,
-) -> str:
-    """BATCH_SIZE 페이지씩 변환 후 마크다운 문자열로 병합."""
+) -> DoclingDocument:
+    """
+    BATCH_SIZE 페이지씩 분할 → (OCR시 전처리) → 변환 → 마크다운 병합.
+
+    전처리 흐름 (OCR 모드):
+      원본 PDF
+        └─ fitz로 N페이지 추출 → tmp_raw.pdf
+              └─ preprocess_pdf_to_image_pdf → tmp_pre.pdf
+                    └─ Docling(Tesseract) 변환 → 마크다운
+
+    텍스트 모드는 전처리 없이 페이지 분할만 적용 (Docling ML 모델 OOM 방지).
+    임시 파일은 배치마다 즉시 삭제해 디스크 사용 최소화.
+    """
     total = get_page_count(pdf_path)
 
     if total <= BATCH_SIZE:
@@ -190,14 +275,15 @@ def _convert_in_batches(
             tmp_pre = Path(pdf_path).with_suffix(".tmp_pre.pdf")
             try:
                 preprocess_pdf_to_image_pdf(pdf_path, str(tmp_pre))
-                return converter.convert(str(tmp_pre)).document.export_to_markdown()
+                return converter.convert(str(tmp_pre)).document
             finally:
                 if tmp_pre.exists():
                     tmp_pre.unlink()
         else:
-            return converter.convert(pdf_path).document.export_to_markdown()
+            return converter.convert(pdf_path).document
 
     print(f"[BATCH] 총 {total}페이지 → {BATCH_SIZE}페이지씩 분할 처리")
+
     markdown_parts: list[str] = []
     src_doc = fitz.open(pdf_path)
 
@@ -209,23 +295,28 @@ def _convert_in_batches(
         tmp_pre = Path(pdf_path).with_suffix(f".tmp_{start}_pre.pdf")
 
         try:
+            # ① 페이지 분할
             sub = fitz.open()
             sub.insert_pdf(src_doc, from_page=start, to_page=end - 1)
             sub.save(str(tmp_raw))
             sub.close()
 
             if use_ocr:
+                # ② 전처리 적용 (OCR 모드)
                 preprocess_pdf_to_image_pdf(str(tmp_raw), str(tmp_pre))
                 target = str(tmp_pre)
             else:
                 target = str(tmp_raw)
 
-            md = converter.convert(target).document.export_to_markdown()
+            # ③ Docling 변환
+            result = converter.convert(target)
+            md = result.document.export_to_markdown()
             if md.strip():
                 markdown_parts.append(md.strip())
 
         except Exception as e:
             print(f"  [WARN] {start + 1}~{end}페이지 처리 실패 (건너뜀): {e}")
+
         finally:
             for p in (tmp_raw, tmp_pre):
                 if p.exists():
@@ -237,60 +328,57 @@ def _convert_in_batches(
     if not markdown_parts:
         raise RuntimeError("모든 배치 변환 실패 — 텍스트를 추출할 수 없습니다.")
 
-    return "\n\n".join(markdown_parts)
+    # 병합 마크다운 → DoclingDocument 재조립
+    combined_md = "\n\n".join(markdown_parts)
+    tmp_md = Path(pdf_path).with_suffix(".tmp_combined.md")
+    try:
+        tmp_md.write_text(combined_md, encoding="utf-8")
+        return DocumentConverter().convert(str(tmp_md)).document
+    finally:
+        if tmp_md.exists():
+            tmp_md.unlink()
+
 
 
 # ═══════════════════════════════════════════════════════════════
 # 5. 텍스트 후처리
 # ═══════════════════════════════════════════════════════════════
 
-_RE_IMAGE_TAG    = re.compile(r"<!--\s*image\s*-->", re.I)
-_RE_BLANK_LINES  = re.compile(r"\n{3,}")
-# 한글 자모/완성형 문자 사이의 단일 공백 제거 (자간 넓은 디자인 폰트 OCR 오류 복원)
-_RE_KO_SPACE     = re.compile(r"(?<=[가-힣ᄀ-ᇿ㄰-㆏]) (?=[가-힣ᄀ-ᇿ㄰-㆏])")
-
-
-def _fix_korean_spacing(text: str) -> str:
-    """OCR이 자간을 단어 경계로 잘못 분리한 한글 공백을 반복 제거."""
-    prev = None
-    while prev != text:
-        prev = text
-        text = _RE_KO_SPACE.sub("", text)
-    return text
-
+_RE_IMAGE_TAG   = re.compile(r"<!--\s*image\s*-->", re.I)
+_RE_BLANK_LINES = re.compile(r"\n{3,}")
+_RE_MD_IMAGE   = re.compile(r'!\[.*?\]\([^)]*\)')   # ![image](/image/placeholder)
+_RE_CTRL_CHARS = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')  # 제어문자
 
 def _clean_text(text: str) -> str:
-    text = _RE_IMAGE_TAG.sub("", text)
-    text = _fix_korean_spacing(text)
+    """청크 텍스트에서 노이즈 제거: image 태그, 연속 빈 줄, HTML 엔티티."""
+    import html
+    text = _RE_IMAGE_TAG.sub("", text)       # <!-- image -->
+    text = _RE_MD_IMAGE.sub("", text)        # ← 추가: ![image](...)
+    text = _RE_CTRL_CHARS.sub("", text)      # ← 추가: 제어문자
     text = _RE_BLANK_LINES.sub("\n\n", text)
     text = html.unescape(text)
     return text.strip()
 
 
 # ═══════════════════════════════════════════════════════════════
-# 6. Gemini LLM 기반 섹션 분리 + 메타 추출 (1-pass)
+# 5-2. LLM 기반 섹션 분리 + 메타 추출 (1-pass, Gemini)
 # ═══════════════════════════════════════════════════════════════
 
 class _Meta(BaseModel):
-    """프로젝트 섹션에서 LLM이 직접 추출하는 메타데이터.
-
-    프로젝트가 아닌 섹션(자기소개, 기술스택 등)은 str 필드는 "", list 필드는 []로 반환.
-    """
-    period:        str        # 기간 (예: "2024.03 ~ 2025.11"). 없으면 ""
-    role:          str        # 역할/담당 (예: "풀스택 개발"). 없으면 ""
-    team:          str        # 팀 구성. 텍스트에 명시된 경우만 기재. 없으면 반드시 ""
-    tech_stack:    list[str]  # 기술 스택 목록. 없으면 []
-    contributions: list[str]  # 본인이 직접 수행한 역할/구현 내용 (수치 없는 역할). 없으면 []
-    achievements:  list[str]  # 수치 포함 정량적 성과 또는 명확한 결과. 없으면 []
-    keywords:      list[str]  # 기술·직무·도메인 키워드. 없으면 []
+    """LLM이 섹션에서 직접 추출하는 메타데이터."""
+    period:     str
+    role:       str
+    tech_stack: str
+    outcome:    str
+    team:       str
 
 
 class _Section(BaseModel):
-    section:    str   # 상위 분류 (프로젝트경험 / 기술스택 / 자기소개 / 경력 / 기타)
-    project:    str   # 세부 프로젝트명 또는 섹션명
-    start_line: int   # 섹션 시작 줄 번호 (1-based)
-    end_line:   int   # 섹션 끝 줄 번호 (1-based, inclusive)
-    meta:       _Meta # ← LLM이 섹션 텍스트를 읽고 직접 추출
+    section:    str
+    project:    str
+    start_line: int
+    end_line:   int
+    meta:       _Meta
 
 
 class _SectionList(BaseModel):
@@ -298,21 +386,21 @@ class _SectionList(BaseModel):
 
 
 def _number_lines(markdown: str) -> tuple[str, list[str]]:
-    """마크다운에 줄 번호를 붙여 LLM 전달용 문자열과 원본 줄 목록을 반환."""
+    """마크다운에 줄 번호를 붙여 LLM 전달용 문자열과 원본 줄 목록 반환."""
     lines = markdown.split("\n")
     numbered = "\n".join(f"{i + 1:04d} | {line}" for i, line in enumerate(lines))
     return numbered, lines
 
 
 def _slice_lines(lines: list[str], start: int, end: int) -> str:
-    """1-based inclusive 범위로 원본 줄을 슬라이싱."""
+    """1-based inclusive 범위로 원본 줄 슬라이싱."""
     s = max(0, start - 1)
     e = min(len(lines), end)
     return "\n".join(lines[s:e]).strip()
 
 
 def _gemini_split_sections(markdown: str, source: str) -> list[dict]:
-    """Gemini로 포트폴리오 마크다운을 프로젝트/섹션 단위로 분리하고 메타도 함께 추출."""
+    """Gemini로 포트폴리오 마크다운을 프로젝트/섹션 단위로 분리하고 메타도 추출 (1-pass)."""
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("GEMINI_API_KEY 환경변수가 설정되지 않았습니다.")
@@ -321,33 +409,28 @@ def _gemini_split_sections(markdown: str, source: str) -> list[dict]:
     numbered_md, raw_lines = _number_lines(markdown)
     total_lines = len(raw_lines)
 
-    prompt = f"""다음은 포트폴리오 PDF에서 추출한 마크다운입니다. 각 줄 앞에 줄 번호가 붙어 있습니다.
-이 텍스트를 읽고 프로젝트/섹션 단위로 분리하고, 각 섹션의 메타데이터도 함께 추출해주세요.
-
-[section 선택 기준]
-- 프로젝트경험: 개발/기획/디자인 등 프로젝트 경험
-- 기술스택: 보유 기술, 언어, 프레임워크 목록
-- 자기소개: 프로필, 소개, 목표
-- 경력: 인턴, 직장, 대외활동, 수상
-- 기타: 위에 해당하지 않는 내용
-
-[분리 기준]
-- 각 프로젝트는 독립적인 섹션으로 분리
-- 요약 슬라이드와 상세 슬라이드가 같은 프로젝트면 하나의 섹션으로 합침
-- start_line과 end_line은 실제 줄 번호(1~{total_lines})여야 하며 누락 없이 커버
-- 모든 줄은 정확히 하나의 섹션에 속해야 합니다
-
-[meta 추출 기준] — section이 프로젝트경험일 때만 의미 있게 채우고, 나머지는 str → "" / list → []
-- period:        "YYYY.MM ~ YYYY.MM" 형식으로 정제. 없으면 ""
-- role:          역할/담당 설명을 간결하게. 없으면 ""
-- team:          텍스트에 팀 구성이 명시된 경우에만 기재 (예: "4인 팀"). "개인프로젝트"라고 적혀 있으면 그대로 반환. 명시가 없으면 반드시 "". 추측 금지
-- tech_stack:    언어·프레임워크·라이브러리·인프라·툴을 항목별로 추출. 없으면 []
-- contributions: 수치 없이 본인이 직접 수행한 역할·구현·설계 내용을 "~구현", "~개발", "~설계" 형태로 항목별 추출. 없으면 []
-- achievements:  수치(%, 배수, 건수 등) 포함 정량적 성과 또는 명확한 결과(출시, 수상 등)를 항목별 추출. contributions와 중복 금지. 없으면 []
-- keywords:      기술 스택·직무 역량·도메인 키워드를 중복 없이 추출. 없으면 []
-
-마크다운:
-{numbered_md}"""
+    prompt = (
+        "다음은 포트폴리오 PDF에서 추출한 마크다운입니다. 각 줄 앞에 줄 번호가 붙어 있습니다.\n"
+        "이 텍스트를 읽고 프로젝트/섹션 단위로 분리하고, 각 섹션의 메타데이터도 함께 추출해주세요.\n\n"
+        "[section 선택 기준]\n"
+        "- 프로젝트경험: 개발/기획/디자인 등 프로젝트 경험\n"
+        "- 기술스택: 보유 기술, 언어, 프레임워크 목록\n"
+        "- 자기소개: 프로필, 소개, 목표\n"
+        "- 경력: 인턴, 직장, 대외활동, 수상\n"
+        "- 기타: 위에 해당하지 않는 내용\n\n"
+        "[분리 기준]\n"
+        "- 각 프로젝트는 독립적인 섹션으로 분리\n"
+        "- 요약 슬라이드와 상세 슬라이드가 같은 프로젝트면 하나의 섹션으로 합침\n"
+        f"- start_line과 end_line은 실제 줄 번호(1~{total_lines})여야 하며 누락 없이 커버\n"
+        "- 모든 줄은 정확히 하나의 섹션에 속해야 합니다\n\n"
+        "[meta 추출 기준] — section이 프로젝트경험일 때만 의미 있게 채우고, 나머지는 빈 문자열\n"
+        '- period:     "YYYY.MM ~ YYYY.MM" 형식으로 정제. 없으면 ""\n'
+        '- role:       역할/담당 설명을 간결하게. 없으면 ""\n'
+        '- tech_stack: 핵심 기술을 쉼표로 구분해 요약 (최대 5개). 없으면 ""\n'
+        '- outcome:    가장 인상적인 성과 1문장. 없으면 ""\n'
+        '- team:       텍스트에 팀 구성이 명시된 경우만 기재. 명시 없으면 반드시 ""\n\n'
+        f"마크다운:\n{numbered_md}"
+    )
 
     for attempt in range(_LLM_RETRIES):
         try:
@@ -381,12 +464,11 @@ def _gemini_split_sections(markdown: str, source: str) -> list[dict]:
         start = int(item["start_line"])
         end   = int(item["end_line"])
         raw   = _slice_lines(raw_lines, start, end)
-        text  = _clean_text(raw)           # ← <!-- image --> 제거 + 빈 줄 정리
+        text  = _clean_text(raw)
 
         if len(text) < MIN_CHUNK_CHARS:
             continue
 
-        # LLM이 반환한 meta dict에서 빈 문자열 필드 제거
         meta_raw: dict = item.get("meta", {})
         meta = {k: v for k, v in meta_raw.items() if isinstance(v, str) and v.strip()}
 
@@ -403,49 +485,266 @@ def _gemini_split_sections(markdown: str, source: str) -> list[dict]:
     return chunks
 
 
+
+
 # ═══════════════════════════════════════════════════════════════
-# 7. 공개 API
+# 6. 유틸리티
 # ═══════════════════════════════════════════════════════════════
 
-def chunk(pdf_path: str, source: str) -> list[dict]:
-    """PDF → 마크다운 → LLM 섹션 분리 + 메타 추출 → 청크 리스트 반환."""
-    converter, use_ocr = _get_converter(pdf_path)
-    markdown = _convert_in_batches(pdf_path, converter, use_ocr=use_ocr)
+def _serialize_item(item, doc: Optional[DoclingDocument] = None) -> str:
+    if isinstance(item, TableItem):
+        try:
+            return item.export_to_markdown(doc) if doc is not None else item.export_to_markdown()
+        except Exception:
+            return "[표]"
+    if isinstance(item, (TextItem, ListItem)):
+        return item.text.strip()
+    if hasattr(item, "text"):
+        return item.text.strip()
+    return ""
 
-    if not markdown.strip():
-        return []
 
-    print(f"  마크다운 추출 완료 ({len(markdown)}자) → LLM 섹션 분리 중...")
-    return _gemini_split_sections(markdown, source)
+def _heading_level(item) -> Optional[int]:
+    if isinstance(item, SectionHeaderItem):
+        return getattr(item, "level", 1)
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════
+# 7. DoclingDocument → 프로젝트 단위 청크
+# ═══════════════════════════════════════════════════════════════
+
+def _build_project_chunks(
+    doc: DoclingDocument,
+    source: str,
+    split_level: int = 2,
+) -> list[dict]:
+    """
+    헤딩 계층에 따라 문서를 프로젝트 단위로 분할.
+    split_level=2 기준:
+      H1 이하 → section 구분자
+      H2      → project 구분자 (청크 경계)
+      H3+     → 청크 내부 소제목
+    """
+    chunks: list[dict] = []
+    current_h1      = "포트폴리오"
+    current_project = "소개"
+    buffer_lines: list[str] = []
+
+    def flush() -> None:
+        content = "\n".join(buffer_lines).strip()
+        if len(content) < MIN_CHUNK_CHARS:
+            return
+        chunks.append({
+            "source":     source,
+            "doc_type":   "portfolio",
+            "section":    current_h1,
+            "project":    current_project,
+            "text":       content,
+            "meta":       {},
+            "char_count": len(content),
+        })
+
+    for item, _ in doc.iterate_items():
+        level = _heading_level(item)
+
+        if level is not None and level <= split_level - 1:
+            flush()
+            buffer_lines.clear()
+            current_h1 = item.text.strip()
+            buffer_lines.append(f"# {current_h1}")
+
+        elif level is not None and level == split_level:
+            flush()
+            buffer_lines.clear()
+            current_project = item.text.strip()
+            buffer_lines.append(f"## {current_project}")
+
+        elif level is not None and level > split_level:
+            buffer_lines.append(f"{'#' * level} {item.text.strip()}")
+
+        else:
+            serialized = _serialize_item(item, doc)
+            if serialized:
+                buffer_lines.append(serialized)
+
+    flush()
+    return chunks
+
+
+# ═══════════════════════════════════════════════════════════════
+# 8. 큰 청크 추가 분할 (HybridChunker)
+# ═══════════════════════════════════════════════════════════════
+
+def _split_oversized(
+    chunks: list[dict],
+    doc: DoclingDocument,
+    max_tokens: int = 8192,
+    embed_model_id: str = "BAAI/bge-m3",
+) -> list[dict]:
+    """토큰 한도를 초과하는 청크를 HybridChunker로 추가 분할."""
+    try:
+        from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+        from transformers import AutoTokenizer
+
+        tokenizer = HuggingFaceTokenizer(
+            tokenizer=AutoTokenizer.from_pretrained(embed_model_id),
+            max_tokens=max_tokens,
+        )
+        chunker = HybridChunker(tokenizer=tokenizer, merge_peers=True)
+    except Exception as e:
+        print(f"[WARN] HybridChunker 초기화 실패, 원본 청크 반환: {e}")
+        return chunks
+
+    result: list[dict] = []
+    for chunk in chunks:
+        if tokenizer.count_tokens(chunk["text"]) <= max_tokens:
+            result.append(chunk)
+            continue
+        for i, sc in enumerate(chunker.chunk(dl_doc=doc)):
+            sub_text = chunker.contextualize(sc).strip()
+            if len(sub_text) < MIN_CHUNK_CHARS:
+                continue
+            result.append({
+                **chunk,
+                "text":       sub_text,
+                "project":    f"{chunk['project']} [{i + 1}]",
+                "char_count": len(sub_text),
+            })
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════
+# 9. Upstage Document Parse
+# ═══════════════════════════════════════════════════════════════
+
+def _parse_with_upstage(pdf_path: str, api_key: str) -> str:
+    """Upstage Document Parse API로 PDF → 마크다운 변환."""
+    with open(pdf_path, "rb") as f:
+        resp = requests.post(
+            "https://api.upstage.ai/v1/document-digitization",
+            headers={"Authorization": f"Bearer {api_key}"},
+            files={
+                "document": (Path(pdf_path).name, f, "application/pdf"),
+            },
+            data={
+                "model": "document-parse",
+                "output_formats": '["markdown"]',
+            },
+        )
+    if not resp.ok:
+        print(f"[Upstage 오류] {resp.status_code}: {resp.text}")
+        resp.raise_for_status()
+
+    data = resp.json()
+    # 응답 구조 확인용 (첫 실행 시)
+    print(f"[Upstage] 응답 키: {list(data.keys())}")
+
+    content = data.get("content", {})
+    return content.get("markdown") or content.get("html") or content.get("text") or str(content)
+
+
+def _markdown_to_docling(pdf_path: str, markdown: str) -> "DoclingDocument":
+    """마크다운 문자열 → DoclingDocument (기존 청킹 로직 재사용)."""
+    tmp_md = Path(pdf_path).with_suffix(".tmp_upstage.md")
+    try:
+        tmp_md.write_text(markdown, encoding="utf-8")
+        return DocumentConverter().convert(str(tmp_md)).document
+    finally:
+        if tmp_md.exists():
+            tmp_md.unlink()
+
+
+# ═══════════════════════════════════════════════════════════════
+# 10. 공개 API
+# ═══════════════════════════════════════════════════════════════
+
+def chunk(
+    pdf_path: str,
+    source: str,
+    split_level: int = 2,
+    embed_model_id: str = "BAAI/bge-m3",
+    max_tokens: int = 8192,
+) -> list[dict]:
+    """
+    PDF를 프로젝트 단위 청크 리스트로 변환.
+
+    Args:
+        pdf_path:       처리할 PDF 경로
+        source:         청크 메타데이터에 기록할 출처 식별자
+        split_level:    청크 경계로 쓸 헤딩 레벨 (기본 H2)
+        embed_model_id: 토큰 카운팅용 임베딩 모델 ID
+        max_tokens:     청크 최대 토큰 수
+
+    Returns:
+        [{"source", "doc_type", "section", "project", "text", "meta", "char_count"}, ...]
+    """
+    upstage_key = os.getenv("UPSTAGE_API_KEY")
+    gemini_key  = os.getenv("GEMINI_API_KEY")
+
+    if upstage_key and gemini_key:
+        # ── 최우선: Upstage OCR + Gemini LLM 청킹 ──────────────
+        print(f"[Upstage] Document Parse 사용: {Path(pdf_path).name}")
+        markdown = _parse_with_upstage(pdf_path, upstage_key)
+        print(f"  마크다운 추출 완료 ({len(markdown)}자) → Gemini LLM 섹션 분리 중...")
+        return _gemini_split_sections(markdown, source)
+
+    elif upstage_key:
+        # ── Upstage OCR + 규칙 기반 청킹 (Gemini 키 없을 때 폴백) ─
+        print(f"[Upstage] Document Parse 사용 (규칙 청킹): {Path(pdf_path).name}")
+        markdown = _parse_with_upstage(pdf_path, upstage_key)
+        doc = _markdown_to_docling(pdf_path, markdown)
+        chunks = _build_project_chunks(doc, source, split_level=split_level)
+        chunks = _split_oversized(chunks, doc, max_tokens=max_tokens, embed_model_id=embed_model_id)
+        return chunks
+
+    elif gemini_key:
+        # ── Docling OCR + Gemini LLM 청킹 ──────────────────────
+        converter, use_ocr = _get_converter(pdf_path)
+        doc = _convert_in_batches(pdf_path, converter, use_ocr=use_ocr)
+        markdown = doc.export_to_markdown()
+        if not markdown.strip():
+            return []
+        print(f"  마크다운 추출 완료 ({len(markdown)}자) → Gemini LLM 섹션 분리 중...")
+        return _gemini_split_sections(markdown, source)
+
+    else:
+        # ── 폴백: Docling OCR + 규칙 기반 청킹 ─────────────────
+        converter, use_ocr = _get_converter(pdf_path)
+        doc = _convert_in_batches(pdf_path, converter, use_ocr=use_ocr)
+        chunks = _build_project_chunks(doc, source, split_level=split_level)
+        chunks = _split_oversized(chunks, doc, max_tokens=max_tokens, embed_model_id=embed_model_id)
+        return chunks
 
 
 def get_markdown(pdf_path: str) -> str:
-    """PDF를 마크다운 문자열로 변환 (디버깅용)."""
+    """PDF를 마크다운 문자열로 변환 (디버깅 / 구조 확인용).
+    Upstage API 키가 있으면 Upstage 우선, 없으면 Docling 사용."""
+    upstage_key = os.getenv("UPSTAGE_API_KEY")
+    if upstage_key:
+        return _parse_with_upstage(pdf_path, upstage_key)
     converter, use_ocr = _get_converter(pdf_path)
     return _convert_in_batches(pdf_path, converter, use_ocr=use_ocr)
 
 
 def get_structure_summary(pdf_path: str) -> str:
     """헤딩 구조만 추출 (split_level 결정 참고용)."""
-    from docling_core.types.doc import SectionHeaderItem
     converter, _ = _get_converter(pdf_path)
     doc = converter.convert(pdf_path).document
     lines: list[str] = []
     for item, _ in doc.iterate_items():
-        if isinstance(item, SectionHeaderItem):
-            level = getattr(item, "level", 1)
+        level = _heading_level(item)
+        if level is not None:
             lines.append(f"{'  ' * (level - 1)}H{level}: {item.text.strip()}")
     return "\n".join(lines) if lines else "(헤딩 없음)"
 
 
 # ═══════════════════════════════════════════════════════════════
-# 8. CLI
+# 10. CLI
 # ═══════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     import sys
-    from dotenv import load_dotenv
-    load_dotenv()
 
     pdf = (
         Path(sys.argv[1])
@@ -458,11 +757,11 @@ if __name__ == "__main__":
         print(get_markdown(str(pdf)))
 
     elif mode == "structure":
-        print("=== 헤딩 구조 ===")
+        print("=== 헤딩 구조 (split_level 결정 참고용) ===")
         print(get_structure_summary(str(pdf)))
 
     else:
-        results = chunk(str(pdf), source=pdf.stem)
+        results = chunk(str(pdf), source=pdf.name)
         print(f"\n총 {len(results)}개 청크 생성\n{'=' * 60}")
 
         output_dir = Path(__file__).parent.parent / "output"
