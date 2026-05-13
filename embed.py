@@ -9,8 +9,9 @@ import pg8000
 
 # ── 설정 ──────────────────────────────────────────────────────────────
 OUTPUT_DIR = Path(__file__).parent / "output"
-CL_CHUNKS_PATH     = OUTPUT_DIR / "coverletter_chunks.json"
-RESUME_CHUNKS_PATH = OUTPUT_DIR / "resume_chunks.json"
+CL_CHUNKS_PATH        = OUTPUT_DIR / "coverletter_chunks.json"
+RESUME_CHUNKS_PATH    = OUTPUT_DIR / "resume_chunks.json"
+PORTFOLIO_CHUNKS_PATH = OUTPUT_DIR / "portfolio_chunks.json"
 
 DB_CONFIG = {
     "host":     "localhost",
@@ -68,6 +69,47 @@ def insert_cover_letter_to_db(chunks: list[dict]):
     print(f"cover_letter_chunks 저장 완료: {len(chunks)}개")
 
 
+def insert_portfolio_to_db(chunks: list[dict]):
+    conn = pg8000.connect(**DB_CONFIG)
+    cur = conn.cursor()
+    for c in chunks:
+        meta = c.get("meta", {})
+        cur.execute(
+            """
+            INSERT INTO portfolio_chunks
+                (id, source, doc_type, section, project,
+                 period, role, team, tech_stack,
+                 contributions, achievements, keywords,
+                 text, char_count, embedding)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                embedding     = EXCLUDED.embedding,
+                tech_stack    = EXCLUDED.tech_stack,
+                contributions = EXCLUDED.contributions,
+                achievements  = EXCLUDED.achievements,
+                keywords      = EXCLUDED.keywords
+            """,
+            (
+                c["id"], c["source"], c["doc_type"],
+                c["section"], c.get("project", c["section"]),
+                meta.get("period", ""),
+                meta.get("role", ""),
+                meta.get("team", ""),
+                json.dumps(meta.get("tech_stack", []),    ensure_ascii=False),
+                json.dumps(meta.get("contributions", []), ensure_ascii=False),
+                json.dumps(meta.get("achievements", []),  ensure_ascii=False),
+                json.dumps(meta.get("keywords", []),      ensure_ascii=False),
+                c["text"],
+                c["char_count"],
+                str(c["embedding"]),
+            ),
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"portfolio_chunks 저장 완료: {len(chunks)}개")
+
+
 def insert_resume_to_db(chunks: list[dict]):
     conn = pg8000.connect(**DB_CONFIG)
     cur = conn.cursor()
@@ -109,6 +151,19 @@ def run():
         insert_cover_letter_to_db(cl_chunks)
     else:
         print(f"⚠ {CL_CHUNKS_PATH.name} 없음, 자소서 임베딩 건너뜀")
+
+    if PORTFOLIO_CHUNKS_PATH.exists():
+        with open(PORTFOLIO_CHUNKS_PATH, encoding="utf-8") as f:
+            portfolio_chunks = json.load(f)
+        print(f"\nportfolio_chunks.json 로드: {len(portfolio_chunks)}개")
+        texts = [
+            c["section"] + "\n" + c.get("project", "") + "\n" + c["text"]
+            for c in portfolio_chunks
+        ]
+        portfolio_chunks = _embed(portfolio_chunks, texts)
+        insert_portfolio_to_db(portfolio_chunks)
+    else:
+        print(f"⚠ {PORTFOLIO_CHUNKS_PATH.name} 없음, 포트폴리오 임베딩 건너뜀")
 
     if RESUME_CHUNKS_PATH.exists():
         with open(RESUME_CHUNKS_PATH, encoding="utf-8") as f:
