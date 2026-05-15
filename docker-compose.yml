@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: passfolio_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-passfolio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-passfolio}
+      POSTGRES_DB: ${POSTGRES_DB:-passfolio_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-passfolio} -d ${POSTGRES_DB:-passfolio_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
