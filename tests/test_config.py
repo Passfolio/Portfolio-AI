@@ -40,6 +40,7 @@ def test_settings_requires_postgres_user():
 
     with pytest.raises(ValidationError):
         Settings(
+            _env_file=None,
             postgres_password="p",
             postgres_db="db",
             openai_api_key="sk-test",
@@ -52,6 +53,7 @@ def test_settings_requires_openai_key():
 
     with pytest.raises(ValidationError):
         Settings(
+            _env_file=None,
             postgres_user="u",
             postgres_password="p",
             postgres_db="db",
