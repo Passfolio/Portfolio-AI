@@ -1,8 +1,18 @@
 import pytest
 
 from app.domain.pdf.loader import CATEGORY_TYPE_MAP, load_mock_json
-from app.domain.pdf.parser import _split_into_chunks, _strip_markdown
+from app.domain.pdf.parser import _extract_sections_from_docling_dict, _split_into_chunks, _strip_markdown
 from app.domain.pdf.schemas import PdfSection
+
+_MOCK_DOCLING_DICT = {
+    "texts": [
+        {"label": "section_header", "text": "프로젝트 경험", "prov": [{"page_no": 1}]},
+        {"label": "text", "text": "FastAPI로 AI 서버 구축했습니다.", "prov": [{"page_no": 1}]},
+        {"label": "list_item", "text": "pgvector 연동", "prov": [{"page_no": 1}]},
+        {"label": "section_header", "text": "보유 기술", "prov": [{"page_no": 2}]},
+        {"label": "text", "text": "Python, FastAPI, PostgreSQL을 사용합니다.", "prov": [{"page_no": 2}]},
+    ]
+}
 
 _MOCK_JSON_PATH = "tests/assets/mock_data.json"
 
@@ -95,3 +105,30 @@ async def test_strip_markdown_removes_markers():
     assert "`" not in plain
     assert "링크" in plain
     assert "굵은" in plain
+
+
+def test_docling_dict_returns_sections():
+    sections = _extract_sections_from_docling_dict(_MOCK_DOCLING_DICT)
+    assert len(sections) == 2
+    assert all(isinstance(s, PdfSection) for s in sections)
+    assert sections[0].section_title == "프로젝트 경험"
+    assert sections[1].section_title == "보유 기술"
+
+
+def test_docling_dict_page_numbers():
+    sections = _extract_sections_from_docling_dict(_MOCK_DOCLING_DICT)
+    assert sections[0].page == 1
+    assert sections[1].page == 2
+
+
+def test_docling_dict_list_item_in_markdown():
+    sections = _extract_sections_from_docling_dict(_MOCK_DOCLING_DICT)
+    project_section = sections[0]
+    assert "- pgvector 연동" in project_section.markdown
+
+
+def test_docling_dict_plain_text_no_markdown():
+    sections = _extract_sections_from_docling_dict(_MOCK_DOCLING_DICT)
+    for section in sections:
+        assert "#" not in section.plain_text
+        assert "**" not in section.plain_text

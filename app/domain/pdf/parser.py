@@ -95,68 +95,72 @@ def _split_into_chunks(
     return chunks
 
 
-def _parse_sections_from_markdown(markdown: str) -> list[PdfSection]:
-    lines = markdown.splitlines()
+def _extract_sections_from_docling_dict(doc: dict) -> list[PdfSection]:
+    texts = doc.get("texts", [])
     sections: list[PdfSection] = []
     current_title: str | None = None
-    current_lines: list[str] = []
+    current_parts: list[str] = []
+    current_page: int = 1
     order = 0
 
-    def flush_section(title: str, body_lines: list[str]) -> None:
+    def flush() -> None:
         nonlocal order
-        body_md = "\n".join(body_lines).strip()
-        if not body_md:
+        if not current_title or not current_parts:
             return
-        section_md = f"## {title}\n\n{body_md}"
+        body_md = "\n\n".join(current_parts)
+        section_md = f"## {current_title}\n\n{body_md}"
         plain = _strip_markdown(body_md)
-        token_count = _token_count(plain)
-        if token_count <= _MAX_TOKENS:
+        tok = _token_count(plain)
+        if tok <= _MAX_TOKENS:
             sections.append(
                 PdfSection(
-                    section_title=title,
-                    section_type=_infer_section_type(title),
+                    section_title=current_title,
+                    section_type=_infer_section_type(current_title),
                     plain_text=plain,
                     markdown=section_md,
-                    page=1,
+                    page=current_page,
                     order=order,
                     parent_title=None,
-                    token_count=token_count,
+                    token_count=tok,
                 )
             )
             order += 1
         else:
             chunks = _split_into_chunks(
-                title=title,
+                title=current_title,
                 markdown=body_md,
-                section_type=_infer_section_type(title),
-                page=1,
+                section_type=_infer_section_type(current_title),
+                page=current_page,
                 start_order=order,
-                parent_title=title,
+                parent_title=current_title,
             )
             sections.extend(chunks)
             order += len(chunks)
 
-    for line in lines:
-        if re.match(r"^#{1,2}\s+", line):
-            if current_title is not None:
-                flush_section(current_title, current_lines)
-            current_title = re.sub(r"^#{1,2}\s+", "", line).strip()
-            current_lines = []
+    for item in texts:
+        label = item.get("label", "text")
+        text = item.get("text", "").strip()
+        if not text:
+            continue
+        prov = item.get("prov", [])
+        page_no = prov[0].get("page_no", current_page) if prov else current_page
+
+        if label in ("section_header", "title"):
+            flush()
+            current_title = text
+            current_parts = []
+            current_page = page_no
+        elif label == "list_item":
+            current_parts.append(f"- {text}")
         else:
-            current_lines.append(line)
+            current_parts.append(text)
 
-    if current_title is not None:
-        flush_section(current_title, current_lines)
-
+    flush()
     return sections
 
 
 def parse_pdf(pdf_bytes: bytes) -> list[PdfSection]:
-    """Docling으로 PDF bytes 파싱 → list[PdfSection].
-
-    현재 개발 단계에서는 load_mock_json() 사용.
-    BE 완료 후 이 함수로 교체.
-    """
+    """Docling으로 PDF bytes 파싱 → list[PdfSection]."""
     from docling.datamodel.base_models import DocumentStream
     from docling.document_converter import DocumentConverter
 
@@ -168,5 +172,5 @@ def parse_pdf(pdf_bytes: bytes) -> list[PdfSection]:
     if not result.status.success:
         raise RuntimeError(f"Docling 변환 실패: {result.errors}")
 
-    markdown = result.document.export_to_markdown()
-    return _parse_sections_from_markdown(markdown)
+    doc_dict = result.document.export_to_dict()
+    return _extract_sections_from_docling_dict(doc_dict)
