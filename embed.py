@@ -27,8 +27,11 @@ CL_CTX_PATH       = OUTPUT_DIR / "mock_cover_letters_ctx.json"
 CL_CHUNKS_PATH    = OUTPUT_DIR / "mock_cover_letters.json"
 CL_BM25_PATH      = OUTPUT_DIR / "bm25_cover_letters.pkl"
 
-RESUME_CHUNKS_PATH    = OUTPUT_DIR / "resume_chunks.json"
-PORTFOLIO_CHUNKS_PATH = OUTPUT_DIR / "portfolio_chunks.json"
+RESUME_CHUNKS_PATH        = OUTPUT_DIR / "resume_chunks.json"
+PORTFOLIO_CHUNKS_PATH     = OUTPUT_DIR / "portfolio_chunks.json"
+MOCK_PORTFOLIO_CTX_PATH   = OUTPUT_DIR / "mock_portfolios_ctx.json"
+MOCK_PORTFOLIO_PATH       = OUTPUT_DIR / "mock_portfolios.json"
+PORTFOLIO_BM25_PATH       = OUTPUT_DIR / "bm25_portfolios.pkl"
 
 DB_CONFIG = {
     "host":     "localhost",
@@ -191,24 +194,38 @@ def insert_portfolio_to_db(chunks: list[dict]):
     conn = pg8000.connect(**DB_CONFIG)
     cur = conn.cursor()
     for c in chunks:
-        meta = c.get("meta", {})
+        meta    = c.get("meta", {})
+        company = c.get("company", {})
         cur.execute(
             """
             INSERT INTO portfolio_chunks
-                (id, source, doc_type, section, project,
+                (id, source, doc_type, job, career,
+                 company_name, company_type, company_domain,
+                 section, project,
                  period, role, team, tech_stack,
                  contributions, achievements, keywords,
                  text, char_count, embedding)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
-                embedding     = EXCLUDED.embedding,
-                tech_stack    = EXCLUDED.tech_stack,
-                contributions = EXCLUDED.contributions,
-                achievements  = EXCLUDED.achievements,
-                keywords      = EXCLUDED.keywords
+                embedding      = EXCLUDED.embedding,
+                job            = EXCLUDED.job,
+                career         = EXCLUDED.career,
+                company_name   = EXCLUDED.company_name,
+                company_type   = EXCLUDED.company_type,
+                company_domain = EXCLUDED.company_domain,
+                tech_stack     = EXCLUDED.tech_stack,
+                contributions  = EXCLUDED.contributions,
+                achievements   = EXCLUDED.achievements,
+                keywords       = EXCLUDED.keywords
             """,
             (
                 c["id"], c["source"], c["doc_type"],
+                c.get("job", ""),
+                c.get("career", ""),
+                company.get("name", ""),
+                company.get("type", ""),
+                company.get("domain", ""),
                 c["section"], c.get("project", c["section"]),
                 meta.get("period", ""),
                 meta.get("role", ""),
@@ -288,33 +305,27 @@ def run():
     else:
         print(f"⚠ 자소서 청크 파일 없음, 건너뜀")
 
-    # ── 포트폴리오 ─────────────────────────────────────────────
-    if PORTFOLIO_CHUNKS_PATH.exists():
-        with open(PORTFOLIO_CHUNKS_PATH, encoding="utf-8") as f:
+    # ── mock 포트폴리오: contextual retrieval 적용본 우선 ─────────
+    pf_path = MOCK_PORTFOLIO_CTX_PATH if MOCK_PORTFOLIO_CTX_PATH.exists() else MOCK_PORTFOLIO_PATH
+    if pf_path.exists():
+        with open(pf_path, encoding="utf-8") as f:
             portfolio_chunks = json.load(f)
-        print(f"\nportfolio_chunks.json 로드: {len(portfolio_chunks)}개")
-        texts = [
-            c["section"] + "\n" + c.get("project", "") + "\n" + c["text"]
-            for c in portfolio_chunks
-        ]
-        portfolio_chunks = _embed(portfolio_chunks, texts)
-        insert_portfolio_to_db(portfolio_chunks)
-    else:
-        print(f"⚠ {PORTFOLIO_CHUNKS_PATH.name} 없음, 포트폴리오 임베딩 건너뜀")
+        print(f"\n{pf_path.name} 로드: {len(portfolio_chunks)}개")
+        if MOCK_PORTFOLIO_CTX_PATH.exists():
+            print("  → contextual retrieval 적용본 사용 (text_with_context로 임베딩)")
 
-    # ── 이력서 ─────────────────────────────────────────────────
-    if RESUME_CHUNKS_PATH.exists():
-        with open(RESUME_CHUNKS_PATH, encoding="utf-8") as f:
-            resume_chunks = json.load(f)
-        print(f"\nresume_chunks.json 로드: {len(resume_chunks)}개")
-        texts = [
-            c["section"] + "\n" + "\n".join(c["facts"]) + "\n" + " ".join(c["skills"])
-            for c in resume_chunks
-        ]
-        resume_chunks = _embed(resume_chunks, texts)
-        insert_resume_to_db(resume_chunks)
+        done_ids = _fetch_embedded_ids("portfolio_chunks")
+        todo = [c for c in portfolio_chunks if c["id"] not in done_ids]
+        print(f"  임베딩 대상: {len(todo)}개 ({len(done_ids)}개 이미 완료)")
+
+        if todo:
+            texts = [c.get("text_with_context", c["text"]) for c in todo]
+            todo = _embed(todo, texts)
+            insert_portfolio_to_db(todo)
+
+        _build_bm25_index(portfolio_chunks, PORTFOLIO_BM25_PATH)
     else:
-        print(f"⚠ {RESUME_CHUNKS_PATH.name} 없음, 이력서 임베딩 건너뜀")
+        print(f"⚠ {MOCK_PORTFOLIO_PATH.name} 없음, 포트폴리오 임베딩 건너뜀")
 
 
 if __name__ == "__main__":

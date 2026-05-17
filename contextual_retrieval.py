@@ -157,12 +157,22 @@ def run(input_path: Path, output_path: Path, delay: float = 0.3) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contextual Retrieval 문맥 추가 (Gemini on Vertex AI)")
-    parser.add_argument("--input",  default="output/mock_cover_letters.json",
-                        help="입력 JSON 파일")
-    parser.add_argument("--output", default="output/mock_cover_letters_ctx.json",
-                        help="출력 JSON 파일")
+    parser.add_argument("--type",   default="coverletter",
+                        choices=["coverletter", "portfolio"],
+                        help="처리할 문서 타입 (기본: coverletter)")
+    parser.add_argument("--input",  default=None,
+                        help="입력 JSON 파일 (미지정 시 type에 따라 자동 설정)")
+    parser.add_argument("--output", default=None,
+                        help="출력 JSON 파일 (미지정 시 type에 따라 자동 설정)")
     parser.add_argument("--delay",  type=float, default=0.3,
                         help="요청 간격(초), 기본 0.3")
     args = parser.parse_args()
 
-    run(Path(args.input), Path(args.output), delay=args.delay)
+    defaults = {
+        "coverletter": ("output/mock_cover_letters.json",  "output/mock_cover_letters_ctx.json"),
+        "portfolio":   ("output/mock_portfolios.json",     "output/mock_portfolios_ctx.json"),
+    }
+    in_path  = Path(args.input  or defaults[args.type][0])
+    out_path = Path(args.output or defaults[args.type][1])
+
+    run(in_path, out_path, delay=args.delay)
