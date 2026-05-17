@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.v1.analyze import router as analyze_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -10,6 +11,8 @@ app = FastAPI(
     version="0.1.0",
     debug=settings.app_debug,
 )
+
+app.include_router(analyze_router, prefix="/api/v1", tags=["analysis"])
 
 
 @app.get("/health", tags=["system"])
