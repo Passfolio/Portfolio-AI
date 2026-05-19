@@ -61,9 +61,12 @@ _PROMPT_TEMPLATE = """\
 
 def _get_gemini_client() -> _genai.Client:
     project = os.getenv("GCP_PROJECT_ID")
-    if not project:
-        raise ValueError("GCP_PROJECT_ID 환경변수를 설정하세요.")
-    return _genai.Client(vertexai=True, project=project, location="global")
+    if project:
+        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "us-central1"))
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
+    return _genai.Client(api_key=api_key)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -72,12 +75,7 @@ def _get_gemini_client() -> _genai.Client:
 
 def _build_whole_doc(group: list[dict]) -> str:
     """source 내 모든 청크를 이어 붙여 전체 문서 구성."""
-    parts = []
-    for c in group:
-        sub = c.get("sub_section", "")
-        header = f"[{c['section']} > {sub}]" if sub else f"[{c['section']}]"
-        parts.append(f"{header}\n{c['text']}")
-    return "\n\n".join(parts)
+    return "\n\n".join(f"[{c['section']}]\n{c['text']}" for c in group)
 
 
 def _generate_context(chunk: dict, whole_doc: str, client: _genai.Client) -> str:
