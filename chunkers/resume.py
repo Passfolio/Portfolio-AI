@@ -24,16 +24,13 @@ from google.genai import types as _types
 
 def _get_gemini_client() -> _genai.Client:
     project = os.getenv("GCP_PROJECT_ID")
-    if project:
-        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "us-central1"))
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
-    return _genai.Client(api_key=api_key)
+    if not project:
+        raise ValueError("GCP_PROJECT_ID 환경변수를 설정하세요.")
+    return _genai.Client(vertexai=True, project=project, location="global")
 
 
 MIN_CHUNK_CHARS = 30
-_LLM_MODEL      = "gemini-3-flash-preview"
+_LLM_MODEL      = "gemini-3.0-flash"
 _LLM_RETRIES    = 3
 
 _pipeline = PdfPipelineOptions()
