@@ -70,9 +70,10 @@ _LLM_MODEL = "gemini-3-flash-preview"
 
 VALID_SECTIONS = {"프로젝트경험", "기술스택", "자기소개", "경력", "기타"}
 
-# FIX-1: 프로젝트 본문 글자 수 상·하한 및 재생성 최대 횟수
-_TEXT_MIN   = 300
-_TEXT_MAX   = 500
+# 프로젝트 본문 글자 수 상·하한 및 재생성 최대 횟수
+# D1 평가 기준: 400~1000자 만점, 1200자 초과 감점 → 400~800자 목표
+_TEXT_MIN   = 400
+_TEXT_MAX   = 800
 _REGEN_MAX  = 2
 
 # FIX-3: achievements % 비중 경고 임계값
@@ -103,6 +104,15 @@ class _Section(BaseModel):
 
 class _PortfolioList(BaseModel):
     sections: list[_Section]
+
+
+class _ProjectImage(BaseModel):
+    content_type: str  # architecture/erd/ui/chart/code_image/other
+    caption: str       # 3~4문장 캡션
+
+
+class _ProjectImageList(BaseModel):
+    images: list[_ProjectImage]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -544,13 +554,32 @@ def _make_scenario(queue: ScenarioQueue) -> Scenario:
 # 프롬프트 빌더
 # ═══════════════════════════════════════════════════════════════
 
-_SYSTEM_INSTRUCTION = (
-    "당신은 IT 직군 포트폴리오 데이터 생성 AI입니다. "
-    "주어진 조건에 맞게 포트폴리오 섹션 JSON을 생성합니다. "
-    "각 섹션의 text는 실제 포트폴리오 수준의 내용이어야 하며, "
-    "프로젝트경험의 meta는 구체적인 수치와 기술명을 포함해야 합니다. "
-    "직군은 풀스택, 프론트엔드, 백엔드 세 가지이며 각 직군 특성에 맞게 작성합니다."
-)
+_SYSTEM_INSTRUCTION = """\
+당신은 IT 직군 포트폴리오 훈련 데이터 생성 AI입니다.
+생성되는 모든 포트폴리오는 아래 5개 평가 기준에서 높은 점수를 받도록 작성해야 합니다.
+
+[A. 과정/판단력 — 35%: 가장 중요]
+  - 반드시 '배경/상황 → 문제인식 → 기술선택 근거(왜?) → 실행 → 결과' 흐름으로 서술
+  - '왜 이 기술을 선택했는가'를 대안 대비 근거와 함께 명시 (예: Redis 대신 JWT 선택 이유)
+  - 단순 나열이 아닌 사고방식과 판단 기준이 문장 속에 드러나야 함
+
+[B. 역할/기여도 — 25%]
+  - '직접/담당/주도/설계' 등 1인칭 기여 표현을 충분히 사용
+  - 트러블슈팅 1건 이상 포함: 문제 발생 → 원인 파악 → 해결 과정을 구체적으로 서술
+
+[C. 성과/인사이트 — 20%]
+  - 정량 수치 4개 이상 포함 (ms, %, rps, 배수×N, GB, 건/일 등 단위 다양하게)
+  - 마지막에 이 경험을 통한 인사이트·배움·직무 기여 방향을 1~2문장 추가
+
+[D. 작성품질 — 10% (규칙 기반 자동 감점)]
+  - 본문 400~800자 유지 (400 미만·1200 초과 시 감점)
+  - 금지: '열심히', '최선을 다', '다양한 경험', '성장할 수 있', '뜻깊', '좋은 경험' 등 추상 표현
+  - 금지: bullet(-/•/*) 나열이 전체 줄의 70% 이상 차지하는 구성
+  - 금지: 중복 문장 (앞 20자 기준 동일 문장 반복)
+
+[E. 직무연관성 — 10%]
+  - 목표 직군(풀스택/프론트엔드/백엔드)의 핵심 기술·역량이 명확히 드러나야 함
+"""
 
 
 def _build_prompt(s: Scenario) -> str:
@@ -607,14 +636,23 @@ def _build_prompt(s: Scenario) -> str:
         f"- meta.team: 팀 구성 (예: '4인 팀', '개인프로젝트')\n"
         f"- meta.tech_stack: 사용 기술 목록\n"
         f"- meta.contributions: 수치 없이 직접 수행한 역할·구현 내용을 '~구현', '~개발' 형태로\n"
-        # FIX-3: 수치 단위 다변화 지시
         f"- meta.achievements: 수치 포함 성과. contributions와 중복 금지\n"
         f"  · 단위를 반드시 고르게 사용: %, ms, rps/tps, 건/일, GB/MB, 배수(×N배), 점수\n"
         f"  · 동일 단위 3회 이상 연속 사용 금지. % 단위가 전체 achievements의 50% 이하가 되도록 조절\n"
         f"- meta.keywords: 기술·직무·도메인 키워드 (5~8개, 직군 핵심 키워드 포함)\n"
-        # FIX-1: 500자 상한 강조
-        f"- text: 프로젝트 설명 본문. 반드시 300자 이상 500자 이하로 작성\n"
-        f"  · 500자를 초과하면 안 됨. 초과 시 핵심 내용만 남기고 줄여서 재작성할 것\n\n"
+        f"\n"
+        f"- text: 프로젝트 설명 본문. 반드시 400자 이상 800자 이하\n"
+        f"  ┌ [필수 서술 구조 — 평가 A 35% 기준]\n"
+        f"  │ ① 배경/상황: 이 프로젝트를 시작한 맥락·문제 상황 (1~2문장)\n"
+        f"  │ ② 문제인식: 해결해야 할 핵심 기술 과제 구체적 명시\n"
+        f"  │ ③ 기술선택 근거: '왜 이 기술·방법인가' 대안 대비 이유 포함 (예: A 대신 B 선택 이유)\n"
+        f"  │ ④ 실행/구현: 직접 담당한 부분을 1인칭으로 ('직접/담당/주도/설계' 표현 사용)\n"
+        f"  │ ⑤ 트러블슈팅: 문제 발생 → 원인 파악 → 해결 과정 1건 이상 (평가 B 25% 기준)\n"
+        f"  │ ⑥ 성과: 정량 수치 4개 이상 (ms·%·rps·배수·건 등 단위 다양하게) (평가 C 20% 기준)\n"
+        f"  └ ⑦ 인사이트: 이 경험을 통한 배움·성장·직무 기여 방향 1~2문장\n"
+        f"  · [금지] 추상 표현: '열심히', '최선을 다', '다양한 경험', '성장할 수 있', '뜻깊', '좋은 경험'\n"
+        f"  · [금지] bullet(-/•/*) 나열이 전체 줄의 70% 이상 차지하는 구성\n"
+        f"  · [금지] 중복 문장 (앞 20자 동일 문장 반복)\n\n"
         f"[자기소개·기술스택·경력 작성 규칙]\n"
         f"- project: '' (빈 문자열)\n"
         f"- meta 전체: str 필드는 '', list 필드는 []\n"
@@ -681,10 +719,11 @@ def _regen_overlong_project(
     project_name: str,
     original_text: str,
 ) -> str:
-    """500자 초과 프로젝트 본문을 300~500자로 재작성 요청한다."""
+    """800자 초과 프로젝트 본문을 400~800자로 재작성 요청한다."""
     prompt = (
-        f"아래 포트폴리오 프로젝트 설명이 {len(original_text)}자로 500자 상한을 초과했습니다.\n"
-        f"핵심 내용(기술명, 수치 성과, 역할)을 유지하면서 300~500자로 줄여 재작성해주세요.\n"
+        f"아래 포트폴리오 프로젝트 설명이 {len(original_text)}자로 800자 상한을 초과했습니다.\n"
+        f"핵심 내용(기술명, 수치 성과 4개 이상, 역할, 트러블슈팅)을 유지하면서 400~800자로 줄여 재작성해주세요.\n"
+        f"배경→문제→기술선택 근거→실행→트러블슈팅→성과→인사이트 흐름을 유지하세요.\n"
         f"재작성한 본문 텍스트만 출력하세요. JSON·마크다운 형식 없이 순수 텍스트로.\n\n"
         f"[프로젝트명] {project_name}\n"
         f"[원본 텍스트]\n{original_text}"
@@ -702,6 +741,97 @@ def _regen_overlong_project(
         return rewritten if len(rewritten) <= _TEXT_MAX else rewritten[:_TEXT_MAX]
     except Exception:
         return original_text[:_TEXT_MAX]
+
+
+# ═══════════════════════════════════════════════════════════════
+# 이미지 청크 생성
+# ═══════════════════════════════════════════════════════════════
+
+_IMAGE_CONTENT_TYPES = ["architecture", "erd", "ui", "chart", "code_image"]
+
+_IMAGE_GEN_PROMPT = """\
+다음 프로젝트 포트폴리오 설명을 읽고, 이 프로젝트에 포함됐을 법한 이미지를 1~2개 선택하여 각 이미지에 대한 캡션을 작성하세요.
+
+[프로젝트명]
+{project_name}
+
+[프로젝트 설명]
+{project_text}
+
+[이미지 유형 선택 기준]
+- architecture: 시스템 아키텍처 다이어그램 (서비스 간 관계, 인프라 구성)
+- erd: 데이터베이스 ERD (테이블 구조, 관계)
+- ui: 화면 UI/UX 스크린샷 (주요 페이지, 사용자 흐름)
+- chart: 성능/지표 차트 (응답시간, 트래픽, 개선 효과)
+- code_image: 핵심 코드 스니펫 (알고리즘, 구현 패턴)
+
+[캡션 작성 기준]
+- 3~4문장으로 이미지 내용 설명
+- 기술 스택, 구체적 수치, 역할을 포함
+- 프로젝트 설명에 실제로 등장하는 내용만 사용
+- 한국어로 작성
+
+적합한 이미지 유형 1~2개를 선택하고 캡션을 작성하세요."""
+
+
+def _generate_project_image_chunks(
+    client: _genai.Client,
+    section: dict,
+    base_index: int,
+) -> list[dict]:
+    """프로젝트 섹션에 대한 이미지 캡션 청크 1~2개 생성."""
+    project_name = section.get("project", "")
+    text = section.get("text", "")
+    if not text or not project_name:
+        return []
+
+    prompt = _IMAGE_GEN_PROMPT.format(
+        project_name=project_name,
+        project_text=text,
+    )
+
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model=_LLM_MODEL,
+                contents=prompt,
+                config=_types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=_ProjectImageList,
+                ),
+            )
+            images = _ProjectImageList.model_validate_json(response.text).images
+            break
+        except Exception as e:
+            err = str(e)
+            if attempt < 2:
+                wait = 60 if "429" in err else 5
+                time.sleep(wait)
+            else:
+                return []
+
+    chunks = []
+    for j, img in enumerate(images[:2]):
+        content_type = img.content_type if img.content_type in _IMAGE_CONTENT_TYPES else "other"
+        source = section["source"]
+        chunks.append({
+            "id":           f"{source}_{base_index + j:03d}",
+            "source":       source,
+            "doc_type":     "portfolio",
+            "job":          section.get("job", ""),
+            "career":       section.get("career", ""),
+            "company":      section.get("company", {}),
+            "section":      "프로젝트경험",
+            "project":      project_name,
+            "sub_section":  "이미지",
+            "meta":         section.get("meta", {}),
+            "content_type": content_type,
+            "fig_id":       "",
+            "image_path":   "",
+            "text":         img.caption,
+            "char_count":   len(img.caption),
+        })
+    return chunks
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -761,7 +891,7 @@ def generate_sections(client: _genai.Client, scenario: Scenario) -> list[dict]:
             # FIX-3: achievements % 비중 경고
             _warn_pct_ratio(meta.get("achievements", []), scenario.source)
 
-            # FIX-1: 500자 초과 → 재생성 루프 (최대 _REGEN_MAX 회)
+            # 800자 초과 → 재생성 루프 (최대 _REGEN_MAX 회)
             project_name = sec.get("project", "")
             for _ in range(_REGEN_MAX):
                 if len(text) <= _TEXT_MAX:
@@ -794,6 +924,16 @@ def generate_sections(client: _genai.Client, scenario: Scenario) -> list[dict]:
             "text":        text,
             "char_count":  len(text),
         })
+
+    # 프로젝트경험 섹션마다 이미지 캡션 청크 추가
+    img_chunks: list[dict] = []
+    for sec_item in result:
+        if sec_item["section"] == "프로젝트경험":
+            imgs = _generate_project_image_chunks(
+                client, sec_item, len(result) + len(img_chunks)
+            )
+            img_chunks.extend(imgs)
+    result.extend(img_chunks)
 
     return result
 

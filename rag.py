@@ -319,29 +319,37 @@ def rag_portfolio_to_cover_letter(question: str, top_k: int = TOP_K_FINAL) -> st
 # RAG-3: 포트폴리오 수정
 # ═══════════════════════════════════════════════════════════════
 
-def rag_portfolio(query: str, top_k: int = TOP_K_FINAL) -> dict:
+def rag_portfolio(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -> dict:
     """유사 포트폴리오 검색 → Gemini로 포트폴리오 내용 개선.
 
     Args:
         query: 개선할 포트폴리오 섹션 원문
         top_k: 참고할 유사 포트폴리오 수
+        img_context: 해당 포트폴리오의 이미지 캡션 컨텍스트 (있을 때만 전달)
     """
     query_emb  = _embed_query(query)
     bm25_res   = _bm25_search(query, PORTFOLIO_BM25_PATH, TOP_K_BM25)
     vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
-    chunks     = _fetch_chunks(fused_ids, "portfolio_chunks", ["id", "section", "project", "text"])
+    chunks     = _fetch_chunks(fused_ids, "portfolio_chunks", ["id", "section", "sub_section", "project", "text"])
 
     context_block = "\n\n---\n\n".join(
         f"[예시 {i+1} | {c['section']} — {c.get('project', '')}]\n{c['text']}"
         for i, c in enumerate(chunks)
+        if c.get("sub_section") != "이미지"
+    )
+
+    img_block = (
+        f"\n\n[포트폴리오 이미지 컨텍스트 — 아래 이미지 설명을 참고해 개선 방향을 보완하세요]\n{img_context}"
+        if img_context else ""
     )
 
     prompt = (
         f"다음은 실제 포트폴리오 예시들입니다 (구조·표현 참고용):\n\n"
         f"{context_block}\n\n"
         f"{_PORTFOLIO_CRITERIA}\n\n"
-        f"위 예시들과 작성 기준을 참고하여 아래 포트폴리오 내용을 개선해주세요.\n\n"
+        f"위 예시들과 작성 기준을 참고하여 아래 포트폴리오 내용을 개선해주세요."
+        f"{img_block}\n\n"
         f"[절대 준수 사항 — 위반 시 무효]\n"
         f"1. 원문에 없는 프로젝트·경험·수치·기술을 절대 추가하지 마세요.\n"
         f"2. 원문에 명시된 사실(프로젝트명, 역할, 수치, 기술스택 등)만 사용하세요.\n"
@@ -458,13 +466,27 @@ def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict
     source = Path(pdf_path).stem
 
     print(f"\nPDF 변환 중: {pdf_path}")
-    chunks = chunk(pdf_path)
-    print(f"청킹 완료: {len(chunks)}개 섹션\n")
+    all_chunks = chunk(pdf_path)
+    print(f"청킹 완료: {len(all_chunks)}개 섹션\n")
+
+    # 이미지 청크와 텍스트 청크 분리
+    img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
+    text_chunks = [c for c in all_chunks if c.get("sub_section") != "이미지"]
+
+    # 프로젝트별 이미지 컨텍스트 사전 구성
+    img_ctx_by_project: dict[str, str] = {}
+    for ic in img_chunks:
+        proj = ic.get("project", "")
+        entry = f"[{ic.get('content_type', '')}] {ic['text']}"
+        if proj in img_ctx_by_project:
+            img_ctx_by_project[proj] += f"\n{entry}"
+        else:
+            img_ctx_by_project[proj] = entry
 
     results = []
     sep = "=" * 60
 
-    for i, c in enumerate(chunks):
+    for i, c in enumerate(text_chunks):
         section     = c.get("section", "")
         project     = c.get("project", "")
         sub_section = c.get("sub_section", "")
@@ -475,9 +497,10 @@ def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict
         label = " > ".join(label_parts)
 
         print(f"\n{sep}")
-        print(f"[{i+1}/{len(chunks)}] {label}  ({c.get('char_count', len(c['text']))}자)")
+        print(f"[{i+1}/{len(text_chunks)}] {label}  ({c.get('char_count', len(c['text']))}자)")
 
-        result = rag_portfolio(c["text"], top_k=top_k)
+        img_context = img_ctx_by_project.get(project, "")
+        result = rag_portfolio(c["text"], top_k=top_k, img_context=img_context)
 
         print(f"\n{'─'*28} 원문 {'─'*28}")
         print(c["text"])
@@ -503,6 +526,22 @@ def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict
             "eval_after":  eval_result["after"]["weighted"],
             "eval_delta":  eval_result["delta"],
             "eval_detail": eval_result["per_category"],
+        })
+
+    # 이미지 청크는 개선 없이 원문 그대로 결과에 포함
+    for ic in img_chunks:
+        results.append({
+            "section":     ic.get("section", ""),
+            "project":     ic.get("project", ""),
+            "sub_section": "이미지",
+            "original":    ic["text"],
+            "improved":    ic["text"],
+            "reasoning":   "이미지 캡션은 개선 대상에서 제외됩니다.",
+            "changes":     [],
+            "eval_before": None,
+            "eval_after":  None,
+            "eval_delta":  None,
+            "eval_detail": None,
         })
 
     out_path = OUTPUT_DIR / f"{source}_portfolio_rag_result.json"
