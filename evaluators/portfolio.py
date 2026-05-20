@@ -350,9 +350,9 @@ def print_result(
     # D 상세 출력
     d = d_detail
     d_norm = d_score * 10
-    print(f"[D] {LABELS['D']}  ({int(WEIGHTS['D']*100)}%)  →  {d_norm}/100  (규칙 기반, 원점수 {d_score}/10)")
-    print(f"    D1 분량     {d['d1_volume']['score']:>2}/10  {d['d1_volume']['msg']}")
-    print(f"    D2 수치성과 {d['d2_quant']['score']:>2}/10  {d['d2_quant']['msg']}")
+    print(f"[D] {LABELS['D']}  ({int(WEIGHTS['D']*100)}%)  →  {d_norm}/100")
+    print(f"    D1 분량     {d['d1_volume']['score']*10:>3}/100  {d['d1_volume']['msg']}")
+    print(f"    D2 수치성과 {d['d2_quant']['score']*10:>3}/100  {d['d2_quant']['msg']}")
     if d["d7_penalty"]["penalty"] > 0:
         print(f"    D7 감점     -{d['d7_penalty']['penalty']}점  {', '.join(d['d7_penalty']['reasons'])}")
     print(sep)
@@ -436,7 +436,7 @@ def evaluate_comparison(
     for sk in sub_keys:
         bs  = before["D"]["detail"][sk]["score"]
         as_ = after["D"]["detail"][sk]["score"]
-        print(f"  {sub_labels[sk]:<16} {bs:>6}  {as_:>6}  {as_-bs:>+6}")
+        print(f"  {sub_labels[sk]:<16} {bs*10:>6}  {as_*10:>6}  {(as_-bs)*10:>+6}")
 
     print(f"  {'─'*42}")
     print(f"  {'최종 점수':<16} {before['weighted']:>6.2f}  {after['weighted']:>6.2f}  {sign}{delta:>+5.2f}")

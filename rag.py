@@ -39,6 +39,13 @@ class _ImprovedResult(BaseModel):
     changes:   list[str]  # 주요 변경 사항 목록
 
 
+class _SectionGap(BaseModel):
+    field:       str  # 부족한 항목명 (예: "성과 수치", "기술 스택 버전", "GitHub 링크")
+    reason:      str  # 왜 비었는지 — 자소서 원문에 무엇이 없었는지 1문장
+    user_action: str  # 지원자가 직접 보완해야 할 구체적 요청 1문장
+    example:     str  # 참고 포트폴리오에서 발췌한 표현 예시 (없으면 "")
+
+
 class _PortfolioSubSections(BaseModel):
     overview:    str  # 개요: 프로젝트 배경·목적·기술스택 (없으면 "")
     development: str  # 개발: 핵심 구현 내용 (없으면 "")
@@ -47,12 +54,14 @@ class _PortfolioSubSections(BaseModel):
 
 
 class _PortfolioGenResult(BaseModel):
-    project:    str
-    period:     str
-    role:       str
-    team:       str
-    tech_stack: list[str]
-    sections:   _PortfolioSubSections
+    project:          str
+    period:           str
+    role:             str
+    team:             str
+    tech_stack:       list[str]
+    sections:         _PortfolioSubSections
+    gaps:             list[_SectionGap]  # 자소서 원문 부족으로 채우지 못한 항목들
+    image_suggestion: str               # 이 섹션에 넣으면 좋을 이미지 유형 제안 (없으면 "")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -110,10 +119,32 @@ def _embed_query(text: str) -> list[float]:
 # BM25 검색
 # ═══════════════════════════════════════════════════════════════
 
-def _bm25_search(query: str, bm25_path: Path, top_k: int) -> list[tuple[str, float]]:
+def _bm25_search(
+    query: str,
+    bm25_path: Path,
+    top_k: int,
+    sub_section_filter: str | None = None,
+) -> list[tuple[str, float]]:
+    """BM25 검색.
+
+    Args:
+        sub_section_filter: 지정하면 해당 sub_section 인덱스만 대상으로 검색.
+                            pickle에 'sub_sections' 키가 없으면 무시.
+    """
     with open(bm25_path, "rb") as f:
         data = pickle.load(f)
     tokens = _tokenize_ko(query)
+
+    sub_sections = data.get("sub_sections")  # list[str] | None
+    if sub_section_filter and sub_sections:
+        # 필터에 해당하는 인덱스만 추출
+        target_idx = [i for i, s in enumerate(sub_sections) if s == sub_section_filter]
+        if target_idx:
+            all_scores = data["bm25"].get_scores(tokens)
+            filtered = [(i, float(all_scores[i])) for i in target_idx if all_scores[i] > 0]
+            filtered.sort(key=lambda x: x[1], reverse=True)
+            return [(data["ids"][i], score) for i, score in filtered[:top_k]]
+        # 해당 sub_section 데이터 없으면 필터 없이 fallback
     scores = data["bm25"].get_scores(tokens)
     top_idx = np.argsort(scores)[::-1][:top_k]
     return [(data["ids"][i], float(scores[i])) for i in top_idx if scores[i] > 0]
@@ -123,15 +154,33 @@ def _bm25_search(query: str, bm25_path: Path, top_k: int) -> list[tuple[str, flo
 # 벡터 검색 (pgvector)
 # ═══════════════════════════════════════════════════════════════
 
-def _vector_search(query_emb: list[float], table: str, top_k: int) -> list[tuple[str, float]]:
+def _vector_search(
+    query_emb: list[float],
+    table: str,
+    top_k: int,
+    sub_section_filter: str | None = None,
+) -> list[tuple[str, float]]:
+    """pgvector 코사인 유사도 검색.
+
+    Args:
+        sub_section_filter: 포트폴리오 테이블 전용. 지정하면 해당 sub_section 행만 검색.
+    """
     emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
     conn = pg8000.connect(**DB_CONFIG)
     cur  = conn.cursor()
-    cur.execute(
-        f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
-        f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
-        (emb_str, emb_str, top_k),
-    )
+    if sub_section_filter:
+        cur.execute(
+            f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
+            f"FROM {table} WHERE sub_section = %s "
+            f"ORDER BY embedding <=> %s::vector LIMIT %s",
+            (emb_str, sub_section_filter, emb_str, top_k),
+        )
+    else:
+        cur.execute(
+            f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
+            f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
+            (emb_str, emb_str, top_k),
+        )
     rows = [(row[0], float(row[1])) for row in cur.fetchall()]
     cur.close()
     conn.close()
@@ -172,6 +221,30 @@ def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
     conn.close()
     id_to_row = {r["id"]: r for r in rows}
     return [id_to_row[id_] for id_ in ids if id_ in id_to_row]
+
+
+# ═══════════════════════════════════════════════════════════════
+# 포트폴리오 생성용 레퍼런스 검색
+# ═══════════════════════════════════════════════════════════════
+
+_PF_REF_COLS = [
+    "id", "section", "sub_section", "project",
+    "period", "role", "team", "tech_stack",
+    "contributions", "achievements", "text",
+]
+
+
+def _search_portfolio_refs(cl_chunk: dict, top_k: int) -> list[dict]:
+    """자소서 청크와 유사한 포트폴리오 레퍼런스 검색 (단일 검색).
+
+    contributions/achievements/tech_stack 등 구조화 컬럼을 함께 가져와
+    _generate_portfolio_section 에서 서브섹션별 예시로 분리 활용.
+    """
+    query_emb  = _embed_query(cl_chunk["text"])
+    bm25_res   = _bm25_search(cl_chunk["text"], PORTFOLIO_BM25_PATH, TOP_K_BM25)
+    vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
+    fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
+    return _fetch_chunks(fused_ids, "portfolio_chunks", _PF_REF_COLS)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -947,52 +1020,117 @@ D. 작성품질 감점 요인 — 반드시 회피:
    - 동사 없는 단순 기술 나열 bullet 금지 (bullet마다 판단 근거나 성과 포함)
    - 중복 표현 금지
 E. 직무연관성(10%): 직무 역량과 연결되는 경험임을 명시
+
+[project 필드 작성 원칙]
+- 자소서에 명시된 프로젝트 고유 명칭(예: '쇼핑몰 프로젝트', '전기차 커뮤니티', '병원 예약 시스템')을 그대로 사용하세요.
+- 여러 프로젝트가 언급된 경우 본문에서 가장 구체적으로 서술된 프로젝트 1개를 선택하세요.
+  → 절대로 여러 프로젝트를 묶어 임의의 대표 이름을 만들지 마세요.
+- 단, 자소서 원문 자체가 '다수 개인 프로젝트', '여러 프로젝트' 등으로 묶어 서술하고 단일 프로젝트를 특정할 수 없는 경우에만 해당 표현을 그대로 인용하세요.
+- 경력 카테고리 문항에서는 학력(학점, 학교), 자격증, 수상 이력, 인턴/아르바이트 이력을 포트폴리오 내용으로 사용하지 마세요. 직접 구현한 프로젝트 경험만 활용하세요.
+
+[gaps 작성 원칙 — 자소서 원문 한계로 채우지 못한 항목을 지원자에게 안내]
+- 서브섹션(result, development 등)이 "" 가 된 이유, tech_stack이 버전 없이 나열된 경우,
+  수치 없이 정성 표현만 쓴 경우, GitHub·배포 링크가 없는 경우 등을 빠짐없이 기록하세요.
+- field: 부족한 항목명 (예: "result 수치", "GitHub 링크", "기술 스택 버전", "기간")
+- reason: 자소서 원문에 무엇이 없었는지 1문장
+- user_action: 지원자가 직접 보완해야 할 구체적 요청 1문장
+- example: 프롬프트에 제공된 포트폴리오 레퍼런스에서 이 gap을 잘 채운 실제 표현을 1~2문장 직접 인용하세요.
+  인용 시 출처 프로젝트명을 앞에 표기하세요. (예: "[프로젝트A] 쿼리 50→4개(92%↓), 응답시간 2875→149ms(95%↓)")
+  레퍼런스에 적합한 예시가 없으면 "" 반환.
+- gaps가 없으면 빈 배열 []을 반환하세요.
+
+[image_suggestion 작성 기준 — 포트폴리오 이미지 추천]
+이 섹션의 구체적인 기술·구현 내용을 바탕으로 실제로 만들 수 있는 이미지를 2~4가지 제안하세요.
+각 제안은 "이미지 유형: 구체적인 내용 + 왜 설득력이 높아지는지" 형태로 작성하세요.
+
+활용 가능한 이미지 유형 (내용에 맞는 것 선택):
+- 시스템 아키텍처 다이어그램: 클라이언트-서버-DB-외부API 연결 흐름을 draw.io·Mermaid로 도식화
+  → 구현 규모와 전체 설계 사고를 한눈에 전달
+- 코드 스니펫: 본문에 언급된 핵심 로직(예: JWT 필터, RestControllerAdvice, 쿼리 최적화 코드)
+  10~20줄을 carbon.sh 또는 IDE 캡처로 이미지화 → 실제 구현 능력 직접 증명
+- 성능·개선 전후 차트: 수치가 있다면 개선 전후를 막대/선 그래프로 시각화 → 정량 성과 임팩트 극대화
+- ERD / DB 스키마: 설계한 테이블 구조와 관계를 ERDCloud·dbdiagram.io로 도식화 → 데이터 모델링 능력 강조
+- API 명세 캡처: Swagger UI 또는 Postman 테스트 결과 스크린샷 → REST API 설계 완성도 증명
+- UI 스크린샷: 실제 동작하는 주요 화면(로그인, 핵심 기능 페이지) 캡처 → 프로젝트 완성도 증명
+- 시퀀스 다이어그램: JWT 인증 흐름, 결제 프로세스 등 복잡한 요청-응답 흐름 → 로직 이해도 증명
+- 플로우차트: 핵심 알고리즘·분기 로직 흐름 → 판단 과정 시각화
+- 테스트 커버리지 리포트: JaCoCo 등 테스트 결과 캡처 → 코드 품질과 책임감 증명
+- Git 기여 그래프 / 커밋 로그: 실제 작업 이력 캡처 → 개발 기간·기여도 신뢰성 강화
+
+내용에 적합한 이미지가 전혀 없으면 "" 반환.
 """
 
-_PF_GEN_SUBSECTION_GUIDE = """\
-[서브섹션 작성 기준]
-
-overview (개요) — E. 직무연관성 반영:
+_PF_GEN_SUBSECTION_GUIDE_OVERVIEW = """\
   - 프로젝트 배경·목적·기간·팀 구성·기술스택을 개조식으로 기술
   - 직무와 연관된 역할·기술임을 드러내는 한 줄 포함
   - 예) "• 가계부+일기 통합 웹앱 / 5인 팀 / 42일 / Spring Boot, MySQL, AWS"
-  - 예) "• 팀장 겸 백엔드 API 개발 — 연간·월간 보고서, 엑셀 출력, CI/CD 담당"
+  - 예) "• 팀장 겸 백엔드 API 개발 — 연간·월간 보고서, 엑셀 출력, CI/CD 담당"\
+"""
 
-development (개발) — A. 과정/판단력 반영:
+_PF_GEN_SUBSECTION_GUIDE_DEVELOPMENT = """\
   - 본인이 직접 구현한 핵심 기능, 설계 결정, 기술적 접근법
   - '왜 그 방법을 선택했는지' 판단 근거 필수 포함 (대안 대비 이유)
   - 배경→문제인식→판단→실행 흐름으로 서술
   - 예) "• YearlyReportDto 신규 설계 — 기존 월별 메서드 재사용 시 쿼리 50회 발생,
-         단일 쿼리+서비스 레이어 루프 방식으로 전환하여 DB 병목 해소"
+         단일 쿼리+서비스 레이어 루프 방식으로 전환하여 DB 병목 해소"\
+"""
 
-issue (이슈 및 해결) — B. 역할/기여도 반영:
+_PF_GEN_SUBSECTION_GUIDE_ISSUE = """\
   - 문제 발생 → 원인 파악 → 본인이 수행한 해결 과정 순으로 서술
   - '내가/직접/담당' 등 1인칭 행동 동사 사용
   - 자소서에 트러블슈팅 내용이 없으면 ""
   - 예) "• [문제] API 수정 요청 시 직군 간 원인 파악 지연
          [원인] 프론트-백엔드 네트워크 요청 시각 차이
-         [해결] HTTP 요청 직접 확인 후 원인 근거 팀 공유 → 이슈 해소"
+         [해결] HTTP 요청 직접 확인 후 원인 근거 팀 공유 → 이슈 해소"\
+"""
 
-result (성과) — C. 성과/인사이트 반영:
+_PF_GEN_SUBSECTION_GUIDE_RESULT = """\
   - 수치 기반 성과 최우선 (%, ms, 배수, 건수 — 자소서 원문 그대로 인용)
   - 정성 성과(배포 완료, 기한 준수 등)도 포함
   - 이 경험에서 얻은 인사이트·배움 1줄 포함
   - 예) "• 쿼리 50→4개(92%↓), 응답시간 2875→149ms(95%↓)
-         • 의존성 최소화 설계 → 테스트 코드 수정 없이 성능 향상 가능함을 확인"
+         • 의존성 최소화 설계 → 테스트 코드 수정 없이 성능 향상 가능함을 확인"\
 """
 
 
 def _generate_portfolio_section(
     cl_chunk: dict,
-    ref_chunks: list[dict],
-    client: _genai.Client,
+    refs:     list[dict],  # _search_portfolio_refs() 결과 (구조화 컬럼 포함)
+    client:   _genai.Client,
 ) -> _PortfolioGenResult:
-    """자소서 청크 1개 + 유사 포트폴리오 레퍼런스 → 포트폴리오 섹션 생성."""
-    ref_block = "\n\n---\n\n".join(
-        f"[포트폴리오 예시 {i+1} | {c.get('project', c.get('section', ''))}]\n{c['text']}"
-        for i, c in enumerate(ref_chunks)
-        if c.get("sub_section") != "이미지"
-    ) or "관련 포트폴리오 예시 없음"
+    """자소서 청크 1개 + 포트폴리오 레퍼런스 → 포트폴리오 섹션 생성.
+
+    refs 각 항목의 contributions/achievements/tech_stack 등 구조화 컬럼을
+    서브섹션별 예시로 분리해 프롬프트에 삽입 → RAG 실질 활용.
+    """
+
+    def _sub_example(key: str) -> str:
+        items = refs[:3]
+        if not items:
+            return "  (레퍼런스 없음)"
+        lines = []
+        for c in items:
+            proj = c.get("project", "")
+            if key == "overview":
+                parts = []
+                if c.get("period"):     parts.append(f"기간: {c['period']}")
+                if c.get("role"):       parts.append(f"역할: {c['role']}")
+                if c.get("team"):       parts.append(f"팀: {c['team']}")
+                ts = c.get("tech_stack") or []
+                if ts: parts.append(f"기술: {', '.join(ts[:5])}")
+                content = " / ".join(parts) if parts else c["text"][:150]
+            elif key == "development":
+                contribs = c.get("contributions") or []
+                content = ("\n  ".join(f"• {x}" for x in contribs[:4])
+                           if contribs else c["text"][:300])
+            elif key == "result":
+                achs = c.get("achievements") or []
+                content = ("\n  ".join(f"• {x}" for x in achs[:4])
+                           if achs else c["text"][-200:])
+            else:  # issue — 전체 서술에 문제해결 내용이 포함됨
+                content = c["text"][:400]
+            lines.append(f"  [{proj}]\n  {content}")
+        return "\n\n".join(lines)
 
     kp_block  = "\n".join(f"  - {kp}" for kp in cl_chunk.get("key_points", []))
     ach_block = "\n".join(f"  - {a}"  for a in cl_chunk.get("achievements", []))
@@ -1007,9 +1145,22 @@ def _generate_portfolio_section(
         f"핵심 포인트(STAR):\n{kp_block}\n"
         f"성과:\n{ach_block}\n"
         f"키워드: {kw_block}\n\n"
-        f"[포트폴리오 레퍼런스 — 구조·표현만 참고, 내용 복사 금지]\n"
-        f"{ref_block}\n\n"
-        f"{_PF_GEN_SUBSECTION_GUIDE}\n\n"
+        f"[서브섹션별 작성 기준 + 실제 포트폴리오 표현 예시]\n"
+        f"아래 각 서브섹션을 작성할 때 '실제 예시'의 표현 방식·문체·구조를 참고하세요.\n"
+        f"단, 예시의 내용(프로젝트명·수치·기술)은 절대 복사하지 말고 자소서 원문 사실만 사용하세요.\n\n"
+        f"── overview (개요) — E. 직무연관성 ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_OVERVIEW}\n"
+        f"실제 예시:\n{_sub_example('overview')}\n\n"
+        f"── development (개발) — A. 과정/판단력 ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_DEVELOPMENT}\n"
+        f"실제 예시:\n{_sub_example('development')}\n\n"
+        f"── issue (이슈 및 해결) — B. 역할/기여도 ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_ISSUE}\n"
+        f"실제 예시:\n{_sub_example('issue')}\n\n"
+        f"── result (성과) — C. 성과/인사이트 ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_RESULT}\n"
+        f"실제 예시:\n{_sub_example('result')}\n\n"
+        f"gaps의 example 필드: 위 실제 예시 중 해당 gap을 잘 보완한 표현을 직접 인용하세요.\n\n"
         f"위 자소서 내용을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
         f"자소서에 언급되지 않은 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
     )
@@ -1038,7 +1189,24 @@ def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
 
     print("청킹 중...")
     chunks = cl_chunker.chunk(text, source)
-    print(f"청킹 완료: {len(chunks)}개 문항\n")
+    print(f"청킹 완료: {len(chunks)}개 문항")
+
+    # 프로젝트 관련 카테고리만 포트폴리오 생성 대상으로 필터
+    # 경력 카테고리는 프로젝트 관련 키워드가 있을 때만 포함 (학벌/자격증/수상/인턴 제외)
+    _PROJECT_CATEGORIES  = {"직무역량", "문제해결경험", "프로젝트경험"}
+    _CAREER_PROJECT_KW   = {"프로젝트", "구현", "개발", "서비스", "시스템", "앱", "웹", "API"}
+
+    def _is_target(c: dict) -> bool:
+        cat = c.get("category", "")
+        if cat in _PROJECT_CATEGORIES:
+            return True
+        if cat == "경력":
+            text = c.get("text", "")
+            return any(kw in text for kw in _CAREER_PROJECT_KW)
+        return False
+
+    chunks = [c for c in chunks if _is_target(c)]
+    print(f"필터 후 대상: {len(chunks)}개 문항 (직무역량·문제해결경험·프로젝트경험·경력 중 프로젝트 포함)\n")
 
     client  = _get_gemini_client()
     results = []
@@ -1049,32 +1217,67 @@ def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
         print(f"[{i+1}/{len(chunks)}] {chunk['section']}  ({chunk['char_count']}자)")
         print(f"카테고리: {chunk['category']}")
 
-        query_emb  = _embed_query(chunk["text"])
-        bm25_res   = _bm25_search(chunk["text"], PORTFOLIO_BM25_PATH, TOP_K_BM25)
-        vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
-        fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
-        ref_chunks = _fetch_chunks(
-            fused_ids, "portfolio_chunks",
-            ["id", "section", "sub_section", "project", "text"],
-        )
+        # 단일 하이브리드 검색 → contributions/achievements 등 구조화 컬럼 포함
+        refs = _search_portfolio_refs(chunk, top_k=top_k)
+        ref_projects = [r.get("project", "?") for r in refs if r.get("project")]
+        print(f"  레퍼런스 {len(refs)}개: {', '.join(ref_projects[:5])}")
 
-        gen = _generate_portfolio_section(chunk, ref_chunks, client)
+        gen = _generate_portfolio_section(chunk, refs, client)
         print(f"  → 프로젝트: {gen.project}")
         for key, label in [("overview","개요"),("development","개발"),("issue","이슈"),("result","성과")]:
             print(f"     {label}: {'있음' if getattr(gen.sections, key) else '없음'}")
 
+        if gen.gaps:
+            print(f"  ⚠ 개선 필요 항목 ({len(gen.gaps)}개):")
+            for g in gen.gaps:
+                print(f"     [{g.field}] {g.reason}")
+                print(f"       → 보완 요청: {g.user_action}")
+
+        # 생성된 포트폴리오 평가
+        full_text = "\n\n".join(filter(None, [
+            gen.sections.overview,
+            gen.sections.development,
+            gen.sections.issue,
+            gen.sections.result,
+        ]))
+        eval_result = None
+        if len(full_text.strip()) >= 50:
+            from evaluators.portfolio import evaluate as pf_evaluate, grade_label as pf_grade_label
+            print(f"  평가 중...")
+            try:
+                eval_result = pf_evaluate(full_text, meta={
+                    "period":     gen.period,
+                    "role":       gen.role,
+                    "team":       gen.team,
+                    "tech_stack": gen.tech_stack,
+                })
+                print(f"  최종 점수: {eval_result['weighted']:.1f}점  {pf_grade_label(eval_result['weighted'])}")
+            except Exception as e:
+                print(f"  평가 실패: {e}")
+
         results.append({
-            "section":     chunk["section"],
-            "category":    chunk["category"],
-            "project":     gen.project,
-            "period":      gen.period,
-            "role":        gen.role,
-            "team":        gen.team,
-            "tech_stack":  gen.tech_stack,
-            "overview":    gen.sections.overview,
-            "development": gen.sections.development,
-            "issue":       gen.sections.issue,
-            "result":      gen.sections.result,
+            "section":          chunk["section"],
+            "category":         chunk["category"],
+            "project":          gen.project,
+            "period":           gen.period,
+            "role":             gen.role,
+            "team":             gen.team,
+            "tech_stack":       gen.tech_stack,
+            "overview":         gen.sections.overview,
+            "development":      gen.sections.development,
+            "issue":            gen.sections.issue,
+            "result":           gen.sections.result,
+            "image_suggestion": gen.image_suggestion,
+            "gaps": [
+                {
+                    "field":       g.field,
+                    "reason":      g.reason,
+                    "user_action": g.user_action,
+                    "example":     g.example,
+                }
+                for g in gen.gaps
+            ],
+            "eval": eval_result,
         })
 
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -1088,10 +1291,24 @@ def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
     out_pdf = str(OUTPUT_DIR / f"{stem}_cl_to_portfolio.pdf")
     save_generated_portfolio_pdf(results, out_pdf)
 
+    # 전체 gaps 요약 출력
+    all_gaps = [(r["section"], r["project"], g) for r in results for g in r.get("gaps", [])]
     print(f"\n{sep}")
     print(f"완료: 총 {len(results)}개 섹션 생성")
     print(f"  JSON → {out_json}")
     print(f"  PDF  → {out_pdf}")
+
+    if all_gaps:
+        print(f"\n{'─'*28} 자소서 보완 요청 사항 ({len(all_gaps)}건) {'─'*10}")
+        for section, project, g in all_gaps:
+            header = f"[{section}]" + (f" {project}" if project else "")
+            print(f"\n  {header}")
+            print(f"    항목: {g['field']}")
+            print(f"    이유: {g['reason']}")
+            print(f"    요청: {g['user_action']}")
+    else:
+        print("\n  ✓ 모든 섹션이 자소서 원문으로 완성되었습니다.")
+
     return results
 
 

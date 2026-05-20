@@ -112,8 +112,9 @@ def _build_bm25_index(chunks: list[dict], index_path: Path) -> None:
 
     bm25 = BM25Okapi(tokenized)
     index_data = {
-        "bm25": bm25,
-        "ids":  [c["id"] for c in chunks],
+        "bm25":         bm25,
+        "ids":          [c["id"] for c in chunks],
+        "sub_sections": [c.get("sub_section", "") for c in chunks],
     }
     with open(index_path, "wb") as f:
         pickle.dump(index_data, f)

@@ -33,6 +33,7 @@ _RE_NUMBER = re.compile(
 
 _SYSTEM_PROMPT = """\
 당신은 대한민국 채용 전문가입니다. 자소서를 아래 기준으로 평가하세요.
+각 점수는 0~100 정수로 반환하세요.
 
 평가 기준:
 A. 지원동기(15%): 두괄식 구성 여부, 기업 이해도 반영, 입사 설득력
@@ -235,23 +236,23 @@ def print_result(llm: _EvalResult, d_score: int, d_detail: dict, weighted: float
     print(f"  최종 점수  {weighted:6.2f} / 100   {grade_label(weighted)}")
     print(f"{'═'*52}\n")
 
-    print(f"[A] {LABELS['A']}  ({int(WEIGHTS['A']*100)}%)  →  {llm.A.score}/10")
+    print(f"[A] {LABELS['A']}  ({int(WEIGHTS['A']*100)}%)  →  {llm.A.score}/100")
     print(f"    근거: {llm.A.reason}")
     print(f"    개선: {llm.A.fix}")
     print(sep)
 
-    print(f"[B] {LABELS['B']}  ({int(WEIGHTS['B']*100)}%)  →  {llm.B.score}/10")
-    print(f"    STAR 구조: {llm.B.star_score}/10  |  수치 성과: {llm.B.num_score}/10")
+    print(f"[B] {LABELS['B']}  ({int(WEIGHTS['B']*100)}%)  →  {llm.B.score}/100")
+    print(f"    STAR 구조: {llm.B.star_score}/100  |  수치 성과: {llm.B.num_score}/100")
     print(f"    근거: {llm.B.reason}")
     print(f"    개선: {llm.B.fix}")
     print(sep)
 
-    print(f"[C] {LABELS['C']}  ({int(WEIGHTS['C']*100)}%)  →  {llm.C.score}/10")
+    print(f"[C] {LABELS['C']}  ({int(WEIGHTS['C']*100)}%)  →  {llm.C.score}/100")
     print(f"    근거: {llm.C.reason}")
     print(f"    개선: {llm.C.fix}")
     print(sep)
 
-    print(f"[D] {LABELS['D']}  ({int(WEIGHTS['D']*100)}%)  →  {d_score}/10  (규칙 기반)")
+    print(f"[D] {LABELS['D']}  ({int(WEIGHTS['D']*100)}%)  →  {d_score * 10}/100")
     if "char_limit" in d_detail:
         limit_info = f"  |  제한 {d_detail['char_limit']}자 ({d_detail['fill_ratio']}% 충족, {d_detail['vol_status']})"
     elif "free_standard" in d_detail:
@@ -301,7 +302,7 @@ def evaluate_comparison(original: str, improved: str, char_limit: int | None = N
     b_d = before["D"]["score"]
     a_d = after["D"]["score"]
     d_d = a_d - b_d
-    print(f"  D. {LABELS['D']:<10} {b_d:>6}  {a_d:>6}  {d_d:>+6}")
+    print(f"  D. {LABELS['D']:<10} {b_d*10:>6}  {a_d*10:>6}  {d_d*10:>+6}")
 
     print(f"  {'─'*40}")
     print(f"  {'최종 점수':<12} {before['weighted']:>6.2f}  {after['weighted']:>6.2f}  {sign}{delta:>+5.2f}")
