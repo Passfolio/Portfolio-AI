@@ -330,34 +330,78 @@ def _resolve_figure_project(fig_page: int, text_chunks: list[dict]) -> str:
     return best_project
 
 
+_CAPTION_CACHE_DIR = Path(__file__).parent.parent / "output" / "caption_cache"
+
+
+def _cache_path(source: str) -> Path:
+    return _CAPTION_CACHE_DIR / f"{source}_image_captions.json"
+
+
+def _load_caption_cache(source: str) -> dict[str, dict] | None:
+    """캐시 파일이 있으면 {fig_id: {img_type, caption, page, project, image_path}} 반환."""
+    path = _cache_path(source)
+    if path.exists():
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def _save_caption_cache(source: str, cache: dict[str, dict]) -> None:
+    _CAPTION_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_cache_path(source), "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, indent=2)
+
+
 def _build_figure_chunks(
     figures: list[dict],
     source: str,
     client: _genai.Client,
     text_chunks: list[dict],
 ) -> list[dict]:
-    """figure 요소 리스트 → 이미지 저장 + Gemini Vision 캡션 생성 → 청크 리스트 반환."""
+    """figure 요소 리스트 → 이미지 저장 + Gemini Vision 캡션 생성 → 청크 리스트 반환.
+
+    캡션은 output/caption_cache/{source}_image_captions.json에 캐싱되며,
+    재실행 시 캐시가 있는 figure는 Vision API 호출을 건너뜁니다.
+    """
     img_dir = Path(__file__).parent.parent / "output" / "images" / source
     img_dir.mkdir(parents=True, exist_ok=True)
 
+    cache     = _load_caption_cache(source) or {}
+    cache_hit = sum(1 for fig in figures if fig["id"] in cache)
+    if cache_hit:
+        print(f"  [캡션 캐시] {cache_hit}/{len(figures)}개 캐시 적중 → Vision API 생략")
+
     chunks: list[dict] = []
-    total = len(figures)
+    total    = len(figures)
+    modified = False  # 새 캡션이 생성됐을 때만 캐시 저장
 
     for i, fig in enumerate(figures, 1):
         try:
-            # 이미지 파일 저장
             img_bytes = base64.b64decode(fig["image_b64"])
             img_path  = img_dir / f"{fig['id']}.jpg"
             img_path.write_bytes(img_bytes)
 
-            img_type, caption = _caption_figure(fig["image_b64"], client)
+            if fig["id"] in cache:
+                entry    = cache[fig["id"]]
+                img_type = entry["img_type"]
+                caption  = entry["caption"]
+                project  = entry["project"]
+            else:
+                img_type, caption = _caption_figure(fig["image_b64"], client)
+                project = _resolve_figure_project(fig["page"], text_chunks)
+                cache[fig["id"]] = {
+                    "img_type":   img_type,
+                    "caption":    caption,
+                    "page":       fig["page"],
+                    "project":    project,
+                    "image_path": str(img_path),
+                }
+                modified = True
+                print(f"  [figure {i}/{total}] page={fig['page']} type={img_type} project={project or '?'} → {len(caption)}자")
 
             if len(caption) < MIN_CHUNK_CHARS:
                 print(f"  [figure {i}/{total}] page={fig['page']} → 캡션 너무 짧음, 스킵")
                 continue
-
-            # 페이지 기반으로 project 자동 매핑
-            project = _resolve_figure_project(fig["page"], text_chunks)
 
             base_chunk = {
                 "source":            source,
@@ -375,12 +419,14 @@ def _build_figure_chunks(
                 "meta":              {},
                 "char_count":        len(caption),
             }
-            # 긴 캡션도 재분할 적용
             chunks.extend(_split_oversized(base_chunk))
-            print(f"  [figure {i}/{total}] page={fig['page']} type={img_type} project={project or '?'} → {len(caption)}자")
 
         except Exception as e:
             print(f"  [figure {i}/{total}] page={fig['page']} 캡션 생성 실패: {e}")
+
+    if modified:
+        _save_caption_cache(source, cache)
+        print(f"  [캡션 캐시] 저장 완료 → {_cache_path(source)}")
 
     return chunks
 

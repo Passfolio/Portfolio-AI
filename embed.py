@@ -56,27 +56,29 @@ def _get_embed_client() -> _genai.Client:
     return _genai.Client(vertexai=True, project=project, location="global")
 
 
-def _embed_gemini(chunks: list[dict], texts: list[str], batch_size: int = 50) -> list[dict]:
-    """Gemini Embedding 2 임베딩 (Vertex AI, 1024차원)."""
-    client = _get_embed_client()
-    print(f"임베딩 시작 [{_EMBED_MODEL}]: {len(texts)}개 청크")
+def _embed_gemini(chunks: list[dict], texts: list[str], log_interval: int = 50) -> list[dict]:
+    """Gemini Embedding 2 임베딩 (Vertex AI, 1024차원).
 
-    all_embeddings: list[list[float]] = []
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
+    Vertex AI SDK는 contents에 리스트를 전달해도 임베딩을 1개만 반환하므로
+    1건씩 순차 호출합니다.
+    """
+    client = _get_embed_client()
+    total  = len(texts)
+    print(f"임베딩 시작 [{_EMBED_MODEL}]: {total}개 청크")
+
+    for i, (chunk, text) in enumerate(zip(chunks, texts)):
         for attempt in range(6):
             try:
                 response = client.models.embed_content(
                     model=_EMBED_MODEL,
-                    contents=batch,
+                    contents=text,
                     config=_types.EmbedContentConfig(
                         task_type="RETRIEVAL_DOCUMENT",
                         output_dimensionality=_EMBED_DIM,
                     ),
                 )
-                all_embeddings.extend([e.values for e in response.embeddings])
-                print(f"  {min(i + batch_size, len(texts))}/{len(texts)} 완료")
-                time.sleep(0.3)
+                chunk["embedding"] = response.embeddings[0].values
+                time.sleep(0.1)
                 break
             except Exception as e:
                 err = str(e)
@@ -87,8 +89,9 @@ def _embed_gemini(chunks: list[dict], texts: list[str], batch_size: int = 50) ->
                 else:
                     raise
 
-    for chunk, emb in zip(chunks, all_embeddings):
-        chunk["embedding"] = emb
+        if (i + 1) % log_interval == 0 or (i + 1) == total:
+            print(f"  {i + 1}/{total} 완료")
+
     print("임베딩 완료")
     return chunks
 
