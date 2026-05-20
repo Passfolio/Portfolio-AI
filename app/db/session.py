@@ -17,7 +17,10 @@ def make_session_factory(
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-_SessionLocal = make_session_factory(get_settings().database_url)
+_SessionLocal = make_session_factory(
+    get_settings().database_url,
+    connect_args={"ssl": False},
+)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

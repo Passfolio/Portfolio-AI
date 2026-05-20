@@ -161,7 +161,7 @@ def _extract_sections_from_docling_dict(doc: dict) -> list[PdfSection]:
 
 def parse_pdf(pdf_bytes: bytes) -> list[PdfSection]:
     """Docling으로 PDF bytes 파싱 → list[PdfSection]."""
-    from docling.datamodel.base_models import DocumentStream
+    from docling.datamodel.base_models import ConversionStatus, DocumentStream
     from docling.document_converter import DocumentConverter
 
     converter = DocumentConverter()
@@ -169,7 +169,7 @@ def parse_pdf(pdf_bytes: bytes) -> list[PdfSection]:
     stream = DocumentStream(name="portfolio.pdf", stream=buf)
     result = converter.convert(stream)
 
-    if not result.status.success:
+    if result.status not in (ConversionStatus.SUCCESS, ConversionStatus.PARTIAL_SUCCESS):
         raise RuntimeError(f"Docling 변환 실패: {result.errors}")
 
     doc_dict = result.document.export_to_dict()
