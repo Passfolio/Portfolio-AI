@@ -1,7 +1,7 @@
 import pytest
 
 from app.domain.pdf.loader import CATEGORY_TYPE_MAP, load_mock_json
-from app.domain.pdf.parser import _extract_sections_from_docling_dict, _split_into_chunks, _strip_markdown
+from app.domain.pdf.parser import _extract_sections_from_docling_dict, _split_into_chunks, _strip_markdown, parse_pdf
 from app.domain.pdf.schemas import PdfSection
 
 _MOCK_DOCLING_DICT = {
@@ -132,3 +132,26 @@ def test_docling_dict_plain_text_no_markdown():
     for section in sections:
         assert "#" not in section.plain_text
         assert "**" not in section.plain_text
+
+
+def test_parse_pdf_accepts_docling_success_status(monkeypatch):
+    from docling.datamodel.base_models import ConversionStatus
+
+    class FakeDocument:
+        def export_to_dict(self):
+            return _MOCK_DOCLING_DICT
+
+    class FakeResult:
+        status = ConversionStatus.SUCCESS
+        errors = []
+        document = FakeDocument()
+
+    class FakeConverter:
+        def convert(self, stream):
+            return FakeResult()
+
+    monkeypatch.setattr("docling.document_converter.DocumentConverter", FakeConverter)
+
+    sections = parse_pdf(b"%PDF-1.4 fake")
+
+    assert len(sections) == 2
