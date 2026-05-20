@@ -39,6 +39,22 @@ class _ImprovedResult(BaseModel):
     changes:   list[str]  # 주요 변경 사항 목록
 
 
+class _PortfolioSubSections(BaseModel):
+    overview:    str  # 개요: 프로젝트 배경·목적·기술스택 (없으면 "")
+    development: str  # 개발: 핵심 구현 내용 (없으면 "")
+    issue:       str  # 이슈: 주요 문제 및 해결 과정 (없으면 "")
+    result:      str  # 성과: 수치·정성 결과 (없으면 "")
+
+
+class _PortfolioGenResult(BaseModel):
+    project:    str
+    period:     str
+    role:       str
+    team:       str
+    tech_stack: list[str]
+    sections:   _PortfolioSubSections
+
+
 # ═══════════════════════════════════════════════════════════════
 # 설정
 # ═══════════════════════════════════════════════════════════════
@@ -903,6 +919,157 @@ def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict
 
 
 # ═══════════════════════════════════════════════════════════════
+# RAG-5: 자소서 → 포트폴리오 생성
+# ═══════════════════════════════════════════════════════════════
+
+_PF_GEN_SYSTEM = """\
+당신은 IT 직군 포트폴리오 작성 전문가입니다.
+자소서에 기술된 경험만을 근거로 포트폴리오 섹션을 작성합니다.
+
+[원칙]
+- 자소서에 없는 사실(수치, 기술, 프로젝트명, 역할)을 절대 추가하지 마세요.
+- 각 서브섹션은 자소서 내용에서 추출 가능한 경우에만 작성하고, 없으면 반드시 "" (빈 문자열)로 두세요.
+- 포트폴리오 특유의 명사형·개조식 문체로 작성하세요 (자소서 산문체 금지).
+- 수치가 있으면 반드시 그대로 인용하세요.
+"""
+
+_PF_GEN_SUBSECTION_GUIDE = """\
+[서브섹션 작성 기준]
+
+overview (개요):
+  - 프로젝트 배경·목적·기간·팀 구성·기술스택을 개조식으로 기술
+  - 예) "• 가계부+일기 통합 웹앱 / 5인 팀 / 42일 / Spring Boot, MySQL, AWS"
+
+development (개발):
+  - 본인이 직접 구현한 핵심 기능, 설계 결정, 기술적 접근법
+  - 왜 그 방법을 선택했는지 판단 근거 포함
+  - 예) "• 연간 보고서 전용 YearlyReportDto 설계 — 월별 메서드 재사용 대신 단일 쿼리로 교체하여 DB 병목 해소"
+
+issue (이슈 및 해결):
+  - 발생한 문제 상황 → 원인 분석 → 해결 방법 순으로 서술
+  - 자소서에 트러블슈팅 내용이 없으면 ""
+
+result (성과):
+  - 수치 기반 성과 우선 (%, ms, 배수, 건수)
+  - 정성 성과(배포 완료, 기한 준수 등)도 포함
+  - 예) "• 쿼리 50→4개(92%↓), 응답시간 2875→149ms(95%↓)"
+"""
+
+
+def _generate_portfolio_section(
+    cl_chunk: dict,
+    ref_chunks: list[dict],
+    client: _genai.Client,
+) -> _PortfolioGenResult:
+    """자소서 청크 1개 + 유사 포트폴리오 레퍼런스 → 포트폴리오 섹션 생성."""
+    ref_block = "\n\n---\n\n".join(
+        f"[포트폴리오 예시 {i+1} | {c.get('project', c.get('section', ''))}]\n{c['text']}"
+        for i, c in enumerate(ref_chunks)
+        if c.get("sub_section") != "이미지"
+    ) or "관련 포트폴리오 예시 없음"
+
+    kp_block  = "\n".join(f"  - {kp}" for kp in cl_chunk.get("key_points", []))
+    ach_block = "\n".join(f"  - {a}"  for a in cl_chunk.get("achievements", []))
+    kw_block  = ", ".join(cl_chunk.get("keywords", []))
+
+    prompt = (
+        f"[자소서 원문 — 이 내용만 근거로 사용]\n"
+        f"카테고리: {cl_chunk.get('category', '')}\n"
+        f"섹션 제목: {cl_chunk.get('section', '')}\n\n"
+        f"{cl_chunk['text']}\n\n"
+        f"[추출된 메타 정보]\n"
+        f"핵심 포인트(STAR):\n{kp_block}\n"
+        f"성과:\n{ach_block}\n"
+        f"키워드: {kw_block}\n\n"
+        f"[포트폴리오 레퍼런스 — 구조·표현만 참고, 내용 복사 금지]\n"
+        f"{ref_block}\n\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE}\n\n"
+        f"위 자소서 내용을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
+        f"자소서에 언급되지 않은 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
+    )
+
+    resp = client.models.generate_content(
+        model=_LLM_MODEL,
+        contents=prompt,
+        config=_genai_types.GenerateContentConfig(
+            system_instruction=_PF_GEN_SYSTEM,
+            response_mime_type="application/json",
+            response_schema=_PortfolioGenResult,
+        ),
+    )
+    return _PortfolioGenResult.model_validate_json(resp.text)
+
+
+def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
+    """자소서 PDF → 청킹 → 각 문항별 포트폴리오 섹션 생성."""
+    from docling.document_converter import DocumentConverter
+    from chunkers import cover_letter as cl_chunker
+
+    print(f"\nPDF 변환 중: {pdf_path}")
+    converter = DocumentConverter()
+    text      = converter.convert(pdf_path).document.export_to_text()
+    source    = Path(pdf_path).stem
+
+    print("청킹 중...")
+    chunks = cl_chunker.chunk(text, source)
+    print(f"청킹 완료: {len(chunks)}개 문항\n")
+
+    client  = _get_gemini_client()
+    results = []
+    sep     = "=" * 60
+
+    for i, chunk in enumerate(chunks):
+        print(f"\n{sep}")
+        print(f"[{i+1}/{len(chunks)}] {chunk['section']}  ({chunk['char_count']}자)")
+        print(f"카테고리: {chunk['category']}")
+
+        query_emb  = _embed_query(chunk["text"])
+        bm25_res   = _bm25_search(chunk["text"], PORTFOLIO_BM25_PATH, TOP_K_BM25)
+        vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
+        fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
+        ref_chunks = _fetch_chunks(
+            fused_ids, "portfolio_chunks",
+            ["id", "section", "sub_section", "project", "text"],
+        )
+
+        gen = _generate_portfolio_section(chunk, ref_chunks, client)
+        print(f"  → 프로젝트: {gen.project}")
+        for key, label in [("overview","개요"),("development","개발"),("issue","이슈"),("result","성과")]:
+            print(f"     {label}: {'있음' if getattr(gen.sections, key) else '없음'}")
+
+        results.append({
+            "section":     chunk["section"],
+            "category":    chunk["category"],
+            "project":     gen.project,
+            "period":      gen.period,
+            "role":        gen.role,
+            "team":        gen.team,
+            "tech_stack":  gen.tech_stack,
+            "overview":    gen.sections.overview,
+            "development": gen.sections.development,
+            "issue":       gen.sections.issue,
+            "result":      gen.sections.result,
+        })
+
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    stem = Path(pdf_path).stem
+
+    out_json = OUTPUT_DIR / f"{stem}_cl_to_portfolio.json"
+    with open(out_json, "w", encoding="utf-8") as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
+
+    from exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
+    out_pdf = str(OUTPUT_DIR / f"{stem}_cl_to_portfolio.pdf")
+    save_generated_portfolio_pdf(results, out_pdf)
+
+    print(f"\n{sep}")
+    print(f"완료: 총 {len(results)}개 섹션 생성")
+    print(f"  JSON → {out_json}")
+    print(f"  PDF  → {out_pdf}")
+    return results
+
+
+# ═══════════════════════════════════════════════════════════════
 # CLI (테스트용)
 # ═══════════════════════════════════════════════════════════════
 
@@ -917,6 +1084,9 @@ if __name__ == "__main__":
     parser.add_argument("--to-cover-letter",  type=str, default=None,
                         metavar="PORTFOLIO_PDF",
                         help="포트폴리오 PDF → 자소서 4개 섹션 자동 생성")
+    parser.add_argument("--cl-to-portfolio", type=str, default=None,
+                        metavar="CL_PDF",
+                        help="자소서 PDF → 포트폴리오 섹션 자동 생성")
     parser.add_argument("--query",            type=str, default=None,
                         help="텍스트 쿼리 직접 입력 (자소서 개선)")
     parser.add_argument("--pf-query",         type=str, default=None,
@@ -927,6 +1097,8 @@ if __name__ == "__main__":
 
     if args.to_cover_letter:
         run_portfolio_to_cover_letter(args.to_cover_letter, top_k=args.top_k)
+    elif args.cl_to_portfolio:
+        run_cover_letter_to_portfolio(args.cl_to_portfolio, top_k=args.top_k)
     elif args.pdf:
         run_from_pdf(args.pdf, top_k=args.top_k)
     elif args.portfolio:
