@@ -57,16 +57,24 @@ from tqdm import tqdm
 
 def _get_gemini_client() -> _genai.Client:
     project = os.getenv("GCP_PROJECT_ID")
-    if not project:
-        raise ValueError("GCP_PROJECT_ID 환경변수를 설정하세요.")
-    return _genai.Client(vertexai=True, project=project, location="global")
+    if project:
+        print("vertex ai 실행")
+        return _genai.Client(
+            vertexai=True,
+            project=project,
+            location=os.getenv("GCP_LOCATION", "us-central1"),
+        )
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
+    return _genai.Client(api_key=api_key)
 
 
 # ═══════════════════════════════════════════════════════════════
 # 상수
 # ═══════════════════════════════════════════════════════════════
 
-_LLM_MODEL = "gemini-3-flash-preview"
+_LLM_MODEL = "gemini-2.5-flash"
 
 VALID_SECTIONS = {"프로젝트경험", "기술스택", "자기소개", "경력", "기타"}
 
@@ -95,11 +103,10 @@ class _Meta(BaseModel):
 
 
 class _Section(BaseModel):
-    section:     str    # VALID_SECTIONS 중 1개
-    project:     str    # 프로젝트경험일 때 프로젝트명, 나머지는 ""
-    sub_section: str    # 목 데이터는 단일 청크이므로 항상 ""
-    meta:        _Meta  # 프로젝트경험일 때만 의미 있게 채움
-    text:        str    # 실제 내용 본문
+    section: str    # VALID_SECTIONS 중 1개
+    project: str    # 프로젝트경험일 때 프로젝트명, 나머지는 ""
+    meta:    _Meta  # 프로젝트경험일 때만 의미 있게 채움
+    text:    str    # 실제 내용 본문
 
 
 class _PortfolioList(BaseModel):
@@ -911,18 +918,17 @@ def generate_sections(client: _genai.Client, scenario: Scenario) -> list[dict]:
             meta = {}
 
         result.append({
-            "id":          f"{scenario.source}_{i:03d}",
-            "source":      scenario.source,
-            "doc_type":    "portfolio",
-            "job":         scenario.job,
-            "career":      scenario.career,
-            "company":     scenario.company,
-            "section":     section,
-            "project":     sec.get("project", ""),
-            "sub_section": "",
-            "meta":        meta,
-            "text":        text,
-            "char_count":  len(text),
+            "id":         f"{scenario.source}_{i:03d}",
+            "source":     scenario.source,
+            "doc_type":   "portfolio",
+            "job":        scenario.job,
+            "career":     scenario.career,
+            "company":    scenario.company,
+            "section":    section,
+            "project":    sec.get("project", ""),
+            "meta":       meta,
+            "text":       text,
+            "char_count": len(text),
         })
 
     # 프로젝트경험 섹션마다 이미지 캡션 청크 추가
