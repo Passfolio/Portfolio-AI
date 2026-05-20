@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.domain.analysis.generator import grounded_generate
-from app.domain.pdf.loader import load_mock_json
+from app.domain.pdf.loader import load_mock_json, load_pdf
+from app.domain.pdf.parser import parse_pdf
 from app.domain.retrieval.embedder import embed
 from app.domain.retrieval.searcher import hybrid_search
 from app.domain.retrieval.vector_store import upsert
@@ -22,7 +23,11 @@ async def analyze(
 ) -> AnalyzeResponse:
     pdf_id = str(uuid.uuid4())
 
-    sections = await load_mock_json(request.pdf_source)
+    if request.pdf_source.endswith(".pdf"):
+        pdf_bytes = await load_pdf(request.pdf_source)
+        sections = parse_pdf(pdf_bytes)
+    else:
+        sections = await load_mock_json(request.pdf_source)
     embeddings = await embed([s.plain_text for s in sections])
     await upsert(pdf_id, sections, embeddings, session)
 
