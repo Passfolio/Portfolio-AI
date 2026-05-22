@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     gemini_api_key: str = ""
+    be_base_url: str = "http://localhost:8080"
+    service_account_email: str = ""
+    service_account_password: str = ""
+    api_key: str = ""
 
     @property
     def db_config(self) -> dict:
