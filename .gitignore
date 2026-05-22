@@ -49,3 +49,6 @@ docs/
 .claude/
 CLAUDE.md
 .codex/
+
+# Output
+output/
