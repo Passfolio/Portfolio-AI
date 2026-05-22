@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import pickle
+import queue
+import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +13,7 @@ import pg8000
 from google import genai as _genai
 from google.genai import types as _genai_types
 from kiwipiepy import Kiwi
+from openai import OpenAI as _OpenAI
 from pydantic import BaseModel
 from rank_bm25 import BM25Okapi
 
@@ -146,20 +150,131 @@ def _tokenize_ko(text: str) -> list[str]:
 
 
 # ───────────────────────────────────────────────────────────────
-# 임베딩
+# Gemini 클라이언트 싱글톤
 # ───────────────────────────────────────────────────────────────
 
-def _embed_query(text: str) -> list[float]:
-    client = _genai.Client(api_key=get_settings().gemini_api_key)
-    resp = client.models.embed_content(
-        model="gemini-embedding-2",
-        contents=text,
-        config=_genai_types.EmbedContentConfig(
-            task_type="RETRIEVAL_QUERY",
-            output_dimensionality=1024,
-        ),
+_gemini_client: _genai.Client | None = None
+_gemini_lock = threading.Lock()
+
+
+def _get_gemini_client() -> _genai.Client:
+    global _gemini_client
+    if _gemini_client is None:
+        with _gemini_lock:
+            if _gemini_client is None:
+                project = get_settings().gcp_project_id
+                if not project:
+                    raise ValueError("GCP_PROJECT_ID 환경변수를 설정하세요.")
+                _gemini_client = _genai.Client(
+                    vertexai=True,
+                    project=project,
+                    location="global",
+                )
+    return _gemini_client
+
+
+# ───────────────────────────────────────────────────────────────
+# BM25 메모리 캐시 (최초 로드 후 재사용)
+# ───────────────────────────────────────────────────────────────
+
+_bm25_cache: dict[str, dict] = {}
+_bm25_lock = threading.Lock()
+
+
+def _load_bm25(path: Path) -> dict:
+    key = str(path)
+    if key not in _bm25_cache:
+        with _bm25_lock:
+            if key not in _bm25_cache:
+                with open(path, "rb") as f:
+                    _bm25_cache[key] = pickle.load(f)
+    return _bm25_cache[key]
+
+
+# ───────────────────────────────────────────────────────────────
+# DB 커넥션 풀 (queue 기반, 크기=5)
+# ───────────────────────────────────────────────────────────────
+
+_POOL_SIZE = 5
+_db_pool: queue.Queue[pg8000.Connection] | None = None
+_pool_lock = threading.Lock()
+
+
+def _get_pool() -> queue.Queue[pg8000.Connection]:
+    global _db_pool
+    if _db_pool is None:
+        with _pool_lock:
+            if _db_pool is None:
+                cfg = get_settings().db_config
+                pool: queue.Queue[pg8000.Connection] = queue.Queue(maxsize=_POOL_SIZE)
+                for _ in range(_POOL_SIZE):
+                    pool.put(pg8000.connect(**cfg))
+                _db_pool = pool
+    return _db_pool
+
+
+@contextmanager
+def _db_conn():
+    pool = _get_pool()
+    conn = pool.get()
+    try:
+        yield conn
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        conn = pg8000.connect(**get_settings().db_config)
+        raise
+    finally:
+        pool.put(conn)
+
+
+# ───────────────────────────────────────────────────────────────
+# OpenAI 클라이언트 싱글톤 (임베딩 전용)
+# ───────────────────────────────────────────────────────────────
+
+_openai_client: _OpenAI | None = None
+_openai_lock = threading.Lock()
+
+
+def _get_openai_client() -> _OpenAI:
+    global _openai_client
+    if _openai_client is None:
+        with _openai_lock:
+            if _openai_client is None:
+                api_key = get_settings().openai_api_key
+                if not api_key:
+                    raise ValueError("OPENAI_API_KEY 환경변수를 설정하세요.")
+                _openai_client = _OpenAI(api_key=api_key)
+    return _openai_client
+
+
+# ───────────────────────────────────────────────────────────────
+# 임베딩
+# model="openai"  → text-embedding-3-small (cover_letter_chunks)
+# model="gemini"  → gemini-embedding-2     (portfolio_chunks)
+# ───────────────────────────────────────────────────────────────
+
+def _embed_query(text: str, model: str = "openai") -> list[float]:
+    if model == "gemini":
+        client = _get_gemini_client()
+        resp = client.models.embed_content(
+            model="gemini-embedding-2",
+            contents=text,
+            config=_genai_types.EmbedContentConfig(
+                task_type="RETRIEVAL_QUERY",
+                output_dimensionality=1024,
+            ),
+        )
+        return resp.embeddings[0].values
+    client = _get_openai_client()
+    resp = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text,
+        dimensions=1024,
     )
-    return resp.embeddings[0].values
+    return resp.data[0].embedding
 
 
 # ───────────────────────────────────────────────────────────────
@@ -172,8 +287,7 @@ def _bm25_search(
     top_k: int,
     sub_section_filter: str | None = None,
 ) -> list[tuple[str, float]]:
-    with open(bm25_path, "rb") as f:
-        data = pickle.load(f)
+    data = _load_bm25(bm25_path)
     tokens = _tokenize_ko(query)
 
     sub_sections = data.get("sub_sections")
@@ -200,24 +314,23 @@ def _vector_search(
     sub_section_filter: str | None = None,
 ) -> list[tuple[str, float]]:
     emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
-    conn = pg8000.connect(**get_settings().db_config)
-    cur  = conn.cursor()
-    if sub_section_filter:
-        cur.execute(
-            f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
-            f"FROM {table} WHERE sub_section = %s "
-            f"ORDER BY embedding <=> %s::vector LIMIT %s",
-            (emb_str, sub_section_filter, emb_str, top_k),
-        )
-    else:
-        cur.execute(
-            f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
-            f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
-            (emb_str, emb_str, top_k),
-        )
-    rows = [(row[0], float(row[1])) for row in cur.fetchall()]
-    cur.close()
-    conn.close()
+    with _db_conn() as conn:
+        cur = conn.cursor()
+        if sub_section_filter:
+            cur.execute(
+                f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
+                f"FROM {table} WHERE sub_section = %s "
+                f"ORDER BY embedding <=> %s::vector LIMIT %s",
+                (emb_str, sub_section_filter, emb_str, top_k),
+            )
+        else:
+            cur.execute(
+                f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
+                f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
+                (emb_str, emb_str, top_k),
+            )
+        rows = [(row[0], float(row[1])) for row in cur.fetchall()]
+        cur.close()
     return rows
 
 
@@ -247,12 +360,11 @@ def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
         return []
     placeholders = ",".join(["%s"] * len(ids))
     col_str      = ", ".join(cols)
-    conn = pg8000.connect(**get_settings().db_config)
-    cur  = conn.cursor()
-    cur.execute(f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})", ids)
-    rows       = [dict(zip(cols, row)) for row in cur.fetchall()]
-    cur.close()
-    conn.close()
+    with _db_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})", ids)
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+        cur.close()
     id_to_row = {r["id"]: r for r in rows}
     return [id_to_row[id_] for id_ in ids if id_ in id_to_row]
 
@@ -262,19 +374,11 @@ def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
 # ───────────────────────────────────────────────────────────────
 
 def _search_portfolio_refs(cl_chunk: dict, top_k: int) -> list[dict]:
-    query_emb  = _embed_query(cl_chunk["text"])
+    query_emb  = _embed_query(cl_chunk["text"], model="gemini")
     bm25_res   = _bm25_search(cl_chunk["text"], PORTFOLIO_BM25_PATH, TOP_K_BM25)
     vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
     return _fetch_chunks(fused_ids, "portfolio_chunks", _PF_REF_COLS)
-
-
-# ───────────────────────────────────────────────────────────────
-# Gemini 클라이언트
-# ───────────────────────────────────────────────────────────────
-
-def _get_gemini_client() -> _genai.Client:
-    return _genai.Client(api_key=get_settings().gemini_api_key)
 
 
 def _generate_with_retry(

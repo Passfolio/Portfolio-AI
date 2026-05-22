@@ -28,8 +28,6 @@ CL_CTX_PATH       = OUTPUT_DIR / "mock_cover_letters_ctx.json"
 CL_CHUNKS_PATH    = OUTPUT_DIR / "mock_cover_letters.json"
 CL_BM25_PATH      = OUTPUT_DIR / "bm25_cover_letters.pkl"
 
-RESUME_CHUNKS_PATH        = OUTPUT_DIR / "resume_chunks.json"
-
 # 포트폴리오: 실제 PDF 청킹 결과 우선, contextual mock → mock 폴백
 REAL_PORTFOLIO_PATH     = OUTPUT_DIR / "portfolio_chunks.json"
 MOCK_PORTFOLIO_CTX_PATH = OUTPUT_DIR / "mock_portfolios_ctx.json"
@@ -241,38 +239,6 @@ def insert_portfolio_to_db(chunks: list[dict]):
     print(f"portfolio_chunks 저장 완료: {len(chunks)}개")
 
 
-def insert_resume_to_db(chunks: list[dict]):
-    conn = pg8000.connect(**DB_CONFIG)
-    cur = conn.cursor()
-    for c in chunks:
-        cur.execute(
-            """
-            INSERT INTO resume_chunks
-                (id, source, doc_type, section, sub_section,
-                 facts, skills, period, char_count, embedding)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
-                embedding = EXCLUDED.embedding,
-                facts     = EXCLUDED.facts,
-                skills    = EXCLUDED.skills,
-                period    = EXCLUDED.period
-            """,
-            (
-                c["id"], c["source"], c["doc_type"],
-                c["section"], c["sub_section"],
-                json.dumps(c["facts"],  ensure_ascii=False),
-                json.dumps(c["skills"], ensure_ascii=False),
-                c["period"],
-                c["char_count"],
-                str(c["embedding"]),
-            ),
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
-    print(f"resume_chunks 저장 완료: {len(chunks)}개")
-
-
 # ═══════════════════════════════════════════════════════════════
 # 실행
 # ═══════════════════════════════════════════════════════════════
@@ -305,21 +271,6 @@ def run():
         _build_bm25_index(cl_chunks, CL_BM25_PATH)
     else:
         print("⚠ 자소서 청크 파일 없음, 건너뜀")
-
-    # ── 이력서 ────────────────────────────────────────────────────
-    if RESUME_CHUNKS_PATH.exists():
-        with open(RESUME_CHUNKS_PATH, encoding="utf-8") as f:
-            resume_chunks = json.load(f)
-        print(f"\n{RESUME_CHUNKS_PATH.name} 로드: {len(resume_chunks)}개")
-        done_ids = _fetch_embedded_ids("resume_chunks")
-        todo = [c for c in resume_chunks if c["id"] not in done_ids]
-        print(f"  임베딩 대상: {len(todo)}개 ({len(done_ids)}개 이미 완료)")
-        if todo:
-            texts = [c["text"] for c in todo]
-            todo = _embed_gemini(todo, texts)
-            insert_resume_to_db(todo)
-    else:
-        print("⚠ 이력서 청크 파일 없음, 건너뜀")
 
     # ── 포트폴리오 ────────────────────────────────────────────────
     run_portfolio()
