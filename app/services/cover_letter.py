@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +12,7 @@ from google import genai as _genai
 from google.genai import types as _genai_types
 
 from app.jobs.store import JobStatus, update_job
+from app.services.s3_client import download_pdf, upload_pdf
 from app.services._rag_utils import (
     OUTPUT_DIR,
     TOP_K_BM25,
@@ -330,159 +334,181 @@ def generate_cl_section(
 # RAG-2: 포트폴리오 PDF → 자소서 생성
 # ───────────────────────────────────────────────────────────────
 
-def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
+def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL) -> dict:
     from app.chunkers.portfolio import chunk
     from app.evaluators.cover_letter import evaluate
-
-    print(f"  [RAG-2] PDF 청킹 중...")
-    portfolio_chunks = chunk(pdf_path)
-    text_chunks = [c for c in portfolio_chunks if c.get("sub_section") != "이미지"]
-    img_chunks  = [c for c in portfolio_chunks if c.get("sub_section") == "이미지"]
-    print(f"  [RAG-2] 청킹 완료: {len(text_chunks)}개 텍스트, {len(img_chunks)}개 이미지")
-
-    img_ctx_by_project: dict[str, str] = {}
-    for ic in img_chunks:
-        proj  = ic.get("project", "")
-        entry = f"[{ic.get('content_type', 'other')}] {ic['text']}"
-        img_ctx_by_project[proj] = (
-            img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
-        )
-
-    client        = _get_gemini_client()
-    results       = []
-    used_projects: list[str] = []
-
-    for idx, sec_def in enumerate(_CL_GEN_SECTIONS):
-        print(f"  [RAG-2] [{idx+1}/{len(_CL_GEN_SECTIONS)}] 섹션 생성: {sec_def['label']}")
-        generated = generate_cl_section(
-            sec_def, text_chunks, client, top_k=top_k,
-            used_projects=used_projects or None,
-            img_ctx_by_project=img_ctx_by_project or None,
-        )
-        if generated.get("top_project"):
-            used_projects.append(generated["top_project"])
-
-        eval_result = evaluate(
-            generated["text"],
-            char_limit=sec_def["char_limit"],
-            question=sec_def["question"],
-        )
-        results.append({
-            "label":      generated["label"],
-            "question":   generated["question"],
-            "text":       generated["text"],
-            "char_count": len(generated["text"]),
-            "eval": {
-                "weighted": eval_result["weighted"],
-                "llm":      eval_result["llm"],
-                "D":        eval_result["D"],
-            },
-        })
-
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    stem     = Path(pdf_path).stem
-    out_json = OUTPUT_DIR / f"{stem}_cl_from_portfolio.json"
-    with open(out_json, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
-
     from app.exporters.cover_letter_pdf import save_pdf
-    out_pdf = str(OUTPUT_DIR / f"{stem}_cl_from_portfolio.pdf")
-    save_pdf(results, out_pdf)
 
-    return results
+    pdf_bytes = download_pdf(pdf_s3_url)
+    tmp_file  = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    tmp_path  = tmp_file.name
+    tmp_file.write(pdf_bytes)
+    tmp_file.close()
+
+    out_pdf = str(OUTPUT_DIR / f"{uuid.uuid4()}_cl_from_portfolio.pdf")
+    try:
+        print(f"  [RAG-2] PDF 청킹 중...")
+        portfolio_chunks = chunk(tmp_path)
+        text_chunks = [c for c in portfolio_chunks if c.get("sub_section") != "이미지"]
+        img_chunks  = [c for c in portfolio_chunks if c.get("sub_section") == "이미지"]
+        print(f"  [RAG-2] 청킹 완료: {len(text_chunks)}개 텍스트, {len(img_chunks)}개 이미지")
+
+        img_ctx_by_project: dict[str, str] = {}
+        for ic in img_chunks:
+            proj  = ic.get("project", "")
+            entry = f"[{ic.get('content_type', 'other')}] {ic['text']}"
+            img_ctx_by_project[proj] = (
+                img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
+            )
+
+        client        = _get_gemini_client()
+        results       = []
+        used_projects: list[str] = []
+
+        for idx, sec_def in enumerate(_CL_GEN_SECTIONS):
+            print(f"  [RAG-2] [{idx+1}/{len(_CL_GEN_SECTIONS)}] 섹션 생성: {sec_def['label']}")
+            generated = generate_cl_section(
+                sec_def, text_chunks, client, top_k=top_k,
+                used_projects=used_projects or None,
+                img_ctx_by_project=img_ctx_by_project or None,
+            )
+            if generated.get("top_project"):
+                used_projects.append(generated["top_project"])
+
+            eval_result = evaluate(
+                generated["text"],
+                char_limit=sec_def["char_limit"],
+                question=sec_def["question"],
+            )
+            results.append({
+                "label":      generated["label"],
+                "question":   generated["question"],
+                "text":       generated["text"],
+                "char_count": len(generated["text"]),
+                "eval": {
+                    "weighted": eval_result["weighted"],
+                    "llm":      eval_result["llm"],
+                    "D":        eval_result["D"],
+                },
+            })
+
+        OUTPUT_DIR.mkdir(exist_ok=True)
+        save_pdf(results, out_pdf)
+
+        with open(out_pdf, "rb") as f:
+            output_bytes = f.read()
+        output_s3_url = upload_pdf(output_bytes, user_id=user_id)
+
+        return {"sections": results, "outputPdfS3Url": output_s3_url}
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        if os.path.exists(out_pdf):
+            os.unlink(out_pdf)
 
 
 # ───────────────────────────────────────────────────────────────
 # RAG-5: 자소서 PDF → 포트폴리오 생성
 # ───────────────────────────────────────────────────────────────
 
-def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
+def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL) -> dict:
     from docling.document_converter import DocumentConverter
     from app.chunkers import cover_letter as cl_chunker
-
-    converter = DocumentConverter()
-    text      = converter.convert(pdf_path).document.export_to_text()
-    source    = Path(pdf_path).stem
-
-    print(f"  [RAG-5] 자소서 청킹 중...")
-    chunks = cl_chunker.chunk(text, source)
-    print(f"  [RAG-5] 청킹 완료: {len(chunks)}개 청크")
-
-    _PROJECT_CATEGORIES = {"직무역량", "문제해결경험", "프로젝트경험"}
-    _CAREER_PROJECT_KW  = {"프로젝트", "구현", "개발", "서비스", "시스템", "앱", "웹", "API"}
-
-    def _is_target(c: dict) -> bool:
-        cat = c.get("category", "")
-        if cat in _PROJECT_CATEGORIES:
-            return True
-        if cat == "경력":
-            return any(kw in c.get("text", "") for kw in _CAREER_PROJECT_KW)
-        return False
-
-    chunks  = [c for c in chunks if _is_target(c)]
-    client  = _get_gemini_client()
-    results = []
-
-    for idx, chunk in enumerate(chunks):
-        print(f"  [RAG-5] [{idx+1}/{len(chunks)}] 포트폴리오 섹션 생성: {chunk.get('section', '')} / {chunk.get('category', '')}")
-        refs = _search_portfolio_refs(chunk, top_k=top_k)
-        gen  = _generate_portfolio_section(chunk, refs, client)
-
-        full_text  = "\n\n".join(filter(None, [
-            gen.sections.overview,
-            gen.sections.development,
-            gen.sections.issue,
-            gen.sections.result,
-        ]))
-        eval_result = None
-        if len(full_text.strip()) >= 50:
-            from app.evaluators.portfolio import evaluate as pf_evaluate
-            try:
-                eval_result = pf_evaluate(full_text, meta={
-                    "period":     gen.period,
-                    "role":       gen.role,
-                    "team":       gen.team,
-                    "tech_stack": gen.tech_stack,
-                })
-            except Exception:
-                pass
-
-        results.append({
-            "section":          chunk["section"],
-            "category":         chunk["category"],
-            "project":          gen.project,
-            "period":           gen.period,
-            "role":             gen.role,
-            "team":             gen.team,
-            "tech_stack":       gen.tech_stack,
-            "overview":         gen.sections.overview,
-            "development":      gen.sections.development,
-            "issue":            gen.sections.issue,
-            "result":           gen.sections.result,
-            "image_suggestion": gen.image_suggestion,
-            "gaps": [
-                {
-                    "field":       g.field,
-                    "reason":      g.reason,
-                    "user_action": g.user_action,
-                    "example":     g.example,
-                }
-                for g in gen.gaps
-            ],
-            "eval": eval_result,
-        })
-
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    stem     = Path(pdf_path).stem
-    out_json = OUTPUT_DIR / f"{stem}_cl_to_portfolio.json"
-    with open(out_json, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
-
     from app.exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
-    out_pdf = str(OUTPUT_DIR / f"{stem}_cl_to_portfolio.pdf")
-    save_generated_portfolio_pdf(results, out_pdf)
 
-    return results
+    pdf_bytes = download_pdf(pdf_s3_url)
+    tmp_file  = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    tmp_path  = tmp_file.name
+    tmp_file.write(pdf_bytes)
+    tmp_file.close()
+
+    out_pdf = str(OUTPUT_DIR / f"{uuid.uuid4()}_cl_to_portfolio.pdf")
+    try:
+        converter = DocumentConverter()
+        text      = converter.convert(tmp_path).document.export_to_text()
+        source    = "cover_letter"
+
+        print(f"  [RAG-5] 자소서 청킹 중...")
+        chunks = cl_chunker.chunk(text, source)
+        print(f"  [RAG-5] 청킹 완료: {len(chunks)}개 청크")
+
+        _PROJECT_CATEGORIES = {"직무역량", "문제해결경험", "프로젝트경험"}
+        _CAREER_PROJECT_KW  = {"프로젝트", "구현", "개발", "서비스", "시스템", "앱", "웹", "API"}
+
+        def _is_target(c: dict) -> bool:
+            cat = c.get("category", "")
+            if cat in _PROJECT_CATEGORIES:
+                return True
+            if cat == "경력":
+                return any(kw in c.get("text", "") for kw in _CAREER_PROJECT_KW)
+            return False
+
+        chunks  = [c for c in chunks if _is_target(c)]
+        client  = _get_gemini_client()
+        results = []
+
+        for idx, chunk in enumerate(chunks):
+            print(f"  [RAG-5] [{idx+1}/{len(chunks)}] 포트폴리오 섹션 생성: {chunk.get('section', '')} / {chunk.get('category', '')}")
+            refs = _search_portfolio_refs(chunk, top_k=top_k)
+            gen  = _generate_portfolio_section(chunk, refs, client)
+
+            full_text  = "\n\n".join(filter(None, [
+                gen.sections.overview,
+                gen.sections.development,
+                gen.sections.issue,
+                gen.sections.result,
+            ]))
+            eval_result = None
+            if len(full_text.strip()) >= 50:
+                from app.evaluators.portfolio import evaluate as pf_evaluate
+                try:
+                    eval_result = pf_evaluate(full_text, meta={
+                        "period":     gen.period,
+                        "role":       gen.role,
+                        "team":       gen.team,
+                        "tech_stack": gen.tech_stack,
+                    })
+                except Exception:
+                    pass
+
+            results.append({
+                "section":          chunk["section"],
+                "category":         chunk["category"],
+                "project":          gen.project,
+                "period":           gen.period,
+                "role":             gen.role,
+                "team":             gen.team,
+                "tech_stack":       gen.tech_stack,
+                "overview":         gen.sections.overview,
+                "development":      gen.sections.development,
+                "issue":            gen.sections.issue,
+                "result":           gen.sections.result,
+                "image_suggestion": gen.image_suggestion,
+                "gaps": [
+                    {
+                        "field":       g.field,
+                        "reason":      g.reason,
+                        "user_action": g.user_action,
+                        "example":     g.example,
+                    }
+                    for g in gen.gaps
+                ],
+                "eval": eval_result,
+            })
+
+        OUTPUT_DIR.mkdir(exist_ok=True)
+        save_generated_portfolio_pdf(results, out_pdf)
+
+        with open(out_pdf, "rb") as f:
+            output_bytes = f.read()
+        output_s3_url = upload_pdf(output_bytes, user_id=user_id)
+
+        return {"sections": results, "outputPdfS3Url": output_s3_url}
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        if os.path.exists(out_pdf):
+            os.unlink(out_pdf)
 
 
 # ───────────────────────────────────────────────────────────────
@@ -491,15 +517,16 @@ def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
 
 async def run_portfolio_to_cover_letter_task(
     job_id: str,
-    pdf_path: str,
+    pdf_s3_url: str,
+    user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
     update_job(job_id, JobStatus.RUNNING)
     try:
-        print(f"[RAG-2][{job_id}] 시작: {pdf_path}")
-        result = run_portfolio_to_cover_letter(pdf_path, top_k=top_k)
-        print(f"[RAG-2][{job_id}] 완료: {len(result)}개 섹션")
-        update_job(job_id, JobStatus.DONE, result={"sections": result})
+        print(f"[RAG-2][{job_id}] 시작")
+        result = run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k)
+        print(f"[RAG-2][{job_id}] 완료: {len(result['sections'])}개 섹션")
+        update_job(job_id, JobStatus.DONE, result=result)
     except Exception as e:
         print(f"[RAG-2][{job_id}] 오류: {e}")
         update_job(job_id, JobStatus.ERROR, message=str(e))
@@ -507,15 +534,16 @@ async def run_portfolio_to_cover_letter_task(
 
 async def run_cover_letter_to_portfolio_task(
     job_id: str,
-    pdf_path: str,
+    pdf_s3_url: str,
+    user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
     update_job(job_id, JobStatus.RUNNING)
     try:
-        print(f"[RAG-5][{job_id}] 시작: {pdf_path}")
-        result = run_cover_letter_to_portfolio(pdf_path, top_k=top_k)
-        print(f"[RAG-5][{job_id}] 완료: {len(result)}개 섹션")
-        update_job(job_id, JobStatus.DONE, result={"sections": result})
+        print(f"[RAG-5][{job_id}] 시작")
+        result = run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k)
+        print(f"[RAG-5][{job_id}] 완료: {len(result['sections'])}개 섹션")
+        update_job(job_id, JobStatus.DONE, result=result)
     except Exception as e:
         print(f"[RAG-5][{job_id}] 오류: {e}")
         update_job(job_id, JobStatus.ERROR, message=str(e))
