@@ -282,7 +282,7 @@ def llm_evaluate(text: str) -> _EvalResult:
             system_instruction=_SYSTEM_PROMPT,
             response_mime_type="application/json",
             response_schema=_EvalResult,
-            temperature=0.2,
+            temperature=0,
             max_output_tokens=4096,
         ),
     )

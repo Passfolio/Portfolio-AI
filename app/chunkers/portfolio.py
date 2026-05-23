@@ -537,6 +537,7 @@ def _gemini_split_sections(
                 system_instruction=_SECTION_SPLIT_SYSTEM,
                 response_mime_type="application/json",
                 response_schema=_SectionList,
+                temperature=0,
             ),
         )
         return json.loads(response.text)
