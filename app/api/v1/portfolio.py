@@ -25,6 +25,7 @@ async def portfolio_from_pdf(
     background_tasks.add_task(
         run_portfolio_from_pdf_task,
         job_id=str(job.job_id),
-        pdf_path=req.pdf_path,
+        pdf_s3_url=req.pdfS3Url,
+        user_id=req.userId,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)

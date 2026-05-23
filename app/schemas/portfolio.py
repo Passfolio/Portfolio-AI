@@ -15,4 +15,5 @@ class PortfolioImproveResponse(BaseModel):
 
 
 class FromPdfRequest(BaseModel):
-    pdf_path: str
+    pdfS3Url: str
+    userId: int | None = None

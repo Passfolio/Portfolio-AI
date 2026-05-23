@@ -18,12 +18,14 @@ class CoverLetterImproveResponse(BaseModel):
 
 
 class FromPortfolioRequest(BaseModel):
-    pdf_path:     str
+    pdfS3Url:     str
+    userId:       int | None = None
     job_position: str = ""
     career:       str = ""
 
 
 class ToCoverLetterRequest(BaseModel):
-    pdf_path:     str
+    pdfS3Url:     str
+    userId:       int | None = None
     job_position: str = ""
     career:       str = ""

@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
+import uuid
 from pathlib import Path
 
 from google.genai import types as _genai_types
 
 from app.jobs.store import JobStatus, update_job
+from app.services.s3_client import download_pdf, upload_pdf
 from app.services._rag_utils import (
     OUTPUT_DIR,
     TOP_K_BM25,
@@ -95,80 +99,91 @@ def rag_portfolio(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -
 # RAG-4: 포트폴리오 PDF → 섹션별 개선
 # ───────────────────────────────────────────────────────────────
 
-def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
+def run_portfolio_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL) -> dict:
     from app.chunkers.portfolio import chunk
     from app.evaluators.portfolio import evaluate_comparison as pf_evaluate_comparison
-
-    source     = Path(pdf_path).stem
-    print(f"  [RAG-4] PDF 청킹 중...")
-    all_chunks = chunk(pdf_path)
-    print(f"  [RAG-4] 청킹 완료: {len(all_chunks)}개 청크")
-
-    img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
-    text_chunks = [c for c in all_chunks if c.get("sub_section") != "이미지"]
-
-    img_ctx_by_project: dict[str, str] = {}
-    for ic in img_chunks:
-        proj  = ic.get("project", "")
-        entry = f"[{ic.get('content_type', '')}] {ic['text']}"
-        img_ctx_by_project[proj] = (
-            img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
-        )
-
-    results = []
-
-    for idx, c in enumerate(text_chunks):
-        section     = c.get("section", "")
-        project     = c.get("project", "")
-        sub_section = c.get("sub_section", "")
-        meta        = c.get("meta") or None
-
-        print(f"  [RAG-4] [{idx+1}/{len(text_chunks)}] RAG 개선: {project} / {sub_section}")
-        img_context = img_ctx_by_project.get(project, "")
-        result      = rag_portfolio(c["text"], top_k=top_k, img_context=img_context)
-        eval_result = pf_evaluate_comparison(c["text"], result["improved"], meta=meta)
-
-        results.append({
-            "section":     section,
-            "project":     project,
-            "sub_section": sub_section,
-            "original":    c["text"],
-            "improved":    result["improved"],
-            "reasoning":   result["reasoning"],
-            "changes":     result["changes"],
-            "eval_before": eval_result["before"]["weighted"],
-            "eval_after":  eval_result["after"]["weighted"],
-            "eval_delta":  eval_result["delta"],
-            "eval_detail": eval_result["per_category"],
-        })
-
-    for ic in img_chunks:
-        results.append({
-            "section":      ic.get("section", ""),
-            "project":      ic.get("project", ""),
-            "sub_section":  "이미지",
-            "content_type": ic.get("content_type", ""),
-            "image_path":   ic.get("image_path", ""),
-            "original":     ic["text"],
-            "improved":     ic["text"],
-            "reasoning":    "이미지 캡션은 개선 대상에서 제외됩니다.",
-            "changes":      [],
-            "eval_before":  None,
-            "eval_after":   None,
-            "eval_delta":   None,
-            "eval_detail":  None,
-        })
-
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    out_json = OUTPUT_DIR / f"{source}_portfolio_rag_result.json"
-    with open(out_json, "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
-
     from app.exporters.portfolio_pdf import save_improvement_pdf
-    out_pdf = str(OUTPUT_DIR / f"{source}_portfolio_rag_result.pdf")
-    save_improvement_pdf(results, out_pdf)
 
-    return results
+    pdf_bytes = download_pdf(pdf_s3_url)
+    tmp_file  = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
+    tmp_path  = tmp_file.name
+    tmp_file.write(pdf_bytes)
+    tmp_file.close()
+
+    out_pdf = str(OUTPUT_DIR / f"{uuid.uuid4()}_portfolio_rag_result.pdf")
+    try:
+        print(f"  [RAG-4] PDF 청킹 중...")
+        all_chunks = chunk(tmp_path)
+        print(f"  [RAG-4] 청킹 완료: {len(all_chunks)}개 청크")
+
+        img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
+        text_chunks = [c for c in all_chunks if c.get("sub_section") != "이미지"]
+
+        img_ctx_by_project: dict[str, str] = {}
+        for ic in img_chunks:
+            proj  = ic.get("project", "")
+            entry = f"[{ic.get('content_type', '')}] {ic['text']}"
+            img_ctx_by_project[proj] = (
+                img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
+            )
+
+        results = []
+
+        for idx, c in enumerate(text_chunks):
+            section     = c.get("section", "")
+            project     = c.get("project", "")
+            sub_section = c.get("sub_section", "")
+            meta        = c.get("meta") or None
+
+            print(f"  [RAG-4] [{idx+1}/{len(text_chunks)}] RAG 개선: {project} / {sub_section}")
+            img_context = img_ctx_by_project.get(project, "")
+            result      = rag_portfolio(c["text"], top_k=top_k, img_context=img_context)
+            eval_result = pf_evaluate_comparison(c["text"], result["improved"], meta=meta)
+
+            results.append({
+                "section":     section,
+                "project":     project,
+                "sub_section": sub_section,
+                "original":    c["text"],
+                "improved":    result["improved"],
+                "reasoning":   result["reasoning"],
+                "changes":     result["changes"],
+                "eval_before": eval_result["before"]["weighted"],
+                "eval_after":  eval_result["after"]["weighted"],
+                "eval_delta":  eval_result["delta"],
+                "eval_detail": eval_result["per_category"],
+            })
+
+        for ic in img_chunks:
+            results.append({
+                "section":      ic.get("section", ""),
+                "project":      ic.get("project", ""),
+                "sub_section":  "이미지",
+                "content_type": ic.get("content_type", ""),
+                "image_path":   ic.get("image_path", ""),
+                "original":     ic["text"],
+                "improved":     ic["text"],
+                "reasoning":    "이미지 캡션은 개선 대상에서 제외됩니다.",
+                "changes":      [],
+                "eval_before":  None,
+                "eval_after":   None,
+                "eval_delta":   None,
+                "eval_detail":  None,
+            })
+
+        OUTPUT_DIR.mkdir(exist_ok=True)
+        save_improvement_pdf(results, out_pdf)
+
+        with open(out_pdf, "rb") as f:
+            output_bytes = f.read()
+        output_s3_url = upload_pdf(output_bytes, user_id=user_id)
+
+        return {"sections": results, "outputPdfS3Url": output_s3_url}
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        if os.path.exists(out_pdf):
+            os.unlink(out_pdf)
 
 
 # ───────────────────────────────────────────────────────────────
@@ -177,15 +192,16 @@ def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict
 
 async def run_portfolio_from_pdf_task(
     job_id: str,
-    pdf_path: str,
+    pdf_s3_url: str,
+    user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
     update_job(job_id, JobStatus.RUNNING)
     try:
-        print(f"[RAG-4][{job_id}] 시작: {pdf_path}")
-        result = run_portfolio_from_pdf(pdf_path, top_k=top_k)
-        print(f"[RAG-4][{job_id}] 완료: {len(result)}개 섹션")
-        update_job(job_id, JobStatus.DONE, result={"sections": result})
+        print(f"[RAG-4][{job_id}] 시작")
+        result = run_portfolio_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k)
+        print(f"[RAG-4][{job_id}] 완료: {len(result['sections'])}개 섹션")
+        update_job(job_id, JobStatus.DONE, result=result)
     except Exception as e:
         print(f"[RAG-4][{job_id}] 오류: {e}")
         update_job(job_id, JobStatus.ERROR, message=str(e))

@@ -38,7 +38,8 @@ async def cover_letter_from_portfolio(
     background_tasks.add_task(
         run_portfolio_to_cover_letter_task,
         job_id=str(job.job_id),
-        pdf_path=req.pdf_path,
+        pdf_s3_url=req.pdfS3Url,
+        user_id=req.userId,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)
 
@@ -52,6 +53,7 @@ async def cover_letter_to_portfolio(
     background_tasks.add_task(
         run_cover_letter_to_portfolio_task,
         job_id=str(job.job_id),
-        pdf_path=req.pdf_path,
+        pdf_s3_url=req.pdfS3Url,
+        user_id=req.userId,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)
