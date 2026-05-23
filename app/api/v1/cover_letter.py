@@ -20,8 +20,8 @@ router = APIRouter(prefix="/cover-letter", tags=["cover-letter"])
 
 
 @router.post("/improve", response_model=CoverLetterImproveResponse)
-def cover_letter_improve(req: CoverLetterImproveRequest) -> CoverLetterImproveResponse:
-    result = rag_cover_letter(
+async def cover_letter_improve(req: CoverLetterImproveRequest) -> CoverLetterImproveResponse:
+    result = await rag_cover_letter(
         query=req.text,
         char_limit=req.char_limit,
         section=req.section,

@@ -11,8 +11,8 @@ router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 
 @router.post("/improve", response_model=PortfolioImproveResponse)
-def portfolio_improve(req: PortfolioImproveRequest) -> PortfolioImproveResponse:
-    result = rag_portfolio(query=req.query, img_context=req.img_context)
+async def portfolio_improve(req: PortfolioImproveRequest) -> PortfolioImproveResponse:
+    result = await rag_portfolio(query=req.query, img_context=req.img_context)
     return PortfolioImproveResponse(**result)
 
 

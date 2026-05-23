@@ -1,6 +1,7 @@
 """자소서 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -129,7 +130,7 @@ _CL_GEN_WRITING_METHOD = """\
 # RAG-1: 자소서 개선
 # ───────────────────────────────────────────────────────────────
 
-def rag_cover_letter(
+async def rag_cover_letter(
     query: str,
     top_k: int = TOP_K_FINAL,
     char_limit: int | None = None,
@@ -137,11 +138,11 @@ def rag_cover_letter(
 ) -> dict:
     from app.evaluators.cover_letter import is_competency_question
 
-    query_emb  = _embed_query(query)
+    query_emb  = await _embed_query(query)
     bm25_res   = _bm25_search(query, CL_BM25_PATH, TOP_K_BM25)
-    vector_res = _vector_search(query_emb, "cover_letter_chunks", TOP_K_VECTOR)
+    vector_res = await _vector_search(query_emb, "cover_letter_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
-    chunks     = _fetch_chunks(fused_ids, "cover_letter_chunks", ["id", "sub_section", "category", "text"])
+    chunks     = await _fetch_chunks(fused_ids, "cover_letter_chunks", ["id", "sub_section", "category", "text"])
 
     context_block = "\n\n---\n\n".join(
         f"[예시 {i+1} | {c['category']} — {c['sub_section']}]\n{c['text']}"
@@ -199,7 +200,7 @@ def rag_cover_letter(
                 f"- changes: 주요 변경 사항 목록"
             )
 
-        resp = _generate_with_retry(
+        resp = await _generate_with_retry(
             client,
             model=_LLM_MODEL,
             contents=current_prompt,
@@ -239,7 +240,7 @@ def _select_portfolio_chunks(
     return [text_chunks[i] for i in top_idx if scores[i] > 0]
 
 
-def generate_cl_section(
+async def generate_cl_section(
     section_def: dict,
     portfolio_chunks: list[dict],
     client: _genai.Client,
@@ -268,11 +269,11 @@ def generate_cl_section(
                 + "\n\n".join(img_parts)
             )
 
-    query_emb  = _embed_query(section_def["question"])
+    query_emb  = await _embed_query(section_def["question"])
     bm25_res   = _bm25_search(section_def["question"], CL_BM25_PATH, TOP_K_BM25)
-    vector_res = _vector_search(query_emb, "cover_letter_chunks", TOP_K_VECTOR)
+    vector_res = await _vector_search(query_emb, "cover_letter_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
-    ref_chunks = _fetch_chunks(fused_ids, "cover_letter_chunks", ["id", "category", "sub_section", "text"])
+    ref_chunks = await _fetch_chunks(fused_ids, "cover_letter_chunks", ["id", "category", "sub_section", "text"])
     ref_block  = "\n\n---\n\n".join(
         f"[예시 {i+1} | {c.get('category','')}]\n{c['text']}"
         for i, c in enumerate(ref_chunks)
@@ -305,7 +306,7 @@ def generate_cl_section(
         f"[자소서 문항]\n{section_def['question']}"
     )
 
-    resp = _generate_with_retry(
+    resp = await _generate_with_retry(
         client,
         model=_LLM_MODEL,
         contents=prompt,
@@ -330,12 +331,12 @@ def generate_cl_section(
 # RAG-2: 포트폴리오 PDF → 자소서 생성
 # ───────────────────────────────────────────────────────────────
 
-def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
+async def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
     from app.chunkers.portfolio import chunk
     from app.evaluators.cover_letter import evaluate
 
     print(f"  [RAG-2] PDF 청킹 중...")
-    portfolio_chunks = chunk(pdf_path)
+    portfolio_chunks = await asyncio.to_thread(chunk, pdf_path)
     text_chunks = [c for c in portfolio_chunks if c.get("sub_section") != "이미지"]
     img_chunks  = [c for c in portfolio_chunks if c.get("sub_section") == "이미지"]
     print(f"  [RAG-2] 청킹 완료: {len(text_chunks)}개 텍스트, {len(img_chunks)}개 이미지")
@@ -354,7 +355,7 @@ def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
 
     for idx, sec_def in enumerate(_CL_GEN_SECTIONS):
         print(f"  [RAG-2] [{idx+1}/{len(_CL_GEN_SECTIONS)}] 섹션 생성: {sec_def['label']}")
-        generated = generate_cl_section(
+        generated = await generate_cl_section(
             sec_def, text_chunks, client, top_k=top_k,
             used_projects=used_projects or None,
             img_ctx_by_project=img_ctx_by_project or None,
@@ -362,7 +363,8 @@ def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
         if generated.get("top_project"):
             used_projects.append(generated["top_project"])
 
-        eval_result = evaluate(
+        eval_result = await asyncio.to_thread(
+            evaluate,
             generated["text"],
             char_limit=sec_def["char_limit"],
             question=sec_def["question"],
@@ -387,7 +389,7 @@ def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
 
     from app.exporters.cover_letter_pdf import save_pdf
     out_pdf = str(OUTPUT_DIR / f"{stem}_cl_from_portfolio.pdf")
-    save_pdf(results, out_pdf)
+    await asyncio.to_thread(save_pdf, results, out_pdf)
 
     return results
 
@@ -396,16 +398,16 @@ def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
 # RAG-5: 자소서 PDF → 포트폴리오 생성
 # ───────────────────────────────────────────────────────────────
 
-def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
+async def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
     from docling.document_converter import DocumentConverter
     from app.chunkers import cover_letter as cl_chunker
 
-    converter = DocumentConverter()
-    text      = converter.convert(pdf_path).document.export_to_text()
-    source    = Path(pdf_path).stem
-
     print(f"  [RAG-5] 자소서 청킹 중...")
-    chunks = cl_chunker.chunk(text, source)
+    text   = await asyncio.to_thread(
+        lambda: DocumentConverter().convert(pdf_path).document.export_to_text()
+    )
+    source = Path(pdf_path).stem
+    chunks = await asyncio.to_thread(cl_chunker.chunk, text, source)
     print(f"  [RAG-5] 청킹 완료: {len(chunks)}개 청크")
 
     _PROJECT_CATEGORIES = {"직무역량", "문제해결경험", "프로젝트경험"}
@@ -425,8 +427,8 @@ def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
 
     for idx, chunk in enumerate(chunks):
         print(f"  [RAG-5] [{idx+1}/{len(chunks)}] 포트폴리오 섹션 생성: {chunk.get('section', '')} / {chunk.get('category', '')}")
-        refs = _search_portfolio_refs(chunk, top_k=top_k)
-        gen  = _generate_portfolio_section(chunk, refs, client)
+        refs = await _search_portfolio_refs(chunk, top_k=top_k)
+        gen  = await _generate_portfolio_section(chunk, refs, client)
 
         full_text  = "\n\n".join(filter(None, [
             gen.sections.overview,
@@ -438,12 +440,16 @@ def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
         if len(full_text.strip()) >= 50:
             from app.evaluators.portfolio import evaluate as pf_evaluate
             try:
-                eval_result = pf_evaluate(full_text, meta={
-                    "period":     gen.period,
-                    "role":       gen.role,
-                    "team":       gen.team,
-                    "tech_stack": gen.tech_stack,
-                })
+                eval_result = await asyncio.to_thread(
+                    pf_evaluate,
+                    full_text,
+                    meta={
+                        "period":     gen.period,
+                        "role":       gen.role,
+                        "team":       gen.team,
+                        "tech_stack": gen.tech_stack,
+                    },
+                )
             except Exception:
                 pass
 
@@ -480,7 +486,7 @@ def run_cover_letter_to_portfolio(pdf_path: str, top_k: int = TOP_K_FINAL) -> li
 
     from app.exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
     out_pdf = str(OUTPUT_DIR / f"{stem}_cl_to_portfolio.pdf")
-    save_generated_portfolio_pdf(results, out_pdf)
+    await asyncio.to_thread(save_generated_portfolio_pdf, results, out_pdf)
 
     return results
 
@@ -497,7 +503,7 @@ async def run_portfolio_to_cover_letter_task(
     update_job(job_id, JobStatus.RUNNING)
     try:
         print(f"[RAG-2][{job_id}] 시작: {pdf_path}")
-        result = run_portfolio_to_cover_letter(pdf_path, top_k=top_k)
+        result = await run_portfolio_to_cover_letter(pdf_path, top_k=top_k)
         print(f"[RAG-2][{job_id}] 완료: {len(result)}개 섹션")
         update_job(job_id, JobStatus.DONE, result={"sections": result})
     except Exception as e:
@@ -513,7 +519,7 @@ async def run_cover_letter_to_portfolio_task(
     update_job(job_id, JobStatus.RUNNING)
     try:
         print(f"[RAG-5][{job_id}] 시작: {pdf_path}")
-        result = run_cover_letter_to_portfolio(pdf_path, top_k=top_k)
+        result = await run_cover_letter_to_portfolio(pdf_path, top_k=top_k)
         print(f"[RAG-5][{job_id}] 완료: {len(result)}개 섹션")
         update_job(job_id, JobStatus.DONE, result={"sections": result})
     except Exception as e:

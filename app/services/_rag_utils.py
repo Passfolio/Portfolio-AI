@@ -1,15 +1,14 @@
 """rag.py 공유 내부 유틸리티 — cover_letter / portfolio 서비스에서 공통 사용."""
 from __future__ import annotations
 
+import asyncio
 import pickle
-import queue
 import threading
 import time
-from contextlib import contextmanager
 from pathlib import Path
 
+import asyncpg
 import numpy as np
-import pg8000
 from google import genai as _genai
 from google.genai import types as _genai_types
 from kiwipiepy import Kiwi
@@ -192,42 +191,33 @@ def _load_bm25(path: Path) -> dict:
 
 
 # ───────────────────────────────────────────────────────────────
-# DB 커넥션 풀 (queue 기반, 크기=5)
+# asyncpg 커넥션 풀
 # ───────────────────────────────────────────────────────────────
 
-_POOL_SIZE = 5
-_db_pool: queue.Queue[pg8000.Connection] | None = None
-_pool_lock = threading.Lock()
+_db_pool: asyncpg.Pool | None = None
 
 
-def _get_pool() -> queue.Queue[pg8000.Connection]:
+async def init_db_pool() -> None:
     global _db_pool
+    _db_pool = await asyncpg.create_pool(
+        get_settings().db_dsn,
+        min_size=2,
+        max_size=10,
+        command_timeout=30,
+    )
+
+
+async def close_db_pool() -> None:
+    global _db_pool
+    if _db_pool:
+        await _db_pool.close()
+        _db_pool = None
+
+
+def _get_db_pool() -> asyncpg.Pool:
     if _db_pool is None:
-        with _pool_lock:
-            if _db_pool is None:
-                cfg = get_settings().db_config
-                pool: queue.Queue[pg8000.Connection] = queue.Queue(maxsize=_POOL_SIZE)
-                for _ in range(_POOL_SIZE):
-                    pool.put(pg8000.connect(**cfg))
-                _db_pool = pool
+        raise RuntimeError("DB 풀이 초기화되지 않았습니다.")
     return _db_pool
-
-
-@contextmanager
-def _db_conn():
-    pool = _get_pool()
-    conn = pool.get()
-    try:
-        yield conn
-    except Exception:
-        try:
-            conn.close()
-        except Exception:
-            pass
-        conn = pg8000.connect(**get_settings().db_config)
-        raise
-    finally:
-        pool.put(conn)
 
 
 # ───────────────────────────────────────────────────────────────
@@ -251,15 +241,16 @@ def _get_openai_client() -> _OpenAI:
 
 
 # ───────────────────────────────────────────────────────────────
-# 임베딩
+# 임베딩 (async — 동기 HTTP 호출을 스레드풀에서 실행)
 # model="openai"  → text-embedding-3-small (cover_letter_chunks)
 # model="gemini"  → gemini-embedding-2     (portfolio_chunks)
 # ───────────────────────────────────────────────────────────────
 
-def _embed_query(text: str, model: str = "openai") -> list[float]:
+async def _embed_query(text: str, model: str = "openai") -> list[float]:
     if model == "gemini":
         client = _get_gemini_client()
-        resp = client.models.embed_content(
+        resp = await asyncio.to_thread(
+            client.models.embed_content,
             model="gemini-embedding-2",
             contents=text,
             config=_genai_types.EmbedContentConfig(
@@ -269,7 +260,8 @@ def _embed_query(text: str, model: str = "openai") -> list[float]:
         )
         return resp.embeddings[0].values
     client = _get_openai_client()
-    resp = client.embeddings.create(
+    resp = await asyncio.to_thread(
+        client.embeddings.create,
         model="text-embedding-3-small",
         input=text,
         dimensions=1024,
@@ -278,7 +270,7 @@ def _embed_query(text: str, model: str = "openai") -> list[float]:
 
 
 # ───────────────────────────────────────────────────────────────
-# BM25 검색
+# BM25 검색 (동기 — 순수 연산, DB 없음)
 # ───────────────────────────────────────────────────────────────
 
 def _bm25_search(
@@ -304,34 +296,32 @@ def _bm25_search(
 
 
 # ───────────────────────────────────────────────────────────────
-# 벡터 검색 (pgvector)
+# 벡터 검색 (async — asyncpg)
 # ───────────────────────────────────────────────────────────────
 
-def _vector_search(
+async def _vector_search(
     query_emb: list[float],
     table: str,
     top_k: int,
     sub_section_filter: str | None = None,
 ) -> list[tuple[str, float]]:
     emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
-    with _db_conn() as conn:
-        cur = conn.cursor()
+    pool = _get_db_pool()
+    async with pool.acquire() as conn:
         if sub_section_filter:
-            cur.execute(
-                f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
-                f"FROM {table} WHERE sub_section = %s "
-                f"ORDER BY embedding <=> %s::vector LIMIT %s",
-                (emb_str, sub_section_filter, emb_str, top_k),
+            rows = await conn.fetch(
+                f"SELECT id, 1 - (embedding <=> $1::vector) AS score "
+                f"FROM {table} WHERE sub_section = $2 "
+                f"ORDER BY embedding <=> $1::vector LIMIT $3",
+                emb_str, sub_section_filter, top_k,
             )
         else:
-            cur.execute(
-                f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
-                f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
-                (emb_str, emb_str, top_k),
+            rows = await conn.fetch(
+                f"SELECT id, 1 - (embedding <=> $1::vector) AS score "
+                f"FROM {table} ORDER BY embedding <=> $1::vector LIMIT $2",
+                emb_str, top_k,
             )
-        rows = [(row[0], float(row[1])) for row in cur.fetchall()]
-        cur.close()
-    return rows
+    return [(row["id"], float(row["score"])) for row in rows]
 
 
 # ───────────────────────────────────────────────────────────────
@@ -352,20 +342,21 @@ def _rrf_fusion(
 
 
 # ───────────────────────────────────────────────────────────────
-# DB 청크 조회
+# DB 청크 조회 (async — asyncpg)
 # ───────────────────────────────────────────────────────────────
 
-def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
+async def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
     if not ids:
         return []
-    placeholders = ",".join(["%s"] * len(ids))
-    col_str      = ", ".join(cols)
-    with _db_conn() as conn:
-        cur = conn.cursor()
-        cur.execute(f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})", ids)
-        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
-        cur.close()
-    id_to_row = {r["id"]: r for r in rows}
+    placeholders = ",".join(f"${i + 1}" for i in range(len(ids)))
+    col_str = ", ".join(cols)
+    pool = _get_db_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})",
+            *ids,
+        )
+    id_to_row = {row["id"]: dict(row) for row in rows}
     return [id_to_row[id_] for id_ in ids if id_ in id_to_row]
 
 
@@ -373,25 +364,29 @@ def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
 # 포트폴리오 레퍼런스 검색
 # ───────────────────────────────────────────────────────────────
 
-def _search_portfolio_refs(cl_chunk: dict, top_k: int) -> list[dict]:
-    query_emb  = _embed_query(cl_chunk["text"], model="gemini")
+async def _search_portfolio_refs(cl_chunk: dict, top_k: int) -> list[dict]:
+    query_emb  = await _embed_query(cl_chunk["text"], model="gemini")
     bm25_res   = _bm25_search(cl_chunk["text"], PORTFOLIO_BM25_PATH, TOP_K_BM25)
-    vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
+    vector_res = await _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
-    return _fetch_chunks(fused_ids, "portfolio_chunks", _PF_REF_COLS)
+    return await _fetch_chunks(fused_ids, "portfolio_chunks", _PF_REF_COLS)
 
 
-def _generate_with_retry(
+# ───────────────────────────────────────────────────────────────
+# LLM 호출 래퍼 (async — 동기 SDK를 스레드풀에서 실행, rate limit 시 비동기 대기)
+# ───────────────────────────────────────────────────────────────
+
+async def _generate_with_retry(
     client: _genai.Client,
     model: str,
     contents,
     config,
     max_attempts: int = 3,
 ):
-    """generate_content 호출 래퍼 — 429/503 에러 시 재시도."""
     for attempt in range(max_attempts):
         try:
-            return client.models.generate_content(
+            return await asyncio.to_thread(
+                client.models.generate_content,
                 model=model,
                 contents=contents,
                 config=config,
@@ -401,11 +396,11 @@ def _generate_with_retry(
             if attempt < max_attempts - 1 and ("429" in err or "quota" in err.lower()):
                 wait = 30 * (attempt + 1)
                 print(f"  [Gemini rate limit] {wait}초 대기 후 재시도 ({attempt + 1}/{max_attempts - 1})...")
-                time.sleep(wait)
+                await asyncio.sleep(wait)
             elif attempt < max_attempts - 1 and ("503" in err or "500" in err):
                 wait = 10 * (attempt + 1)
                 print(f"  [Gemini 서버 오류] {wait}초 대기 후 재시도 ({attempt + 1}/{max_attempts - 1})...")
-                time.sleep(wait)
+                await asyncio.sleep(wait)
             else:
                 raise
 
@@ -455,29 +450,25 @@ E. 직무연관성(10%): 직무 역량과 연결되는 경험임을 명시
 
 _PF_GEN_SUBSECTION_GUIDE_OVERVIEW = """\
   - 프로젝트 배경·목적·기간·팀 구성·기술스택을 개조식으로 기술
-  - 직무와 연관된 역할·기술임을 드러내는 한 줄 포함\
-"""
+  - 직무와 연관된 역할·기술임을 드러내는 한 줄 포함\"""
 
 _PF_GEN_SUBSECTION_GUIDE_DEVELOPMENT = """\
   - 본인이 직접 구현한 핵심 기능, 설계 결정, 기술적 접근법
   - '왜 그 방법을 선택했는지' 판단 근거 필수 포함 (대안 대비 이유)
-  - 배경→문제인식→판단→실행 흐름으로 서술\
-"""
+  - 배경→문제인식→판단→실행 흐름으로 서술\"""
 
 _PF_GEN_SUBSECTION_GUIDE_ISSUE = """\
   - 문제 발생 → 원인 파악 → 본인이 수행한 해결 과정 순으로 서술
   - '내가/직접/담당' 등 1인칭 행동 동사 사용
-  - 자소서에 트러블슈팅 내용이 없으면 ""\
-"""
+  - 자소서에 트러블슈팅 내용이 없으면 ""\"""
 
 _PF_GEN_SUBSECTION_GUIDE_RESULT = """\
   - 수치 기반 성과 최우선 (%, ms, 배수, 건수 — 자소서 원문 그대로 인용)
   - 정성 성과(배포 완료, 기한 준수 등)도 포함
-  - 이 경험에서 얻은 인사이트·배움 1줄 포함\
-"""
+  - 이 경험에서 얻은 인사이트·배움 1줄 포함\"""
 
 
-def _generate_portfolio_section(
+async def _generate_portfolio_section(
     cl_chunk: dict,
     refs: list[dict],
     client: _genai.Client,
@@ -543,7 +534,7 @@ def _generate_portfolio_section(
         f"자소서에 언급되지 않은 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
     )
 
-    resp = _generate_with_retry(
+    resp = await _generate_with_retry(
         client,
         model=_LLM_MODEL,
         contents=prompt,

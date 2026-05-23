@@ -16,15 +16,11 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
 
     @property
-    def db_config(self) -> dict:
-        return {
-            "host":     self.postgres_host,
-            "port":     self.postgres_port,
-            "database": self.postgres_db,
-            "user":     self.postgres_user,
-            "password": self.postgres_password,
-            "timeout":  10,
-        }
+    def db_dsn(self) -> str:
+        return (
+            f"postgresql://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

@@ -1,6 +1,7 @@
 """포트폴리오 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -30,12 +31,12 @@ from app.services._rag_utils import (
 # RAG-3: 포트폴리오 개선
 # ───────────────────────────────────────────────────────────────
 
-def rag_portfolio(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -> dict:
-    query_emb  = _embed_query(query)
+async def rag_portfolio(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -> dict:
+    query_emb  = await _embed_query(query)
     bm25_res   = _bm25_search(query, PORTFOLIO_BM25_PATH, TOP_K_BM25)
-    vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
+    vector_res = await _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
-    chunks     = _fetch_chunks(
+    chunks     = await _fetch_chunks(
         fused_ids, "portfolio_chunks",
         ["id", "section", "sub_section", "project", "text"],
     )
@@ -74,7 +75,7 @@ def rag_portfolio(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -
     )
 
     client = _get_gemini_client()
-    resp = _generate_with_retry(
+    resp = await _generate_with_retry(
         client,
         model=_LLM_MODEL,
         contents=prompt,
@@ -95,13 +96,13 @@ def rag_portfolio(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -
 # RAG-4: 포트폴리오 PDF → 섹션별 개선
 # ───────────────────────────────────────────────────────────────
 
-def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
+async def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict]:
     from app.chunkers.portfolio import chunk
     from app.evaluators.portfolio import evaluate_comparison as pf_evaluate_comparison
 
     source     = Path(pdf_path).stem
     print(f"  [RAG-4] PDF 청킹 중...")
-    all_chunks = chunk(pdf_path)
+    all_chunks = await asyncio.to_thread(chunk, pdf_path)
     print(f"  [RAG-4] 청킹 완료: {len(all_chunks)}개 청크")
 
     img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
@@ -125,8 +126,10 @@ def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict
 
         print(f"  [RAG-4] [{idx+1}/{len(text_chunks)}] RAG 개선: {project} / {sub_section}")
         img_context = img_ctx_by_project.get(project, "")
-        result      = rag_portfolio(c["text"], top_k=top_k, img_context=img_context)
-        eval_result = pf_evaluate_comparison(c["text"], result["improved"], meta=meta)
+        result      = await rag_portfolio(c["text"], top_k=top_k, img_context=img_context)
+        eval_result = await asyncio.to_thread(
+            pf_evaluate_comparison, c["text"], result["improved"], meta=meta
+        )
 
         results.append({
             "section":     section,
@@ -166,7 +169,7 @@ def run_portfolio_from_pdf(pdf_path: str, top_k: int = TOP_K_FINAL) -> list[dict
 
     from app.exporters.portfolio_pdf import save_improvement_pdf
     out_pdf = str(OUTPUT_DIR / f"{source}_portfolio_rag_result.pdf")
-    save_improvement_pdf(results, out_pdf)
+    await asyncio.to_thread(save_improvement_pdf, results, out_pdf)
 
     return results
 
@@ -183,7 +186,7 @@ async def run_portfolio_from_pdf_task(
     update_job(job_id, JobStatus.RUNNING)
     try:
         print(f"[RAG-4][{job_id}] 시작: {pdf_path}")
-        result = run_portfolio_from_pdf(pdf_path, top_k=top_k)
+        result = await run_portfolio_from_pdf(pdf_path, top_k=top_k)
         print(f"[RAG-4][{job_id}] 완료: {len(result)}개 섹션")
         update_job(job_id, JobStatus.DONE, result={"sections": result})
     except Exception as e:
