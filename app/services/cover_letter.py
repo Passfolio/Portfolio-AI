@@ -377,7 +377,6 @@ async def run_portfolio_to_cover_letter(pdf_path: str, top_k: int = TOP_K_FINAL)
             "eval": {
                 "weighted": eval_result["weighted"],
                 "llm":      eval_result["llm"],
-                "D":        eval_result["D"],
             },
         })
 
