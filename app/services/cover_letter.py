@@ -1,9 +1,12 @@
 """자소서 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
-import numpy as np
-from google import genai as _genai
+from typing import TYPE_CHECKING
+
 from google.genai import types as _genai_types
+
+if TYPE_CHECKING:
+    from google import genai as _genai
 
 from app.services.pdf_pipeline import (
     download_pdf_to_temp, make_output_path,
@@ -286,7 +289,7 @@ def _select_portfolio_chunks(
     corpus  = [_tokenize_ko(c.get("text", "")) for c in text_chunks]
     bm25    = BM25Okapi(corpus)
     scores  = bm25.get_scores(_tokenize_ko(query))
-    top_idx = np.argsort(scores)[::-1][:top_k]
+    top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
     return [text_chunks[i] for i in top_idx if scores[i] > 0]
 
 
