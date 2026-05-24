@@ -23,7 +23,7 @@ from app.services._rag_utils import (
     _ImprovedResult,
     _LLM_MODEL,
     _bm25_search,
-    _embed_query,
+    _embed_query_cl,
     _fetch_chunks,
     _generate_portfolio_section,
     _generate_with_retry,
@@ -112,7 +112,9 @@ _CL_GEN_WRITING_METHOD = """\
 
 ⑤ 결과(R): 1~2문장
    포트폴리오에 수치가 있으면 반드시 인용하세요 (%, ms, 배수, 건수 등).
-   수치가 없으면 정성적 성과를 구체적으로 서술하세요. 수치를 임의로 만들지 마세요.
+   수치가 없으면 "무엇이→어떻게→어떤 변화"가 드러나는 구체적 정성 성과를 서술하세요.
+   예) "팀 내 리뷰 문화 정착 → PR 병합 속도 체감 향상" / "중재 역할로 2주 내 합의 도출 → 일정 지연 없이 마감"
+   수치를 임의로 만들지 마세요. "기여했습니다", "향상됐습니다" 같은 막연한 표현만으로 마무리하지 마세요.
 
 ⑥ 마무리: 1~2문장
    이 경험에서 얻은 관점·역량을 쓰고, 지원 직무에서 어떻게 활용할지 연결하세요.
@@ -141,7 +143,7 @@ def rag_cover_letter(
 ) -> dict:
     from app.evaluators.cover_letter import is_competency_question
 
-    query_emb  = _embed_query(query)
+    query_emb  = _embed_query_cl(query)
     bm25_res   = _bm25_search(query, CL_BM25_PATH, TOP_K_BM25)
     vector_res = _vector_search(query_emb, "cover_letter_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
@@ -272,7 +274,7 @@ def generate_cl_section(
                 + "\n\n".join(img_parts)
             )
 
-    query_emb  = _embed_query(section_def["question"])
+    query_emb  = _embed_query_cl(section_def["question"])
     bm25_res   = _bm25_search(section_def["question"], CL_BM25_PATH, TOP_K_BM25)
     vector_res = _vector_search(query_emb, "cover_letter_chunks", TOP_K_VECTOR)
     fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
@@ -388,7 +390,6 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
                 "eval": {
                     "weighted": eval_result["weighted"],
                     "llm":      eval_result["llm"],
-                    "D":        eval_result["D"],
                 },
             })
 

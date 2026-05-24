@@ -243,6 +243,7 @@ def _call_gemini(client: _genai.Client, prompt: str) -> list[dict]:
                     system_instruction=_SYSTEM_INSTRUCTION,
                     response_mime_type="application/json",
                     response_schema=_SectionList,
+                    temperature=0,
                 ),
             )
             return json.loads(response.text)["sections"]

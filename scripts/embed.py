@@ -10,31 +10,24 @@ from kiwipiepy import Kiwi
 from rank_bm25 import BM25Okapi
 from google import genai as _genai
 from google.genai import types as _types
+from openai import OpenAI
 import pg8000
 
 _kiwi = Kiwi()
 
 def _tokenize_ko(text: str) -> list[str]:
-    """한국어 형태소 분석 기반 토크나이징. 명사/동사/형용사/영문만 추출."""
     keep = {"NNG", "NNP", "NNB", "NR", "NP", "VV", "VA", "SL"}
     return [t.form for t in _kiwi.tokenize(text) if t.tag in keep]
+
 
 # ── 설정 ──────────────────────────────────────────────────────────────
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 
-# 자소서: 실제 PDF 청킹 결과 우선, contextual mock → mock 폴백
-REAL_CL_PATH      = OUTPUT_DIR / "coverletter_chunks.json"
-CL_CTX_PATH       = OUTPUT_DIR / "mock_cover_letters_ctx.json"
-CL_CHUNKS_PATH    = OUTPUT_DIR / "mock_cover_letters.json"
-CL_BM25_PATH      = OUTPUT_DIR / "bm25_cover_letters.pkl"
+CL_CHUNKS_PATH      = OUTPUT_DIR / "coverletter_chunks.json"
+CL_BM25_PATH        = OUTPUT_DIR / "bm25_cover_letters.pkl"
 
-RESUME_CHUNKS_PATH        = OUTPUT_DIR / "resume_chunks.json"
-
-# 포트폴리오: 실제 PDF 청킹 결과 우선, contextual mock → mock 폴백
-REAL_PORTFOLIO_PATH     = OUTPUT_DIR / "portfolio_chunks.json"
-MOCK_PORTFOLIO_CTX_PATH = OUTPUT_DIR / "mock_portfolios_ctx.json"
-MOCK_PORTFOLIO_PATH     = OUTPUT_DIR / "mock_portfolios.json"
-PORTFOLIO_BM25_PATH     = OUTPUT_DIR / "bm25_portfolios.pkl"
+PORTFOLIO_CHUNKS_PATH = OUTPUT_DIR / "portfolio_chunks.json"
+PORTFOLIO_BM25_PATH   = OUTPUT_DIR / "bm25_portfolios.pkl"
 
 DB_CONFIG = {
     "host":     os.getenv("POSTGRES_HOST", "localhost"),
@@ -44,28 +37,60 @@ DB_CONFIG = {
     "password": os.getenv("POSTGRES_PASSWORD"),
 }
 
+
 # ═══════════════════════════════════════════════════════════════
 # 임베딩
 # ═══════════════════════════════════════════════════════════════
 
-_EMBED_MODEL = "gemini-embedding-2"
-_EMBED_DIM   = 1024
+_OPENAI_EMBED_MODEL  = "text-embedding-3-small"
+_GEMINI_EMBED_MODEL  = "gemini-embedding-2"
+_GEMINI_EMBED_DIM    = 1024
+
+
+def _embed_openai(chunks: list[dict], texts: list[str], log_interval: int = 50) -> list[dict]:
+    """OpenAI text-embedding-3-small 임베딩 (자소서 전용)."""
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    total  = len(texts)
+    print(f"임베딩 시작 [{_OPENAI_EMBED_MODEL}]: {total}개 청크")
+    for i, (chunk, text) in enumerate(zip(chunks, texts)):
+        for attempt in range(6):
+            try:
+                resp = client.embeddings.create(
+                    model=_OPENAI_EMBED_MODEL,
+                    input=text,
+                    dimensions=1024,
+                )
+                chunk["embedding"] = resp.data[0].embedding
+                time.sleep(0.05)
+                break
+            except Exception as e:
+                err = str(e)
+                if attempt < 5 and ("429" in err or "rate" in err.lower()):
+                    wait = 60 * (attempt + 1)
+                    print(f"  [rate limit] {wait}초 대기 후 재시도...")
+                    time.sleep(wait)
+                else:
+                    raise
+        if (i + 1) % log_interval == 0 or (i + 1) == total:
+            print(f"  {i + 1}/{total} 완료")
+    print("임베딩 완료")
+    return chunks
 
 
 def _embed_gemini(chunks: list[dict], texts: list[str], log_interval: int = 50) -> list[dict]:
-    """Gemini Embedding 2 임베딩 (API key, 1024차원)."""
+    """Gemini Embedding 2 임베딩 (포트폴리오 전용, 1024차원)."""
     client = _genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     total  = len(texts)
-    print(f"임베딩 시작 [{_EMBED_MODEL}]: {total}개 청크")
+    print(f"임베딩 시작 [{_GEMINI_EMBED_MODEL}]: {total}개 청크")
     for i, (chunk, text) in enumerate(zip(chunks, texts)):
         for attempt in range(6):
             try:
                 resp = client.models.embed_content(
-                    model=_EMBED_MODEL,
+                    model=_GEMINI_EMBED_MODEL,
                     contents=text,
                     config=_types.EmbedContentConfig(
                         task_type="RETRIEVAL_DOCUMENT",
-                        output_dimensionality=_EMBED_DIM,
+                        output_dimensionality=_GEMINI_EMBED_DIM,
                     ),
                 )
                 chunk["embedding"] = resp.embeddings[0].values
@@ -90,15 +115,8 @@ def _embed_gemini(chunks: list[dict], texts: list[str], log_interval: int = 50) 
 # ═══════════════════════════════════════════════════════════════
 
 def _build_bm25_index(chunks: list[dict], index_path: Path) -> None:
-    """BM25Okapi 인덱스를 빌드하고 pkl로 저장.
-
-    검색 시 로드해서 쿼리 토큰과 매칭.
-    corpus는 text_with_context(있을 때) 또는 text 기준으로 토크나이즈.
-    """
     print(f"BM25 인덱스 빌드 중: {len(chunks)}개 청크")
-    corpus_texts = [c.get("text_with_context", c["text"]) for c in chunks]
-    tokenized    = [_tokenize_ko(text) for text in corpus_texts]
-
+    tokenized = [_tokenize_ko(c["text"]) for c in chunks]
     bm25 = BM25Okapi(tokenized)
     index_data = {
         "bm25":         bm25,
@@ -115,7 +133,6 @@ def _build_bm25_index(chunks: list[dict], index_path: Path) -> None:
 # ═══════════════════════════════════════════════════════════════
 
 def _fetch_embedded_ids(table: str) -> set[str]:
-    """DB에서 이미 embedding이 있는 id 목록 조회."""
     try:
         conn = pg8000.connect(**DB_CONFIG)
         cur = conn.cursor()
@@ -241,115 +258,48 @@ def insert_portfolio_to_db(chunks: list[dict]):
     print(f"portfolio_chunks 저장 완료: {len(chunks)}개")
 
 
-def insert_resume_to_db(chunks: list[dict]):
-    conn = pg8000.connect(**DB_CONFIG)
-    cur = conn.cursor()
-    for c in chunks:
-        cur.execute(
-            """
-            INSERT INTO resume_chunks
-                (id, source, doc_type, section, sub_section,
-                 facts, skills, period, char_count, embedding)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
-                embedding = EXCLUDED.embedding,
-                facts     = EXCLUDED.facts,
-                skills    = EXCLUDED.skills,
-                period    = EXCLUDED.period
-            """,
-            (
-                c["id"], c["source"], c["doc_type"],
-                c["section"], c["sub_section"],
-                json.dumps(c["facts"],  ensure_ascii=False),
-                json.dumps(c["skills"], ensure_ascii=False),
-                c["period"],
-                c["char_count"],
-                str(c["embedding"]),
-            ),
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
-    print(f"resume_chunks 저장 완료: {len(chunks)}개")
-
-
 # ═══════════════════════════════════════════════════════════════
 # 실행
 # ═══════════════════════════════════════════════════════════════
 
 def run():
-    # ── 자소서: 실제 PDF 청킹 결과 우선, contextual mock → mock 폴백 ─
-    cl_path = (
-        REAL_CL_PATH  if REAL_CL_PATH.exists()  else
-        CL_CTX_PATH   if CL_CTX_PATH.exists()   else
-        CL_CHUNKS_PATH
-    )
-    if cl_path.exists():
-        with open(cl_path, encoding="utf-8") as f:
+    # ── 자소서 ───────────────────────────────────────────────────
+    if CL_CHUNKS_PATH.exists():
+        with open(CL_CHUNKS_PATH, encoding="utf-8") as f:
             cl_chunks = json.load(f)
-        print(f"\n{cl_path.name} 로드: {len(cl_chunks)}개")
-        if cl_path == REAL_CL_PATH:
-            print("  → 실제 PDF 청킹 결과 사용")
-        elif cl_path == CL_CTX_PATH:
-            print("  → contextual retrieval 적용본 사용 (text_with_context로 임베딩)")
+        print(f"\n{CL_CHUNKS_PATH.name} 로드: {len(cl_chunks)}개")
 
         done_ids = _fetch_embedded_ids("cover_letter_chunks")
         todo = [c for c in cl_chunks if c["id"] not in done_ids]
         print(f"  임베딩 대상: {len(todo)}개 ({len(done_ids)}개 이미 완료)")
 
         if todo:
-            embed_texts = [c.get("text_with_context", c["text"]) for c in todo]
-            todo = _embed_gemini(todo, embed_texts)
+            todo = _embed_openai(todo, [c["text"] for c in todo])
             insert_cover_letter_to_db(todo)
 
         _build_bm25_index(cl_chunks, CL_BM25_PATH)
     else:
         print("⚠ 자소서 청크 파일 없음, 건너뜀")
 
-    # ── 이력서 ────────────────────────────────────────────────────
-    if RESUME_CHUNKS_PATH.exists():
-        with open(RESUME_CHUNKS_PATH, encoding="utf-8") as f:
-            resume_chunks = json.load(f)
-        print(f"\n{RESUME_CHUNKS_PATH.name} 로드: {len(resume_chunks)}개")
-        done_ids = _fetch_embedded_ids("resume_chunks")
-        todo = [c for c in resume_chunks if c["id"] not in done_ids]
-        print(f"  임베딩 대상: {len(todo)}개 ({len(done_ids)}개 이미 완료)")
-        if todo:
-            texts = [c["text"] for c in todo]
-            todo = _embed_gemini(todo, texts)
-            insert_resume_to_db(todo)
-    else:
-        print("⚠ 이력서 청크 파일 없음, 건너뜀")
-
     # ── 포트폴리오 ────────────────────────────────────────────────
     run_portfolio()
 
 
 def run_portfolio():
-    pf_path = (
-        REAL_PORTFOLIO_PATH     if REAL_PORTFOLIO_PATH.exists()     else
-        MOCK_PORTFOLIO_CTX_PATH if MOCK_PORTFOLIO_CTX_PATH.exists() else
-        MOCK_PORTFOLIO_PATH
-    )
-    if not pf_path.exists():
+    if not PORTFOLIO_CHUNKS_PATH.exists():
         print("⚠ 포트폴리오 청크 파일 없음, 포트폴리오 임베딩 건너뜀")
         return
 
-    with open(pf_path, encoding="utf-8") as f:
+    with open(PORTFOLIO_CHUNKS_PATH, encoding="utf-8") as f:
         portfolio_chunks = json.load(f)
-    print(f"\n{pf_path.name} 로드: {len(portfolio_chunks)}개")
-    if pf_path == REAL_PORTFOLIO_PATH:
-        print("  → 실제 PDF 청킹 결과 사용")
-    elif pf_path == MOCK_PORTFOLIO_CTX_PATH:
-        print("  → contextual retrieval 적용본 사용 (text_with_context로 임베딩)")
+    print(f"\n{PORTFOLIO_CHUNKS_PATH.name} 로드: {len(portfolio_chunks)}개")
 
     done_ids = _fetch_embedded_ids("portfolio_chunks")
     todo = [c for c in portfolio_chunks if c["id"] not in done_ids]
     print(f"  임베딩 대상: {len(todo)}개 ({len(done_ids)}개 이미 완료)")
 
     if todo:
-        texts = [c.get("text_with_context", c["text"]) for c in todo]
-        todo = _embed_gemini(todo, texts)
+        todo = _embed_gemini(todo, [c.get("text_with_context", c["text"]) for c in todo])
         insert_portfolio_to_db(todo)
 
     _build_bm25_index(portfolio_chunks, PORTFOLIO_BM25_PATH)

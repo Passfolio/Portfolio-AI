@@ -1,13 +1,12 @@
 """
 자소서 평가 엔진 - Gemini-3-Flash preview
-규칙 기반(작성품질) + LLM(지원동기·직무역량·인재상·AI의심도) 하이브리드
+LLM 통합 평가: 지원동기·직무역량·인재상·작성품질·AI의심도 전 항목 LLM 채점
 """
 
 from __future__ import annotations
 
 import os
 import re
-from typing import Any
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -16,30 +15,40 @@ from google import genai as _genai
 from google.genai import types as _genai_types
 from pydantic import BaseModel
 
-# ── 설정 ──────────────────────────────────────────────────────────────────────
+
+# ─── 설정 ─────────────────────────────────────────────────────────────────────
 MODEL   = "gemini-3-flash-preview"
 WEIGHTS = {"A": 0.15, "B": 0.35, "C": 0.20, "D": 0.15, "E": 0.15}
 LABELS  = {"A": "지원동기", "B": "직무역량", "C": "인재상", "D": "작성품질", "E": "AI 의심도"}
 
-_RE_NUMBER = re.compile(
-    r"\d+\s*[%％]"           # 퍼센트
-    r"|\d+\s*(ms|초|분|시간)"  # 시간
-    r"|\d+\s*(배|배수)"        # 배수
-    r"|\d+\s*(명|팀|개|건|회|번|줄|행|열|종|개월|주)"  # 단위
-    r"|\d+\s*(억|만|원|달러)"  # 금액
-    r"|\d+\s*(년|월|일)"       # 기간
-    r"|\d+\s*(위|등|점)"       # 순위/점수
-)
-
 _SYSTEM_PROMPT = """\
 당신은 대한민국 채용 전문가입니다. 자소서를 아래 기준으로 평가하세요.
-각 점수는 0~100 정수로 반환하세요.
+각 점수는 0~100 정수로 반환하세요 (단, D 항목은 아래 산출 방식 따름).
 
 평가 기준:
 A. 지원동기(15%): 두괄식 구성 여부, 기업 이해도 반영, 입사 설득력
 B. 직무역량(35%): STAR 구조(상황-과제-행동-결과) 충족, 수치/정성 성과 포함, 경험→성장→기여 연결
 C. 인재상(20%): 핵심 가치관 부합, 소통/협업 경험, 갈등 해결 사례
-E. AI의심도: 아래 패턴이 많을수록 높은 점수(높으면 나쁨)
+
+D. 작성품질(15%): 아래 세 항목을 엄격히 채점해 합산하세요.
+  [D1. 분량] 0~40점
+  - 글자 수 제한이 주어진 경우: 제한의 90% 이상→40점 / 70~89%→25점 / 50~69%→15점 / 50% 미만→0점
+  - 글자 수 제한이 없는 경우: 800자 이상→40점 / 600~799자→20점 / 600자 미만→0점
+  [D2. 성과 밀도] 0~40점
+  정량·정성 성과를 합산해 채점하세요.
+  정량 성과(%, ms, 배수, 건수 등): 3개 이상→30점 / 2개→20점 / 1개→10점 / 0개→0점
+  구체적 정성 성과("무엇이→어떻게→어떤 변화" 3요소가 갖춰진 것만 인정): 2개 이상→10점 / 1개→5점 / 0개→0점
+  → 합산 최대 40점. 정량 우선이나 정량 없어도 구체적 정성으로 최대 10점 획득 가능.
+  인정 예시: "중재 역할로 2주 내 합의 도출 → 일정 지연 없이 마감"
+  불인정 예시: "최선을 다해 기여했습니다" / "팀워크가 향상됐습니다" / "많은 것을 배웠습니다"
+  날짜(2023년, 1월), 기간(N개월), 전화번호는 정량 성과에서 제외
+  [D3. 감점] -20~0점
+  - 추상 표현("열심히", "최선을 다" 등) 1개당 -3점 (최대 -10점)
+  - 동일 의미 중복 표현 1건당 -2점 (최대 -8점)
+  - 내용 없는 bullet 단순 나열 4개 이상: -5점
+  → 최종 D = D1 + D2 + D3 (최솟값 0, 최댓값 80)
+
+E. AI의심도(15%): 아래 패턴이 많을수록 높은 점수(높으면 나쁨)
   - 무견해/판단 회피
   - 구조적 전형성
   - 지나친 과장/편중
@@ -48,7 +57,7 @@ E. AI의심도: 아래 패턴이 많을수록 높은 점수(높으면 나쁨)
 """
 
 
-# ── 구조화 출력 스키마 ─────────────────────────────────────────────────────────
+# ─── 구조화 출력 스키마 ────────────────────────────────────────────────────────
 
 class _ScoreA(BaseModel):
     score:  int
@@ -67,6 +76,14 @@ class _ScoreC(BaseModel):
     reason: str
     fix:    str
 
+class _ScoreD(BaseModel):
+    score:      int   # 최종 0~80 (D1+D2+D3, 최솟값 0)
+    d1_volume:  int   # 0~40
+    d2_quant:   int   # 0~40
+    d3_penalty: int   # -20~0
+    reason:     str
+    fix:        str
+
 class _ScoreE(BaseModel):
     score:    int
     detected: list[str]
@@ -76,31 +93,20 @@ class _EvalResult(BaseModel):
     A:       _ScoreA
     B:       _ScoreB
     C:       _ScoreC
+    D:       _ScoreD
     E:       _ScoreE
     overall: str
 
 
-# ── Gemini 클라이언트 ─────────────────────────────────────────────────────────
-
-def _get_gemini_client() -> _genai.Client:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        return _genai.Client(api_key=api_key)
-    project = os.getenv("GCP_PROJECT_ID")
-    if project:
-        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "global"))
-    raise ValueError("GEMINI_API_KEY 또는 GCP_PROJECT_ID 환경변수를 설정하세요.")
-
-
-# ── 1단계: 규칙 기반 (작성품질 D) ────────────────────────────────────────────
+# ─── 보조 유틸 (서비스 레이어에서 사용) ────────────────────────────────────────
 
 _RE_FREE_FORMAT = re.compile(r"제한\s*없음")
 
 _RE_CHAR_LIMIT_PATTERNS = [
-    re.compile(r"최대\s*([\d,]+)\s*자(?:\s*입력\s*가능)?"),  # 최대 n자 / 최대 n자 입력 가능
-    re.compile(r"[\(\（]([\d,]+)\s*자[\)\）]"),               # (n자) （n자）
-    re.compile(r"([\d,]+)\s*자\s*이내"),                       # n자 이내
-    re.compile(r"([\d,]+)\s*자"),                              # n자 (fallback)
+    re.compile(r"최대\s*([\d,]+)\s*자(?:\s*입력\s*가능)?"),
+    re.compile(r"[\(\（]([\d,]+)\s*자[\)\）]"),
+    re.compile(r"([\d,]+)\s*자\s*이내"),
+    re.compile(r"([\d,]+)\s*자"),
 ]
 
 _COMPETENCY_KEYWORDS = re.compile(
@@ -124,104 +130,54 @@ def is_competency_question(question: str) -> bool:
     return bool(_COMPETENCY_KEYWORDS.search(question))
 
 
-def rule_based_score(text: str, char_limit: int | None = None, is_competency: bool = False) -> tuple[int, dict]:
-    """분량·반복·수치 포함 여부를 규칙으로 분석해 D 점수 반환."""
-    details: dict[str, Any] = {}
+# ─── Gemini 클라이언트 ─────────────────────────────────────────────────────────
 
-    length = len(text.strip())
-    details["length"] = length
-
-    if char_limit:
-        ratio = length / char_limit
-        if   ratio >= 0.9: vol_score = 10
-        elif ratio >= 0.7: vol_score = 8
-        elif ratio >= 0.5: vol_score = 6
-        elif ratio >= 0.3: vol_score = 4
-        else:              vol_score = 2
-        details["char_limit"]  = char_limit
-        details["fill_ratio"]  = round(ratio * 100, 1)
-        details["vol_status"]  = "적정" if ratio >= 0.7 else ("내용 부족" if ratio < 0.5 else "보통")
-    elif is_competency:
-        # 직무역량·경험 문항: 800자 기준
-        if   length > 800:  vol_score, status = 7,  "가독성 저하"
-        elif length >= 600: vol_score, status = 10, "적정"
-        elif length >= 400: vol_score, status = 6,  "내용 부족"
-        elif length >= 200: vol_score, status = 4,  "내용 부족"
-        else:               vol_score, status = 2,  "내용 부족"
-        details["free_standard"] = 800
-        details["is_competency"] = True
-        details["vol_status"]    = status
-    else:
-        # 그 외 문항: 500자 기준
-        if   length >= 600: vol_score, status = 7,  "가독성 저하"
-        elif length >= 400: vol_score, status = 10, "적정"
-        elif length >= 200: vol_score, status = 6,  "내용 부족"
-        elif length >= 100: vol_score, status = 4,  "내용 부족"
-        else:               vol_score, status = 2,  "내용 부족"
-        details["free_standard"] = 500
-        details["is_competency"] = False
-        details["vol_status"]    = status
-    details["vol_score"] = vol_score
-
-    sentences = [s.strip() for s in re.split(r"[.!?。]", text) if len(s.strip()) > 10]
-    seen, dup_count = set(), 0
-    for s in sentences:
-        key = s[:20]
-        if key in seen:
-            dup_count += 1
-        seen.add(key)
-    details["dup_count"] = dup_count
-    penalty = 2 if dup_count >= 3 else (1 if dup_count >= 1 else 0)
-
-    has_number = bool(_RE_NUMBER.search(text))
-    details["has_number"] = has_number
-    bonus = 1 if has_number else 0
-
-    score = max(1, min(10, vol_score - penalty + bonus))
-    details["final_score"] = score
-    return score, details
+def _get_gemini_client() -> _genai.Client:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key:
+        return _genai.Client(api_key=api_key)
+    project = os.getenv("GCP_PROJECT_ID")
+    if project:
+        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "global"))
+    raise ValueError("GEMINI_API_KEY 또는 GCP_PROJECT_ID 환경변수를 설정하세요.")
 
 
-# ── 2단계: LLM 평가 ───────────────────────────────────────────────────────────
+# ─── LLM 평가 ─────────────────────────────────────────────────────────────────
 
-def llm_evaluate(text: str) -> _EvalResult:
-    """Gemini-3-Flash preview로 A·B·C·E 평가 (구조화 출력)."""
+def llm_evaluate(text: str, char_limit: int | None = None) -> _EvalResult:
     client = _get_gemini_client()
+    context = ""
+    if char_limit:
+        context = f"[글자 수 제한: {char_limit}자, 실제 글자 수: {len(text.strip())}자]\n\n"
     resp = client.models.generate_content(
         model=MODEL,
-        contents=f"다음 자소서를 평가해주세요:\n\n{text}",
+        contents=f"{context}다음 자소서를 평가해주세요:\n\n{text}",
         config=_genai_types.GenerateContentConfig(
             system_instruction=_SYSTEM_PROMPT,
             response_mime_type="application/json",
             response_schema=_EvalResult,
-            temperature=0.2,
+            temperature=0,
             max_output_tokens=4096,
         ),
     )
     return _EvalResult.model_validate_json(resp.text)
 
 
-# ── 3단계: 가중 합산 ──────────────────────────────────────────────────────────
+# ─── 가중 합산 ─────────────────────────────────────────────────────────────────
 
-def compute_weighted(llm: _EvalResult, d_score: int) -> float:
-    """전 항목 0~100 기준으로 가중 합산. 결과 범위 0~100.
-    - A·B·C·E: LLM이 0~100으로 반환
-    - D: 0~10 → ×10으로 정규화
-    - E: AI 의심도이므로 역산 (100 - score)
-    """
-    e_adj  = 100 - llm.E.score  # 높을수록 나쁨 → 역산
-    d_norm = d_score * 10        # 0~10 → 0~100
+def compute_weighted(llm: _EvalResult) -> float:
+    e_adj = 100 - llm.E.score
     total = (
         llm.A.score * WEIGHTS["A"] +
         llm.B.score * WEIGHTS["B"] +
         llm.C.score * WEIGHTS["C"] +
-        d_norm      * WEIGHTS["D"] +
+        llm.D.score * WEIGHTS["D"] +
         e_adj       * WEIGHTS["E"]
     )
     return round(total, 2)
 
 
-# ── 출력 포매터 ───────────────────────────────────────────────────────────────
+# ─── 출력 포매터 ───────────────────────────────────────────────────────────────
 
 def grade_label(score: float) -> str:
     if   score >= 85: return "우수 ★★★"
@@ -230,7 +186,7 @@ def grade_label(score: float) -> str:
     else:             return "미흡"
 
 
-def print_result(llm: _EvalResult, d_score: int, d_detail: dict, weighted: float) -> None:
+def print_result(llm: _EvalResult, weighted: float) -> None:
     sep = "─" * 52
 
     print(f"\n{'═'*52}")
@@ -255,15 +211,10 @@ def print_result(llm: _EvalResult, d_score: int, d_detail: dict, weighted: float
     print(f"    개선: {llm.C.fix}")
     print(sep)
 
-    print(f"[D] {LABELS['D']}  ({int(WEIGHTS['D']*100)}%)  →  {d_score * 10}/100")
-    if "char_limit" in d_detail:
-        limit_info = f"  |  제한 {d_detail['char_limit']}자 ({d_detail['fill_ratio']}% 충족, {d_detail['vol_status']})"
-    elif "free_standard" in d_detail:
-        category = "직무역량" if d_detail["is_competency"] else "일반"
-        limit_info = f"  |  자유형식 ({category} {d_detail['free_standard']}자 기준, {d_detail['vol_status']})"
-    else:
-        limit_info = ""
-    print(f"    글자 수: {d_detail['length']}자{limit_info}  |  반복 문장: {d_detail['dup_count']}건  |  수치 포함: {'✓' if d_detail['has_number'] else '✗'}")
+    print(f"[D] {LABELS['D']}  ({int(WEIGHTS['D']*100)}%)  →  {llm.D.score}/80")
+    print(f"    D1 분량: {llm.D.d1_volume}/40  |  D2 수치성과: {llm.D.d2_quant}/40  |  D3 감점: {llm.D.d3_penalty}")
+    print(f"    근거: {llm.D.reason}")
+    print(f"    개선: {llm.D.fix}")
     print(sep)
 
     e_adj = 100 - llm.E.score
@@ -275,10 +226,9 @@ def print_result(llm: _EvalResult, d_score: int, d_detail: dict, weighted: float
     print(f"\n  총평: {llm.overall}\n")
 
 
-# ── 전후 비교 ─────────────────────────────────────────────────────────────────
+# ─── 전후 비교 ─────────────────────────────────────────────────────────────────
 
 def evaluate_comparison(original: str, improved: str, char_limit: int | None = None, question: str = "") -> dict:
-    """원문과 개선안을 각각 평가해 점수 delta를 출력."""
     print("\n  ── 원문 평가 ──")
     before = evaluate(original, char_limit, question)
     print("\n  ── 개선안 평가 ──")
@@ -294,18 +244,10 @@ def evaluate_comparison(original: str, improved: str, char_limit: int | None = N
     print(f"  {'항목':<12} {'원문':>6}  {'개선안':>6}  {'변화':>6}")
     print(f"  {'─'*40}")
 
-    llm_keys = ["A", "B", "C", "E"]
-    for k in llm_keys:
+    for k in ["A", "B", "C", "D", "E"]:
         b = before["llm"][k]["score"]
         a = after["llm"][k]["score"]
-        d = a - b
-        arrow = "+" if d > 0 else ("" if d == 0 else "")
-        print(f"  {k}. {LABELS[k]:<10} {b:>6}  {a:>6}  {arrow}{d:>+5}")
-
-    b_d = before["D"]["score"]
-    a_d = after["D"]["score"]
-    d_d = a_d - b_d
-    print(f"  D. {LABELS['D']:<10} {b_d*10:>6}  {a_d*10:>6}  {d_d*10:>+6}")
+        print(f"  {k}. {LABELS[k]:<10} {b:>6}  {a:>6}  {a-b:>+6}")
 
     print(f"  {'─'*40}")
     print(f"  {'최종 점수':<12} {before['weighted']:>6.2f}  {after['weighted']:>6.2f}  {sign}{delta:>+5.2f}")
@@ -313,26 +255,19 @@ def evaluate_comparison(original: str, improved: str, char_limit: int | None = N
     print(f"{sep}\n")
 
     return {
-        "before":  before,
-        "after":   after,
-        "delta":   delta,
+        "before": before,
+        "after":  after,
+        "delta":  delta,
         "per_category": {
             k: {
-                "before": before["llm"][k]["score"],
-                "after":  after["llm"][k]["score"],
-                "delta":  after["llm"][k]["score"] - before["llm"][k]["score"],
+                "before":        before["llm"][k]["score"],
+                "after":         after["llm"][k]["score"],
+                "delta":         after["llm"][k]["score"] - before["llm"][k]["score"],
                 "before_detail": {kk: vv for kk, vv in before["llm"][k].items() if kk != "score"},
                 "after_detail":  {kk: vv for kk, vv in after["llm"][k].items()  if kk != "score"},
             }
-            for k in llm_keys
+            for k in ["A", "B", "C", "D", "E"]
         } | {
-            "D": {
-                "before": b_d,
-                "after":  a_d,
-                "delta":  d_d,
-                "before_detail": before["D"]["detail"],
-                "after_detail":  after["D"]["detail"],
-            },
             "overall": {
                 "before": before["llm"]["overall"],
                 "after":  after["llm"]["overall"],
@@ -341,21 +276,17 @@ def evaluate_comparison(original: str, improved: str, char_limit: int | None = N
     }
 
 
-# ── 메인 ──────────────────────────────────────────────────────────────────────
+# ─── 메인 평가 함수 ────────────────────────────────────────────────────────────
 
 def evaluate(text: str, char_limit: int | None = None, question: str = "") -> dict:
     if len(text.strip()) < 100:
         raise ValueError("자소서를 100자 이상 입력해주세요.")
 
-    print("  [1/3] 규칙 기반 분석 중...")
-    d_score, d_detail = rule_based_score(text, char_limit, is_competency_question(question))
+    print("  [1/2] Gemini-3-Flash preview 평가 중...")
+    llm = llm_evaluate(text, char_limit)
 
-    print("  [2/3] Gemini-3-Flash preview 평가 중...")
-    llm = llm_evaluate(text)
+    print("  [2/2] 점수 합산 중...")
+    weighted = compute_weighted(llm)
 
-    print("  [3/3] 점수 합산 중...")
-    weighted = compute_weighted(llm, d_score)
-
-    print_result(llm, d_score, d_detail, weighted)
-    return {"llm": llm.model_dump(), "D": {"score": d_score, "detail": d_detail}, "weighted": weighted}
-
+    print_result(llm, weighted)
+    return {"llm": llm.model_dump(), "weighted": weighted}
