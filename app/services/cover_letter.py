@@ -222,6 +222,56 @@ def rag_cover_letter(
 
 
 # ───────────────────────────────────────────────────────────────
+# RAG-1: 자소서 PDF → 섹션별 개선
+# ───────────────────────────────────────────────────────────────
+
+def run_cover_letter_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL) -> dict:
+    from docling.document_converter import DocumentConverter
+    from app.chunkers import cover_letter as cl_chunker
+    from app.evaluators.cover_letter import evaluate_comparison, parse_char_limit
+    from app.exporters.cover_letter_pdf import save_cl_improvement_pdf
+
+    tmp_path = download_pdf_to_temp(pdf_s3_url)
+    out_pdf  = make_output_path("cl_improvement")
+    try:
+        converter = DocumentConverter()
+        text      = converter.convert(tmp_path).document.export_to_text()
+
+        print(f"  [RAG-1] 자소서 청킹 중...")
+        chunks = cl_chunker.chunk(text, source="cover_letter")
+        print(f"  [RAG-1] 청킹 완료: {len(chunks)}개 청크")
+
+        results = []
+        for idx, c in enumerate(chunks):
+            section    = c.get("section", "")
+            category   = c.get("category", "")
+            char_limit = parse_char_limit(section)
+
+            print(f"  [RAG-1] [{idx+1}/{len(chunks)}] RAG 개선: {section} / {category}")
+            result      = rag_cover_letter(c["text"], top_k=top_k, char_limit=char_limit, section=section)
+            eval_result = evaluate_comparison(c["text"], result["improved"], char_limit=char_limit, question=section)
+
+            results.append({
+                "section":     section,
+                "category":    category,
+                "original":    c["text"],
+                "improved":    result["improved"],
+                "reasoning":   result["reasoning"],
+                "changes":     result["changes"],
+                "eval_before": eval_result["before"]["weighted"],
+                "eval_after":  eval_result["after"]["weighted"],
+                "eval_delta":  eval_result["delta"],
+                "eval_detail": eval_result["per_category"],
+            })
+
+        save_cl_improvement_pdf(results, out_pdf)
+        output_s3_url = upload_pdf_file(out_pdf, user_id)
+        return {"sections": results, "outputPdfS3Url": output_s3_url}
+    finally:
+        cleanup_files(tmp_path, out_pdf)
+
+
+# ───────────────────────────────────────────────────────────────
 # 포트폴리오 → 자소서 생성 헬퍼
 # ───────────────────────────────────────────────────────────────
 
@@ -508,4 +558,17 @@ async def run_cover_letter_to_portfolio_task(
         job_id,
         lambda: run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k),
         tag="RAG-5",
+    )
+
+
+async def run_cover_letter_from_pdf_task(
+    job_id: str,
+    pdf_s3_url: str,
+    user_id: int | None = None,
+    top_k: int = TOP_K_FINAL,
+) -> None:
+    run_job_pipeline(
+        job_id,
+        lambda: run_cover_letter_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k),
+        tag="RAG-1",
     )
