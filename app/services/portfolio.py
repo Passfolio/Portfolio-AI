@@ -1,6 +1,8 @@
 """포트폴리오 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
+import logging
+
 from google.genai import types as _genai_types
 
 from app.services.pdf_pipeline import (
@@ -24,12 +26,14 @@ from app.services._rag_utils import (
     _PORTFOLIO_CRITERIA,
 )
 
+logger = logging.getLogger(__name__)
+
 
 # ───────────────────────────────────────────────────────────────
-# RAG-3: 포트폴리오 개선
+# 내부 helper: 포트폴리오 텍스트 개선
 # ───────────────────────────────────────────────────────────────
 
-def rag_portfolio(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -> dict:
+def _improve_portfolio_text(query: str, top_k: int = TOP_K_FINAL, img_context: str = "") -> dict:
     query_emb  = _embed_query(query)
     bm25_res   = _bm25_search(query, PORTFOLIO_BM25_PATH, TOP_K_BM25)
     vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
@@ -102,9 +106,9 @@ def run_portfolio_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k: i
     tmp_path = download_pdf_to_temp(pdf_s3_url)
     out_pdf  = make_output_path("portfolio_rag_result")
     try:
-        print(f"  [RAG-4] PDF 청킹 중...")
+        logger.info("[RAG-4] PDF 청킹 중...")
         all_chunks = chunk(tmp_path)
-        print(f"  [RAG-4] 청킹 완료: {len(all_chunks)}개 청크")
+        logger.info("[RAG-4] 청킹 완료: %d개 청크", len(all_chunks))
 
         img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
         text_chunks = [c for c in all_chunks if c.get("sub_section") != "이미지"]
@@ -125,9 +129,9 @@ def run_portfolio_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k: i
             sub_section = c.get("sub_section", "")
             meta        = c.get("meta") or None
 
-            print(f"  [RAG-4] [{idx+1}/{len(text_chunks)}] RAG 개선: {project} / {sub_section}")
+            logger.info("[RAG-4] [%d/%d] 텍스트 개선: %s / %s", idx + 1, len(text_chunks), project, sub_section)
             img_context = img_ctx_by_project.get(project, "")
-            result      = rag_portfolio(c["text"], top_k=top_k, img_context=img_context)
+            result      = _improve_portfolio_text(c["text"], top_k=top_k, img_context=img_context)
             eval_result = pf_evaluate_comparison(c["text"], result["improved"], meta=meta)
 
             results.append({
@@ -161,6 +165,7 @@ def run_portfolio_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k: i
                 "eval_detail":  None,
             })
 
+        logger.info("[RAG-4] PDF 생성 중...")
         save_improvement_pdf(results, out_pdf)
         output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}

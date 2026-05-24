@@ -1,9 +1,15 @@
 """자소서 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
-import numpy as np
-from google import genai as _genai
+import logging
+from typing import TYPE_CHECKING
+
 from google.genai import types as _genai_types
+
+if TYPE_CHECKING:
+    from google import genai as _genai
+
+logger = logging.getLogger(__name__)
 
 from app.services.pdf_pipeline import (
     download_pdf_to_temp, make_output_path,
@@ -127,10 +133,10 @@ _CL_GEN_WRITING_METHOD = """\
 
 
 # ───────────────────────────────────────────────────────────────
-# RAG-1: 자소서 개선
+# 내부 helper: 자소서 텍스트 개선
 # ───────────────────────────────────────────────────────────────
 
-def rag_cover_letter(
+def _improve_cover_letter_text(
     query: str,
     top_k: int = TOP_K_FINAL,
     char_limit: int | None = None,
@@ -237,9 +243,9 @@ def run_cover_letter_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k
         converter = DocumentConverter()
         text      = converter.convert(tmp_path).document.export_to_text()
 
-        print(f"  [RAG-1] 자소서 청킹 중...")
+        logger.info("[RAG-1] 자소서 청킹 중...")
         chunks = cl_chunker.chunk(text, source="cover_letter")
-        print(f"  [RAG-1] 청킹 완료: {len(chunks)}개 청크")
+        logger.info("[RAG-1] 청킹 완료: %d개 청크", len(chunks))
 
         results = []
         for idx, c in enumerate(chunks):
@@ -247,8 +253,8 @@ def run_cover_letter_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k
             category   = c.get("category", "")
             char_limit = parse_char_limit(section)
 
-            print(f"  [RAG-1] [{idx+1}/{len(chunks)}] RAG 개선: {section} / {category}")
-            result      = rag_cover_letter(c["text"], top_k=top_k, char_limit=char_limit, section=section)
+            logger.info("[RAG-1] [%d/%d] 텍스트 개선: %s / %s", idx + 1, len(chunks), section, category)
+            result      = _improve_cover_letter_text(c["text"], top_k=top_k, char_limit=char_limit, section=section)
             eval_result = evaluate_comparison(c["text"], result["improved"], char_limit=char_limit, question=section)
 
             results.append({
@@ -264,6 +270,7 @@ def run_cover_letter_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k
                 "eval_detail": eval_result["per_category"],
             })
 
+        logger.info("[RAG-1] PDF 생성 중...")
         save_cl_improvement_pdf(results, out_pdf)
         output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}
@@ -286,7 +293,7 @@ def _select_portfolio_chunks(
     corpus  = [_tokenize_ko(c.get("text", "")) for c in text_chunks]
     bm25    = BM25Okapi(corpus)
     scores  = bm25.get_scores(_tokenize_ko(query))
-    top_idx = np.argsort(scores)[::-1][:top_k]
+    top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
     return [text_chunks[i] for i in top_idx if scores[i] > 0]
 
 
@@ -378,7 +385,7 @@ def generate_cl_section(
 
 
 # ───────────────────────────────────────────────────────────────
-# RAG-2: 포트폴리오 PDF → 자소서 생성
+# RAG-3: 포트폴리오 PDF → 자소서 생성
 # ───────────────────────────────────────────────────────────────
 
 def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL) -> dict:
@@ -389,11 +396,11 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
     tmp_path = download_pdf_to_temp(pdf_s3_url)
     out_pdf  = make_output_path("cl_from_portfolio")
     try:
-        print(f"  [RAG-2] PDF 청킹 중...")
+        logger.info("[RAG-3] PDF 청킹 중...")
         portfolio_chunks = chunk(tmp_path)
         text_chunks = [c for c in portfolio_chunks if c.get("sub_section") != "이미지"]
         img_chunks  = [c for c in portfolio_chunks if c.get("sub_section") == "이미지"]
-        print(f"  [RAG-2] 청킹 완료: {len(text_chunks)}개 텍스트, {len(img_chunks)}개 이미지")
+        logger.info("[RAG-3] 청킹 완료: %d개 텍스트, %d개 이미지", len(text_chunks), len(img_chunks))
 
         img_ctx_by_project: dict[str, str] = {}
         for ic in img_chunks:
@@ -408,7 +415,7 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
         used_projects: list[str] = []
 
         for idx, sec_def in enumerate(_CL_GEN_SECTIONS):
-            print(f"  [RAG-2] [{idx+1}/{len(_CL_GEN_SECTIONS)}] 섹션 생성: {sec_def['label']}")
+            logger.info("[RAG-3] [%d/%d] 섹션 생성: %s", idx + 1, len(_CL_GEN_SECTIONS), sec_def["label"])
             generated = generate_cl_section(
                 sec_def, text_chunks, client, top_k=top_k,
                 used_projects=used_projects or None,
@@ -433,6 +440,7 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
                 },
             })
 
+        logger.info("[RAG-3] PDF 생성 중...")
         save_pdf(results, out_pdf)
         output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}
@@ -441,7 +449,7 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
 
 
 # ───────────────────────────────────────────────────────────────
-# RAG-5: 자소서 PDF → 포트폴리오 생성
+# RAG-2: 자소서 PDF → 포트폴리오 생성
 # ───────────────────────────────────────────────────────────────
 
 def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL) -> dict:
@@ -456,9 +464,9 @@ def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, t
         text      = converter.convert(tmp_path).document.export_to_text()
         source    = "cover_letter"
 
-        print(f"  [RAG-5] 자소서 청킹 중...")
+        logger.info("[RAG-2] 자소서 청킹 중...")
         chunks = cl_chunker.chunk(text, source)
-        print(f"  [RAG-5] 청킹 완료: {len(chunks)}개 청크")
+        logger.info("[RAG-2] 청킹 완료: %d개 청크", len(chunks))
 
         _PROJECT_CATEGORIES = {"직무역량", "문제해결경험", "프로젝트경험"}
         _CAREER_PROJECT_KW  = {"프로젝트", "구현", "개발", "서비스", "시스템", "앱", "웹", "API"}
@@ -476,7 +484,7 @@ def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, t
         results = []
 
         for idx, chunk in enumerate(chunks):
-            print(f"  [RAG-5] [{idx+1}/{len(chunks)}] 포트폴리오 섹션 생성: {chunk.get('section', '')} / {chunk.get('category', '')}")
+            logger.info("[RAG-2] [%d/%d] 포트폴리오 섹션 생성: %s / %s", idx + 1, len(chunks), chunk.get("section", ""), chunk.get("category", ""))
             refs = _search_portfolio_refs(chunk, top_k=top_k)
             gen  = _generate_portfolio_section(chunk, refs, client)
 
@@ -524,6 +532,7 @@ def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, t
                 "eval": eval_result,
             })
 
+        logger.info("[RAG-2] PDF 생성 중...")
         save_generated_portfolio_pdf(results, out_pdf)
         output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}
@@ -544,7 +553,7 @@ async def run_portfolio_to_cover_letter_task(
     run_job_pipeline(
         job_id,
         lambda: run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k),
-        tag="RAG-2",
+        tag="RAG-3",
     )
 
 
@@ -557,7 +566,7 @@ async def run_cover_letter_to_portfolio_task(
     run_job_pipeline(
         job_id,
         lambda: run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k),
-        tag="RAG-5",
+        tag="RAG-2",
     )
 
 
