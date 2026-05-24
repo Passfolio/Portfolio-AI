@@ -1,32 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks
 
-from app.jobs.store import create_job, get_job
+from app.jobs.store import create_job
 from app.schemas.cover_letter import (
-    CoverLetterImproveRequest,
-    CoverLetterImproveResponse,
     FromPortfolioRequest,
     ToCoverLetterRequest,
 )
 from app.schemas.job import JobStatusResponse
 from app.services.cover_letter import (
-    rag_cover_letter,
     run_cover_letter_to_portfolio_task,
     run_portfolio_to_cover_letter_task,
 )
 
 router = APIRouter(prefix="/cover-letter", tags=["cover-letter"])
-
-
-@router.post("/improve", response_model=CoverLetterImproveResponse)
-def cover_letter_improve(req: CoverLetterImproveRequest) -> CoverLetterImproveResponse:
-    result = rag_cover_letter(
-        query=req.text,
-        char_limit=req.char_limit,
-        section=req.section,
-    )
-    return CoverLetterImproveResponse(**result)
 
 
 @router.post("/from-portfolio", response_model=JobStatusResponse)

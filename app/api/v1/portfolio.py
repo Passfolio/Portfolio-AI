@@ -4,16 +4,10 @@ from fastapi import APIRouter, BackgroundTasks
 
 from app.jobs.store import create_job
 from app.schemas.job import JobStatusResponse
-from app.schemas.portfolio import FromPdfRequest, PortfolioImproveRequest, PortfolioImproveResponse
-from app.services.portfolio import rag_portfolio, run_portfolio_from_pdf_task
+from app.schemas.portfolio import FromPdfRequest
+from app.services.portfolio import run_portfolio_from_pdf_task
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
-
-
-@router.post("/improve", response_model=PortfolioImproveResponse)
-def portfolio_improve(req: PortfolioImproveRequest) -> PortfolioImproveResponse:
-    result = rag_portfolio(query=req.query, img_context=req.img_context)
-    return PortfolioImproveResponse(**result)
 
 
 @router.post("/from-pdf", response_model=JobStatusResponse)
