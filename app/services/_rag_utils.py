@@ -10,6 +10,7 @@ import pg8000
 from google import genai as _genai
 from google.genai import types as _genai_types
 from kiwipiepy import Kiwi
+from openai import OpenAI as _OpenAI
 from pydantic import BaseModel
 from rank_bm25 import BM25Okapi
 
@@ -150,6 +151,7 @@ def _tokenize_ko(text: str) -> list[str]:
 # ───────────────────────────────────────────────────────────────
 
 def _embed_query(text: str) -> list[float]:
+    """포트폴리오 쿼리 임베딩 — Gemini embedding-2 (1024차원)."""
     client = _genai.Client(api_key=get_settings().gemini_api_key)
     resp = client.models.embed_content(
         model="gemini-embedding-2",
@@ -160,6 +162,17 @@ def _embed_query(text: str) -> list[float]:
         ),
     )
     return resp.embeddings[0].values
+
+
+def _embed_query_cl(text: str) -> list[float]:
+    """자소서 쿼리 임베딩 — OpenAI text-embedding-3-small (1024차원)."""
+    client = _OpenAI(api_key=get_settings().openai_api_key)
+    resp = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text,
+        dimensions=1024,
+    )
+    return resp.data[0].embedding
 
 
 # ───────────────────────────────────────────────────────────────

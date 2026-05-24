@@ -38,7 +38,7 @@ _CRITERIA = {
     "A": "두괄식 구성 여부, 기업 이해도 반영, 입사 설득력",
     "B": "STAR 구조(상황→과제→행동→결과), 수치·정성 성과, 경험→성장→기여 연결",
     "C": "핵심 가치관 부합, 소통·협업 경험, 갈등 해결 사례",
-    "D": "분량 충족률, 반복 문장, 수치 포함 여부 (규칙 기반 채점)",
+    "D": "분량 충족률, 수치 성과 밀도, 추상/중복 표현 감점 (LLM 채점)",
     "E": "AI 특유 문체 패턴 감지 — 높을수록 감점 (역산 적용)",
 }
 
@@ -85,7 +85,6 @@ class _PDF(FPDF):
         ev       = result.get("eval", {})
         weighted = ev.get("weighted", 0)
         llm      = ev.get("llm", {})
-        d_info   = ev.get("D", {})
 
         # ── 문항 번호 + 문항 텍스트 ──────────────────────────────
         self._set(8, color=(140, 140, 140))
@@ -114,8 +113,8 @@ class _PDF(FPDF):
                         align="L", new_x="LMARGIN", new_y="NEXT")
         self._gap(4)
 
-        # ── A·B·C·E ───────────────────────────────────────────────
-        for key in ["A", "B", "C", "E"]:
+        # ── A·B·C·D·E ─────────────────────────────────────────────
+        for key in ["A", "B", "C", "D", "E"]:
             item = llm.get(key, {})
             if not item:
                 continue
@@ -124,8 +123,10 @@ class _PDF(FPDF):
             if key == "E":
                 e_adj = 100 - int(score) if isinstance(score, int) else "-"
                 score_str = f"역산 {e_adj} / 100  (원점수 {score})"
+            elif key == "D":
+                score_str = f"{score} / 80"
             else:
-                score_str = f"{score} / 10"
+                score_str = f"{score} / 100"
 
             # 항목 제목
             self._set(9, bold=True, color=(40, 40, 40))
@@ -144,7 +145,16 @@ class _PDF(FPDF):
                 star = item.get("star_score", "-")
                 num  = item.get("num_score", "-")
                 self._set(8, color=(90, 90, 90))
-                self.multi_cell(0, 4.5, f"   STAR 구조 {star}/10   |   수치 성과 {num}/10",
+                self.multi_cell(0, 4.5, f"   STAR 구조 {star}/100   |   수치 성과 {num}/100",
+                                new_x="LMARGIN", new_y="NEXT")
+
+            # D 전용: 세부 점수
+            if key == "D":
+                d1 = item.get("d1_volume", "-")
+                d2 = item.get("d2_quant", "-")
+                d3 = item.get("d3_penalty", "-")
+                self._set(8, color=(90, 90, 90))
+                self.multi_cell(0, 4.5, f"   D1 분량 {d1}/40   |   D2 수치성과 {d2}/40   |   D3 감점 {d3}",
                                 new_x="LMARGIN", new_y="NEXT")
 
             # 근거
@@ -169,37 +179,6 @@ class _PDF(FPDF):
                                 new_x="LMARGIN", new_y="NEXT")
 
             self._gap(3)
-
-        # ── D (규칙 기반) ─────────────────────────────────────────
-        d_score  = d_info.get("score", "-")
-        d_detail = d_info.get("detail", {})
-
-        self._set(9, bold=True, color=(40, 40, 40))
-        self.multi_cell(0, 5, f"D.  {_LABELS['D']}  ({_WEIGHTS['D']}%)   →   {d_score} / 10  [규칙 기반]",
-                        new_x="LMARGIN", new_y="NEXT")
-        self._set(8, color=(110, 110, 110))
-        self.multi_cell(0, 4.5, f"   기준: {_CRITERIA['D']}",
-                        new_x="LMARGIN", new_y="NEXT")
-
-        if d_detail:
-            length   = d_detail.get("length", "-")
-            dup      = d_detail.get("dup_count", "-")
-            has_num  = "✓" if d_detail.get("has_number") else "✗"
-            vol      = d_detail.get("vol_status", "")
-
-            if "char_limit" in d_detail:
-                limit_str = f"제한 {d_detail['char_limit']}자  ({d_detail.get('fill_ratio', '-')}% 충족)"
-            elif "free_standard" in d_detail:
-                cat = "직무역량" if d_detail.get("is_competency") else "일반"
-                limit_str = f"자유형식 ({cat} {d_detail['free_standard']}자 기준)"
-            else:
-                limit_str = ""
-
-            detail_line = f"   {length}자   |   {limit_str}   |   상태: {vol}   |   반복: {dup}건   |   수치: {has_num}"
-            self._set(8, color=(60, 60, 60))
-            self.multi_cell(0, 4.5, detail_line, new_x="LMARGIN", new_y="NEXT")
-
-        self._gap(3)
 
         # ── 총평 ─────────────────────────────────────────────────
         overall = llm.get("overall", "")
@@ -344,26 +323,18 @@ def save_cl_improvement_pdf(results: list[dict], output_path: str) -> str:
                             pdf.multi_cell(0, 4.5, f"  B 세부: {row}", new_x="LMARGIN", new_y="NEXT")
                         pdf._gap(2)
 
-                # D 세부: 글자수·충족률
+                # D 세부: D1/D2/D3 세부 점수
                 d_item = detail.get("D", {})
                 for timing, key2 in [("원문", "before_detail"), ("개선안", "after_detail")]:
                     d2 = d_item.get(key2, {})
                     if d2:
-                        length  = d2.get("length", "-")
-                        vol     = d2.get("vol_status", "")
-                        dup     = d2.get("dup_count", "-")
-                        has_num = "O" if d2.get("has_number") else "X"
-                        if "char_limit" in d2:
-                            limit_str = f"제한 {d2['char_limit']}자 ({d2.get('fill_ratio', '-')}% 충족)"
-                        elif "free_standard" in d2:
-                            cat = "직무역량" if d2.get("is_competency") else "일반"
-                            limit_str = f"{cat} {d2['free_standard']}자 기준"
-                        else:
-                            limit_str = ""
+                        d1 = d2.get("d1_volume", "-")
+                        d2q = d2.get("d2_quant", "-")
+                        d3 = d2.get("d3_penalty", "-")
                         pdf._set(8, color=(90, 90, 90))
                         pdf.multi_cell(
                             0, 4.5,
-                            f"  D {timing}: {length}자  |  {limit_str}  |  {vol}  |  반복 {dup}건  |  수치 {has_num}",
+                            f"  D {timing}: D1 분량 {d1}/40  |  D2 수치성과 {d2q}/40  |  D3 감점 {d3}",
                             new_x="LMARGIN", new_y="NEXT",
                         )
                 pdf._gap(3)
