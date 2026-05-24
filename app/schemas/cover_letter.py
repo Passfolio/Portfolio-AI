@@ -15,3 +15,8 @@ class ToCoverLetterRequest(BaseModel):
     userId:       int | None = None
     job_position: str = ""
     career:       str = ""
+
+
+class FromCoverLetterRequest(BaseModel):
+    pdfS3Url: str
+    userId:   int | None = None
