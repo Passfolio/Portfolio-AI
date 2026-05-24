@@ -1,20 +1,15 @@
 """자소서 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
-import json
-import os
-import tempfile
-import uuid
-from pathlib import Path
-
 import numpy as np
 from google import genai as _genai
 from google.genai import types as _genai_types
 
-from app.jobs.store import JobStatus, update_job
-from app.services.s3_client import download_pdf, upload_pdf
+from app.services.pdf_pipeline import (
+    download_pdf_to_temp, make_output_path,
+    upload_pdf_file, cleanup_files, run_job_pipeline,
+)
 from app.services._rag_utils import (
-    OUTPUT_DIR,
     TOP_K_BM25,
     TOP_K_FINAL,
     TOP_K_VECTOR,
@@ -341,13 +336,8 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
     from app.evaluators.cover_letter import evaluate
     from app.exporters.cover_letter_pdf import save_pdf
 
-    pdf_bytes = download_pdf(pdf_s3_url)
-    tmp_file  = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
-    tmp_path  = tmp_file.name
-    tmp_file.write(pdf_bytes)
-    tmp_file.close()
-
-    out_pdf = str(OUTPUT_DIR / f"{uuid.uuid4()}_cl_from_portfolio.pdf")
+    tmp_path = download_pdf_to_temp(pdf_s3_url)
+    out_pdf  = make_output_path("cl_from_portfolio")
     try:
         print(f"  [RAG-2] PDF 청킹 중...")
         portfolio_chunks = chunk(tmp_path)
@@ -393,19 +383,11 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
                 },
             })
 
-        OUTPUT_DIR.mkdir(exist_ok=True)
         save_pdf(results, out_pdf)
-
-        with open(out_pdf, "rb") as f:
-            output_bytes = f.read()
-        output_s3_url = upload_pdf(output_bytes, user_id=user_id)
-
+        output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}
     finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        if os.path.exists(out_pdf):
-            os.unlink(out_pdf)
+        cleanup_files(tmp_path, out_pdf)
 
 
 # ───────────────────────────────────────────────────────────────
@@ -417,13 +399,8 @@ def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, t
     from app.chunkers import cover_letter as cl_chunker
     from app.exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
 
-    pdf_bytes = download_pdf(pdf_s3_url)
-    tmp_file  = tempfile.NamedTemporaryFile(suffix=".pdf", delete=False)
-    tmp_path  = tmp_file.name
-    tmp_file.write(pdf_bytes)
-    tmp_file.close()
-
-    out_pdf = str(OUTPUT_DIR / f"{uuid.uuid4()}_cl_to_portfolio.pdf")
+    tmp_path = download_pdf_to_temp(pdf_s3_url)
+    out_pdf  = make_output_path("cl_to_portfolio")
     try:
         converter = DocumentConverter()
         text      = converter.convert(tmp_path).document.export_to_text()
@@ -497,19 +474,11 @@ def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, t
                 "eval": eval_result,
             })
 
-        OUTPUT_DIR.mkdir(exist_ok=True)
         save_generated_portfolio_pdf(results, out_pdf)
-
-        with open(out_pdf, "rb") as f:
-            output_bytes = f.read()
-        output_s3_url = upload_pdf(output_bytes, user_id=user_id)
-
+        output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}
     finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        if os.path.exists(out_pdf):
-            os.unlink(out_pdf)
+        cleanup_files(tmp_path, out_pdf)
 
 
 # ───────────────────────────────────────────────────────────────
@@ -522,15 +491,11 @@ async def run_portfolio_to_cover_letter_task(
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
-    update_job(job_id, JobStatus.RUNNING)
-    try:
-        print(f"[RAG-2][{job_id}] 시작")
-        result = run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k)
-        print(f"[RAG-2][{job_id}] 완료: {len(result['sections'])}개 섹션")
-        update_job(job_id, JobStatus.DONE, result=result)
-    except Exception as e:
-        print(f"[RAG-2][{job_id}] 오류: {e}")
-        update_job(job_id, JobStatus.ERROR, message=str(e))
+    run_job_pipeline(
+        job_id,
+        lambda: run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k),
+        tag="RAG-2",
+    )
 
 
 async def run_cover_letter_to_portfolio_task(
@@ -539,12 +504,8 @@ async def run_cover_letter_to_portfolio_task(
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
-    update_job(job_id, JobStatus.RUNNING)
-    try:
-        print(f"[RAG-5][{job_id}] 시작")
-        result = run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k)
-        print(f"[RAG-5][{job_id}] 완료: {len(result['sections'])}개 섹션")
-        update_job(job_id, JobStatus.DONE, result=result)
-    except Exception as e:
-        print(f"[RAG-5][{job_id}] 오류: {e}")
-        update_job(job_id, JobStatus.ERROR, message=str(e))
+    run_job_pipeline(
+        job_id,
+        lambda: run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k),
+        tag="RAG-5",
+    )
