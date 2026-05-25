@@ -39,9 +39,9 @@ def download_pdf(s3_url: str) -> bytes:
 def upload_pdf(data: bytes, user_id: int | None = None) -> str:
     s = get_settings()
     key = (
-        f"outputs/pdfs/{user_id}/{uuid.uuid4()}.pdf"
+        f"files/ai/{user_id}/{uuid.uuid4()}.pdf"
         if user_id
-        else f"outputs/pdfs/{uuid.uuid4()}.pdf"
+        else f"files/ai/{uuid.uuid4()}.pdf"
     )
     _get_boto_client().put_object(
         Bucket=s.s3_bucket_name,
