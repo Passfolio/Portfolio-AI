@@ -25,6 +25,11 @@ _SYSTEM_PROMPT = """\
 당신은 대한민국 채용 전문가입니다. 자소서를 아래 기준으로 평가하세요.
 각 점수는 0~100 정수로 반환하세요 (단, D 항목은 아래 산출 방식 따름).
 
+[문항 유형 인식]
+입력에 [문항: ...] 이 주어지면 해당 문항이 요구하는 내용에 맞게 각 항목을 평가하세요.
+예) 성장과정·자기소개 문항에서는 A(지원동기) 기준 중 '기업 이해도'보다 '서술 구조·진정성'을 중점 평가하세요.
+예) 직무역량 문항에서는 B 항목에 더 높은 기대치를 적용하세요.
+
 평가 기준:
 A. 지원동기(15%): 두괄식 구성 여부, 기업 이해도 반영, 입사 설득력
 B. 직무역량(35%): STAR 구조(상황-과제-행동-결과) 충족, 수치/정성 성과 포함, 경험→성장→기여 연결
@@ -133,22 +138,26 @@ def is_competency_question(question: str) -> bool:
 # ─── Gemini 클라이언트 ─────────────────────────────────────────────────────────
 
 def _get_gemini_client() -> _genai.Client:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        return _genai.Client(api_key=api_key)
     project = os.getenv("GCP_PROJECT_ID")
     if project:
         return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "global"))
-    raise ValueError("GEMINI_API_KEY 또는 GCP_PROJECT_ID 환경변수를 설정하세요.")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key:
+        return _genai.Client(api_key=api_key)
+    raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
 
 
 # ─── LLM 평가 ─────────────────────────────────────────────────────────────────
 
-def llm_evaluate(text: str, char_limit: int | None = None) -> _EvalResult:
+def llm_evaluate(text: str, char_limit: int | None = None, question: str = "") -> _EvalResult:
     client = _get_gemini_client()
     context = ""
+    if question:
+        context += f"[문항: {question}]\n"
     if char_limit:
-        context = f"[글자 수 제한: {char_limit}자, 실제 글자 수: {len(text.strip())}자]\n\n"
+        context += f"[글자 수 제한: {char_limit}자, 실제 글자 수: {len(text.strip())}자]\n"
+    if context:
+        context += "\n"
     resp = client.models.generate_content(
         model=MODEL,
         contents=f"{context}다음 자소서를 평가해주세요:\n\n{text}",
@@ -157,7 +166,7 @@ def llm_evaluate(text: str, char_limit: int | None = None) -> _EvalResult:
             response_mime_type="application/json",
             response_schema=_EvalResult,
             temperature=0,
-            max_output_tokens=4096,
+            max_output_tokens=16384,
         ),
     )
     return _EvalResult.model_validate_json(resp.text)
@@ -283,7 +292,7 @@ def evaluate(text: str, char_limit: int | None = None, question: str = "") -> di
         raise ValueError("자소서를 100자 이상 입력해주세요.")
 
     print("  [1/2] Gemini-3-Flash preview 평가 중...")
-    llm = llm_evaluate(text, char_limit)
+    llm = llm_evaluate(text, char_limit, question=question)
 
     print("  [2/2] 점수 합산 중...")
     weighted = compute_weighted(llm)

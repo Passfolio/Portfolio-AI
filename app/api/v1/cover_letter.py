@@ -8,6 +8,7 @@ from app.schemas.cover_letter import (
     FromPortfolioRequest,
     ToCoverLetterRequest,
 )
+from app.services._rag_utils import map_career_input
 from app.schemas.job import JobStatusResponse
 from app.services.cover_letter import (
     run_cover_letter_from_pdf_task,
@@ -29,6 +30,8 @@ async def cover_letter_from_portfolio(
         job_id=str(job.job_id),
         pdf_s3_url=req.pdfS3Url,
         user_id=req.userId,
+        job=req.job_position or None,
+        career=map_career_input(req.career) if req.career else None,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)
 
@@ -44,6 +47,8 @@ async def cover_letter_to_portfolio(
         job_id=str(job.job_id),
         pdf_s3_url=req.pdfS3Url,
         user_id=req.userId,
+        job=req.job_position or None,
+        career=map_career_input(req.career) if req.career else None,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)
 

@@ -283,11 +283,21 @@ def save_cl_improvement_pdf(results: list[dict], output_path: str) -> str:
                     item = detail.get(key)
                     if not item:
                         continue
-                    b = item.get("before", "-")
-                    a = item.get("after", "-")
+                    b_raw = item.get("before", "-")
+                    a_raw = item.get("after", "-")
                     d = item.get("delta", 0)
+
+                    # E는 역산 표시 (낮을수록 좋음 → 100-score로 표시)
+                    if key == "E" and isinstance(b_raw, int) and isinstance(a_raw, int):
+                        b = 100 - b_raw
+                        a = 100 - a_raw
+                        d = a - b  # 역산 기준 delta
+                    else:
+                        b, a = b_raw, a_raw
+
                     sign2 = "+" if isinstance(d, (int, float)) and d > 0 else ""
 
+                    # E는 delta 방향이 반전됨 (역산 후에는 일반과 동일)
                     if isinstance(d, (int, float)) and d > 0:
                         d_color = (0, 130, 70)
                     elif isinstance(d, (int, float)) and d < 0:

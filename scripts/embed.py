@@ -10,7 +10,6 @@ from kiwipiepy import Kiwi
 from rank_bm25 import BM25Okapi
 from google import genai as _genai
 from google.genai import types as _types
-from openai import OpenAI
 import pg8000
 
 _kiwi = Kiwi()
@@ -23,10 +22,10 @@ def _tokenize_ko(text: str) -> list[str]:
 # ── 설정 ──────────────────────────────────────────────────────────────
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 
-CL_CHUNKS_PATH      = OUTPUT_DIR / "coverletter_chunks.json"
+CL_CHUNKS_PATH      = OUTPUT_DIR / "mock_cover_letters_ctx.json"
 CL_BM25_PATH        = OUTPUT_DIR / "bm25_cover_letters.pkl"
 
-PORTFOLIO_CHUNKS_PATH = OUTPUT_DIR / "portfolio_chunks.json"
+PORTFOLIO_CHUNKS_PATH = OUTPUT_DIR / "mock_portfolios_ctx.json"
 PORTFOLIO_BM25_PATH   = OUTPUT_DIR / "bm25_portfolios.pkl"
 
 DB_CONFIG = {
@@ -42,39 +41,8 @@ DB_CONFIG = {
 # 임베딩
 # ═══════════════════════════════════════════════════════════════
 
-_OPENAI_EMBED_MODEL  = "text-embedding-3-small"
 _GEMINI_EMBED_MODEL  = "gemini-embedding-2"
 _GEMINI_EMBED_DIM    = 1024
-
-
-def _embed_openai(chunks: list[dict], texts: list[str], log_interval: int = 50) -> list[dict]:
-    """OpenAI text-embedding-3-small 임베딩 (자소서 전용)."""
-    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    total  = len(texts)
-    print(f"임베딩 시작 [{_OPENAI_EMBED_MODEL}]: {total}개 청크")
-    for i, (chunk, text) in enumerate(zip(chunks, texts)):
-        for attempt in range(6):
-            try:
-                resp = client.embeddings.create(
-                    model=_OPENAI_EMBED_MODEL,
-                    input=text,
-                    dimensions=1024,
-                )
-                chunk["embedding"] = resp.data[0].embedding
-                time.sleep(0.05)
-                break
-            except Exception as e:
-                err = str(e)
-                if attempt < 5 and ("429" in err or "rate" in err.lower()):
-                    wait = 60 * (attempt + 1)
-                    print(f"  [rate limit] {wait}초 대기 후 재시도...")
-                    time.sleep(wait)
-                else:
-                    raise
-        if (i + 1) % log_interval == 0 or (i + 1) == total:
-            print(f"  {i + 1}/{total} 완료")
-    print("임베딩 완료")
-    return chunks
 
 
 def _embed_gemini(chunks: list[dict], texts: list[str], log_interval: int = 50) -> list[dict]:
@@ -274,7 +242,7 @@ def run():
         print(f"  임베딩 대상: {len(todo)}개 ({len(done_ids)}개 이미 완료)")
 
         if todo:
-            todo = _embed_openai(todo, [c["text"] for c in todo])
+            todo = _embed_gemini(todo, [c["text"] for c in todo])
             insert_cover_letter_to_db(todo)
 
         _build_bm25_index(cl_chunks, CL_BM25_PATH)
