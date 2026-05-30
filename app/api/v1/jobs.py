@@ -8,7 +8,7 @@ from app.schemas.job import JobStatusResponse
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
-@router.get("/{job_id}", response_model=JobStatusResponse)
+@router.get("/{job_id}", response_model=JobStatusResponse, deprecated=True)
 def get_job_status(job_id: str) -> JobStatusResponse:
     job = get_job(job_id)
     if job is None:
