@@ -550,7 +550,7 @@ async def run_portfolio_to_cover_letter_task(
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k),
         tag="RAG-3",
@@ -563,7 +563,7 @@ async def run_cover_letter_to_portfolio_task(
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k),
         tag="RAG-2",
@@ -576,7 +576,7 @@ async def run_cover_letter_from_pdf_task(
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k),
         tag="RAG-1",
