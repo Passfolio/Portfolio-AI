@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 
+from app.api.dependencies import verify_internal_key
 from app.jobs.store import create_job
 from app.schemas.cover_letter import (
     FromCoverLetterRequest,
@@ -13,7 +14,11 @@ from app.services.cover_letter import (
     run_portfolio_to_cover_letter_task,
 )
 
-router = APIRouter(prefix="/cover-letter", tags=["cover-letter"])
+router = APIRouter(
+    prefix="/cover-letter",
+    tags=["cover-letter"],
+    dependencies=[Depends(verify_internal_key)],
+)
 
 
 @router.post("/from-portfolio", response_model=JobStatusResponse)

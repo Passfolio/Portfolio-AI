@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 
+from app.api.dependencies import verify_internal_key
 from app.jobs.store import create_job
 from app.schemas.cover_letter import FromCoverLetterRequest
 from app.schemas.job import JobStatusResponse
@@ -9,7 +10,11 @@ from app.schemas.portfolio import FromPdfRequest
 from app.services.cover_letter import run_cover_letter_to_portfolio_task
 from app.services.portfolio import run_portfolio_from_pdf_task
 
-router = APIRouter(prefix="/portfolio", tags=["portfolio"])
+router = APIRouter(
+    prefix="/portfolio",
+    tags=["portfolio"],
+    dependencies=[Depends(verify_internal_key)],
+)
 
 
 @router.post("/from-pdf", response_model=JobStatusResponse)
