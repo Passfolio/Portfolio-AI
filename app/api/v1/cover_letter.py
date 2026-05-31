@@ -1,21 +1,24 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 
+from app.api.dependencies import verify_internal_key
 from app.jobs.store import create_job
 from app.schemas.cover_letter import (
     FromCoverLetterRequest,
     FromPortfolioRequest,
-    ToCoverLetterRequest,
 )
 from app.schemas.job import JobStatusResponse
 from app.services.cover_letter import (
     run_cover_letter_from_pdf_task,
-    run_cover_letter_to_portfolio_task,
     run_portfolio_to_cover_letter_task,
 )
 
-router = APIRouter(prefix="/cover-letter", tags=["cover-letter"])
+router = APIRouter(
+    prefix="/cover-letter",
+    tags=["cover-letter"],
+    dependencies=[Depends(verify_internal_key)],
+)
 
 
 @router.post("/from-portfolio", response_model=JobStatusResponse)
@@ -27,23 +30,8 @@ async def cover_letter_from_portfolio(
     background_tasks.add_task(
         run_portfolio_to_cover_letter_task,
         job_id=str(job.job_id),
-        pdf_s3_url=req.pdfS3Url,
-        user_id=req.userId,
-    )
-    return JobStatusResponse(job_id=str(job.job_id), status=job.status)
-
-
-@router.post("/to-portfolio", response_model=JobStatusResponse)
-async def cover_letter_to_portfolio(
-    req: ToCoverLetterRequest,
-    background_tasks: BackgroundTasks,
-) -> JobStatusResponse:
-    job = create_job()
-    background_tasks.add_task(
-        run_cover_letter_to_portfolio_task,
-        job_id=str(job.job_id),
-        pdf_s3_url=req.pdfS3Url,
-        user_id=req.userId,
+        pdf_s3_url=req.pdf_url,
+        user_id=req.user_id,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)
 
@@ -57,7 +45,7 @@ async def cover_letter_from_pdf(
     background_tasks.add_task(
         run_cover_letter_from_pdf_task,
         job_id=str(job.job_id),
-        pdf_s3_url=req.pdfS3Url,
-        user_id=req.userId,
+        pdf_s3_url=req.pdf_url,
+        user_id=req.user_id,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)

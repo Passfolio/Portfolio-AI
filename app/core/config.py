@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = ""
     aws_region: str = "ap-northeast-2"
     s3_bucket_name: str = ""
+    be_base_url: str = "http://localhost:8080"
+    passfolio_internal_api_key: str = ""
 
     @property
     def db_config(self) -> dict:
