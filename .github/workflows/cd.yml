@@ -1,0 +1,45 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "배포할 브랜치 (기본값: develop)"
+        required: false
+        default: develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            BRANCH=${{ github.event.inputs.branch || github.ref_name }}
+            REPO_URL=${{ github.server_url }}/${{ github.repository }}.git
+
+            if [ ! -d ~/Portfolio-AI/.git ]; then
+              git clone $REPO_URL ~/Portfolio-AI
+            fi
+
+            cd ~/Portfolio-AI
+            git fetch origin
+            git checkout $BRANCH
+            git pull origin $BRANCH
+
+            docker build -t passfolio-ai .
+            docker stop passfolio-ai || true
+            docker rm passfolio-ai || true
+            docker run -d \
+              --name passfolio-ai \
+              --env-file .env \
+              -p 8000:8000 \
+              --restart unless-stopped \
+              passfolio-ai
