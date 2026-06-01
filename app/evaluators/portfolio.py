@@ -113,13 +113,13 @@ class _EvalResult(BaseModel):
 # ═══════════════════════════════════════════════════════════════
 
 def _get_gemini_client() -> _genai.Client:
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        return _genai.Client(api_key=api_key)
     project = os.getenv("GCP_PROJECT_ID")
     if project:
         return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "global"))
-    raise ValueError("GEMINI_API_KEY 또는 GCP_PROJECT_ID 환경변수를 설정하세요.")
+    api_key = os.getenv("GEMINI_API_KEY")
+    if api_key:
+        return _genai.Client(api_key=api_key)
+    raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
 
 
 # ═══════════════════════════════════════════════════════════════

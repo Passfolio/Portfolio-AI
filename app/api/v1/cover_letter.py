@@ -8,6 +8,7 @@ from app.schemas.cover_letter import (
     FromCoverLetterRequest,
     FromPortfolioRequest,
 )
+from app.services._rag_utils import map_career_input
 from app.schemas.job import JobStatusResponse
 from app.services.cover_letter import (
     run_cover_letter_from_pdf_task,

@@ -17,6 +17,7 @@ from app.services._rag_utils import (
     _ImprovedResult,
     _LLM_MODEL,
     _bm25_search,
+    _build_code_analysis_block,
     _embed_query,
     _fetch_chunks,
     _generate_with_retry,
@@ -174,6 +175,158 @@ def run_portfolio_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k: i
 
 
 # ───────────────────────────────────────────────────────────────
+# RAG-5: 포트폴리오 PDF + 코드 분석 → 섹션별 개선
+# ───────────────────────────────────────────────────────────────
+
+def _improve_portfolio_text_with_code(
+    query: str,
+    code_analysis: dict,
+    top_k: int = TOP_K_FINAL,
+    img_context: str = "",
+) -> dict:
+    query_emb  = _embed_query(query)
+    bm25_res   = _bm25_search(query, PORTFOLIO_BM25_PATH, TOP_K_BM25)
+    vector_res = _vector_search(query_emb, "portfolio_chunks", TOP_K_VECTOR)
+    fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
+    chunks     = _fetch_chunks(
+        fused_ids, "portfolio_chunks",
+        ["id", "section", "sub_section", "project", "text"],
+    )
+
+    context_block = "\n\n---\n\n".join(
+        f"[예시 {i+1} | {c['section']} — {c.get('project', '')}]\n{c['text']}"
+        for i, c in enumerate(chunks)
+        if c.get("sub_section") != "이미지"
+    )
+
+    img_block = (
+        f"\n\n[포트폴리오 이미지 컨텍스트]\n{img_context}"
+        if img_context else ""
+    )
+
+    code_block = _build_code_analysis_block(code_analysis)
+
+    prompt = (
+        f"다음은 실제 포트폴리오 예시들입니다 (구조·표현 참고용):\n\n"
+        f"{context_block}\n\n"
+        f"{_PORTFOLIO_CRITERIA}\n\n"
+        f"[GitHub 코드 분석 결과 — 아래 기술적 사실은 포트폴리오 보강에 활용 가능]\n"
+        f"{code_block}\n\n"
+        f"위 예시·작성 기준·코드 분석을 참고하여 아래 포트폴리오 내용을 개선해주세요."
+        f"{img_block}\n\n"
+        f"[준수 사항]\n"
+        f"1. 원문 또는 코드 분석에서 확인된 사실만 사용하세요 (둘 다에 없는 내용 추가 금지).\n"
+        f"2. 코드 분석의 pattern_summary에 있는 기술 구현 세부사항은 구체화·추가 가능합니다.\n"
+        f"3. 코드 분석의 feedback(how_to_verify)은 '검증 방법' 힌트로 활용하되, 측정 안 된 수치 생성 금지.\n"
+        f"4. [수치 보존 필수] 원문의 숫자·단위(%, ms, 배, 건, GB 등)는 반드시 유지하세요.\n"
+        f"5. [분량 기준] 개선안은 400~1000자로 작성하세요.\n"
+        f"6. 본인이 직접 수행한 역할만 1인칭으로 서술하세요.\n\n"
+        f"[개선할 포트폴리오]\n{query}\n\n"
+        f"다음 JSON 형식으로 응답하세요:\n"
+        f"- improved: 개선된 포트폴리오 전문 (400~1000자)\n"
+        f"- reasoning: 개선 근거 (코드 분석에서 보강한 내용 명시, 2~3문장)\n"
+        f"- changes: 주요 변경 사항 목록 (코드분석 추가분은 '[코드분석]' 태그 표시)"
+    )
+
+    client = _get_gemini_client()
+    resp = _generate_with_retry(
+        client,
+        model=_LLM_MODEL,
+        contents=prompt,
+        config=_genai_types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=_ImprovedResult,
+        ),
+    )
+    result = _ImprovedResult.model_validate_json(resp.text)
+    return {
+        "improved":  result.improved,
+        "reasoning": result.reasoning,
+        "changes":   result.changes,
+    }
+
+
+def run_portfolio_from_pdf_with_code(
+    pdf_s3_url: str,
+    code_analysis: dict,
+    user_id: int | None = None,
+    top_k: int = TOP_K_FINAL,
+) -> dict:
+    """RAG-5: 포트폴리오 PDF 개선 + GitHub 코드 분석 결과 통합."""
+    from app.chunkers.portfolio import chunk
+    from app.evaluators.portfolio import evaluate_comparison as pf_evaluate_comparison
+    from app.exporters.portfolio_pdf import save_improvement_pdf
+
+    tmp_path = download_pdf_to_temp(pdf_s3_url)
+    out_pdf  = make_output_path("portfolio_with_code")
+    try:
+        logger.info("[RAG-5] PDF 청킹 중...")
+        all_chunks = chunk(tmp_path)
+        logger.info("[RAG-5] 청킹 완료: %d개 청크", len(all_chunks))
+
+        img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
+        text_chunks = [c for c in all_chunks if c.get("sub_section") != "이미지"]
+
+        img_ctx_by_project: dict[str, str] = {}
+        for ic in img_chunks:
+            proj  = ic.get("project", "")
+            entry = f"[{ic.get('content_type', '')}] {ic['text']}"
+            img_ctx_by_project[proj] = (
+                img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
+            )
+
+        results = []
+        for idx, c in enumerate(text_chunks):
+            section     = c.get("section", "")
+            project     = c.get("project", "")
+            sub_section = c.get("sub_section", "")
+            meta        = c.get("meta") or None
+
+            logger.info("[RAG-5] [%d/%d] 텍스트 개선+코드분석: %s / %s", idx + 1, len(text_chunks), project, sub_section)
+            img_context = img_ctx_by_project.get(project, "")
+            result      = _improve_portfolio_text_with_code(c["text"], code_analysis, top_k=top_k, img_context=img_context)
+            eval_result = pf_evaluate_comparison(c["text"], result["improved"], meta=meta)
+
+            results.append({
+                "section":     section,
+                "project":     project,
+                "sub_section": sub_section,
+                "original":    c["text"],
+                "improved":    result["improved"],
+                "reasoning":   result["reasoning"],
+                "changes":     result["changes"],
+                "eval_before": eval_result["before"]["weighted"],
+                "eval_after":  eval_result["after"]["weighted"],
+                "eval_delta":  eval_result["delta"],
+                "eval_detail": eval_result["per_category"],
+            })
+
+        for ic in img_chunks:
+            results.append({
+                "section":      ic.get("section", ""),
+                "project":      ic.get("project", ""),
+                "sub_section":  "이미지",
+                "content_type": ic.get("content_type", ""),
+                "image_path":   ic.get("image_path", ""),
+                "original":     ic["text"],
+                "improved":     ic["text"],
+                "reasoning":    "이미지 캡션은 개선 대상에서 제외됩니다.",
+                "changes":      [],
+                "eval_before":  None,
+                "eval_after":   None,
+                "eval_delta":   None,
+                "eval_detail":  None,
+            })
+
+        logger.info("[RAG-5] PDF 생성 중...")
+        save_improvement_pdf(results, out_pdf)
+        output_s3_url = upload_pdf_file(out_pdf, user_id)
+        return {"sections": results, "outputPdfS3Url": output_s3_url}
+    finally:
+        cleanup_files(tmp_path, out_pdf)
+
+
+# ───────────────────────────────────────────────────────────────
 # BackgroundTask 래퍼
 # ───────────────────────────────────────────────────────────────
 
@@ -187,4 +340,18 @@ async def run_portfolio_from_pdf_task(
         job_id,
         lambda: run_portfolio_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k),
         tag="RAG-4",
+    )
+
+
+async def run_portfolio_from_pdf_with_code_task(
+    job_id: str,
+    pdf_s3_url: str,
+    code_analysis: dict,
+    user_id: int | None = None,
+    top_k: int = TOP_K_FINAL,
+) -> None:
+    await run_job_pipeline(
+        job_id,
+        lambda: run_portfolio_from_pdf_with_code(pdf_s3_url, code_analysis, user_id=user_id, top_k=top_k),
+        tag="RAG-5",
     )

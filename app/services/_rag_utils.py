@@ -1,7 +1,9 @@
 """rag.py 공유 내부 유틸리티 — cover_letter / portfolio 서비스에서 공통 사용."""
 from __future__ import annotations
 
+import os
 import pickle
+import re
 import time
 from pathlib import Path
 
@@ -10,7 +12,6 @@ import pg8000
 from google import genai as _genai
 from google.genai import types as _genai_types
 from kiwipiepy import Kiwi
-from openai import OpenAI as _OpenAI
 from pydantic import BaseModel
 from rank_bm25 import BM25Okapi
 
@@ -147,12 +148,44 @@ def _tokenize_ko(text: str) -> list[str]:
 
 
 # ───────────────────────────────────────────────────────────────
+# 자소서 job/career 필터 유틸
+# ───────────────────────────────────────────────────────────────
+
+def map_career_input(years_str: str) -> str:
+    """'n년' 형식 입력 → DB career ID 값으로 변환.
+    0년 → 신입 / 1~3년 → 주니어 / 4년 이상 → 미드레벨 (5년 이상 시니어 취급, 데이터 없어 미드레벨 폴백).
+    """
+    m = re.match(r"(\d+)", years_str.strip())
+    if not m:
+        return ""
+    n = int(m.group(1))
+    if n == 0:
+        return "신입"
+    elif n <= 3:
+        return "주니어(1~3년)"
+    else:
+        return "미드레벨(3~5년)"
+
+
+def _cl_id_matches(id_: str, job: str | None, career: str | None) -> bool:
+    """자소서 청크 ID에서 job/career 일치 여부 확인. mock_{company}_{job}_{career}_{hash}_{seq}"""
+    parts = id_.split("_")
+    if len(parts) < 6:
+        return True
+    if job and parts[2] != job:
+        return False
+    if career and parts[3] != career:
+        return False
+    return True
+
+
+# ───────────────────────────────────────────────────────────────
 # 임베딩
 # ───────────────────────────────────────────────────────────────
 
 def _embed_query(text: str) -> list[float]:
     """포트폴리오 쿼리 임베딩 — Gemini embedding-2 (1024차원)."""
-    client = _genai.Client(api_key=get_settings().gemini_api_key)
+    client = _get_gemini_client()
     resp = client.models.embed_content(
         model="gemini-embedding-2",
         contents=text,
@@ -164,16 +197,6 @@ def _embed_query(text: str) -> list[float]:
     return resp.embeddings[0].values
 
 
-def _embed_query_cl(text: str) -> list[float]:
-    """자소서 쿼리 임베딩 — OpenAI text-embedding-3-small (1024차원)."""
-    client = _OpenAI(api_key=get_settings().openai_api_key)
-    resp = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text,
-        dimensions=1024,
-    )
-    return resp.data[0].embedding
-
 
 # ───────────────────────────────────────────────────────────────
 # BM25 검색
@@ -184,6 +207,8 @@ def _bm25_search(
     bm25_path: Path,
     top_k: int,
     sub_section_filter: str | None = None,
+    job: str | None = None,
+    career: str | None = None,
 ) -> list[tuple[str, float]]:
     with open(bm25_path, "rb") as f:
         data = pickle.load(f)
@@ -196,10 +221,16 @@ def _bm25_search(
             all_scores = data["bm25"].get_scores(tokens)
             filtered = [(i, float(all_scores[i])) for i in target_idx if all_scores[i] > 0]
             filtered.sort(key=lambda x: x[1], reverse=True)
-            return [(data["ids"][i], score) for i, score in filtered[:top_k]]
+            results = [(data["ids"][i], score) for i, score in filtered[:top_k * 3]]
+            if job or career:
+                results = [(id_, s) for id_, s in results if _cl_id_matches(id_, job, career)]
+            return results[:top_k]
     scores  = data["bm25"].get_scores(tokens)
-    top_idx = np.argsort(scores)[::-1][:top_k]
-    return [(data["ids"][i], float(scores[i])) for i in top_idx if scores[i] > 0]
+    top_idx = np.argsort(scores)[::-1][:top_k * 3]
+    results = [(data["ids"][i], float(scores[i])) for i in top_idx if scores[i] > 0]
+    if job or career:
+        results = [(id_, s) for id_, s in results if _cl_id_matches(id_, job, career)]
+    return results[:top_k]
 
 
 # ───────────────────────────────────────────────────────────────
@@ -211,25 +242,31 @@ def _vector_search(
     table: str,
     top_k: int,
     sub_section_filter: str | None = None,
+    job: str | None = None,
+    career: str | None = None,
 ) -> list[tuple[str, float]]:
     emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
     conn = pg8000.connect(**get_settings().db_config)
     cur  = conn.cursor()
+
+    fetch_k = top_k * 3 if (job or career) and table == "cover_letter_chunks" else top_k
     if sub_section_filter:
         cur.execute(
             f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
             f"FROM {table} WHERE sub_section = %s "
             f"ORDER BY embedding <=> %s::vector LIMIT %s",
-            (emb_str, sub_section_filter, emb_str, top_k),
+            (emb_str, sub_section_filter, emb_str, fetch_k),
         )
     else:
         cur.execute(
             f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
             f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
-            (emb_str, emb_str, top_k),
+            (emb_str, emb_str, fetch_k),
         )
     rows = [(row[0], float(row[1])) for row in cur.fetchall()]
     cur.close()
+    if (job or career) and table == "cover_letter_chunks":
+        rows = [(id_, s) for id_, s in rows if _cl_id_matches(id_, job, career)]
     conn.close()
     return rows
 
@@ -287,7 +324,13 @@ def _search_portfolio_refs(cl_chunk: dict, top_k: int) -> list[dict]:
 # ───────────────────────────────────────────────────────────────
 
 def _get_gemini_client() -> _genai.Client:
-    return _genai.Client(api_key=get_settings().gemini_api_key)
+    project = os.getenv("GCP_PROJECT_ID")
+    if project:
+        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "global"))
+    api_key = get_settings().gemini_api_key
+    if api_key:
+        return _genai.Client(api_key=api_key)
+    raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
 
 
 def _generate_with_retry(
@@ -386,10 +429,181 @@ _PF_GEN_SUBSECTION_GUIDE_RESULT = """\
 """
 
 
+# ───────────────────────────────────────────────────────────────
+# 코드 분석 통합 유틸 (RAG-5/6 전용)
+# ───────────────────────────────────────────────────────────────
+
+def _build_code_analysis_block(code_analysis: dict) -> str:
+    """GitHub 레포 코드 분석 JSON → LLM 프롬프트 삽입용 텍스트 블록."""
+    lines = [
+        f"[프로젝트] {code_analysis.get('title', '')}",
+        f"[설명] {code_analysis.get('description', '')}",
+    ]
+
+    skills = code_analysis.get("skills", {})
+    skill_parts = [
+        ", ".join(skills.get(k, []))
+        for k in ("languages", "frameworks", "data_stores", "auth", "deployment")
+        if skills.get(k)
+    ]
+    if skill_parts:
+        lines.append(f"[기술스택] {' / '.join(skill_parts)}")
+
+    contrib = code_analysis.get("author_contribution", {})
+    if contrib.get("summary"):
+        lines.append(f"\n[기여 요약]\n{contrib['summary']}")
+    for resp in contrib.get("responsibilities", []):
+        lines.append(f"  · {resp['area_name']}: {resp['description']}")
+
+    perfs = code_analysis.get("core_performances", [])
+    if perfs:
+        lines.append("\n[핵심 기술 구현 패턴 — 코드에서 직접 확인된 사실]")
+        for p in perfs:
+            lines.append(f"• {p['title']}\n  {p['pattern_summary']}")
+            if p.get("why_likely_matters"):
+                lines.append(f"  → 면접 포인트: {p['why_likely_matters']}")
+
+    feedbacks = code_analysis.get("feedback", [])
+    if feedbacks:
+        lines.append("\n[수치화·검증 가능 항목 — 포트폴리오 보강 힌트]")
+        for fb in feedbacks:
+            lines.append(f"• {fb['linked_performance_title']}: {fb['how_to_verify']}")
+
+    return "\n".join(lines)
+
+
+_PF_GEN_SYSTEM_WITH_CODE = """\
+당신은 IT 직군 포트폴리오 작성 전문가입니다.
+자소서와 GitHub 코드 분석 결과를 함께 활용하여 포트폴리오 섹션을 작성합니다.
+
+[절대 원칙]
+- 자소서 또는 코드 분석 결과에서 확인된 사실만 사용하세요. 둘 다에 없는 내용은 절대 추가 금지.
+- 코드 분석의 pattern_summary·tech_stack에 있는 기술적 구현 세부사항은 포트폴리오 보강에 활용 가능합니다.
+- 코드 분석의 feedback.how_to_verify는 "수치화 방법" 힌트로 활용하되, 측정하지 않은 수치를 임의 생성 금지.
+- 포트폴리오 특유의 명사형·개조식 문체로 작성하세요 (자소서 산문체 금지).
+- 수치가 있으면 반드시 그대로 인용하세요.
+
+[평가 기준 반영 — 아래 기준으로 채점되므로 반드시 충족]
+A. 과정/판단력(35%): 배경→문제인식→선택/판단→실행 흐름이 명확해야 함
+   - '왜 그 기술/방법을 선택했는지' 판단 근거를 반드시 명시
+   - 코드 분석의 why_likely_matters를 판단 근거 서술에 활용 가능
+B. 역할/기여도(25%): 1인칭 기여가 명확해야 함
+   - author_contribution에서 확인된 책임 영역을 근거로 역할 서술 가능
+C. 성과/인사이트(20%): 정량 수치 우선, 배움과 성장 연결
+D. 작성품질 감점 요인 — 반드시 회피:
+   - 추상 표현, 단순 기술 나열, 중복 표현 금지
+E. 직무연관성(10%): 직무 역량과 연결되는 경험임을 명시
+
+[project 필드] 코드 분석의 title을 우선 사용하되, 자소서 원문에 다른 명칭이 있으면 그것을 사용하세요.
+
+[gaps 작성 원칙]
+- 자소서와 코드 분석 모두에서 확인되지 않은 항목만 gap으로 기재하세요.
+- user_action: 지원자가 직접 보완해야 할 구체적 요청 1문장
+- example: 레퍼런스에서 이 gap을 잘 채운 표현 직접 인용 (없으면 "")
+"""
+
+
+def _generate_portfolio_section_with_code(
+    cl_chunk: dict,
+    refs: list[dict],
+    client: _genai.Client,
+    code_analysis: dict,
+    job: str | None = None,
+    career: str | None = None,
+) -> _PortfolioGenResult:
+    """자소서 청크 + 포트폴리오 레퍼런스 + 코드 분석 → 포트폴리오 섹션 생성 (RAG-6)."""
+
+    def _sub_example(key: str) -> str:
+        items = refs[:3]
+        if not items:
+            return "  (레퍼런스 없음)"
+        lines = []
+        for c in items:
+            proj = c.get("project", "")
+            if key == "overview":
+                parts = []
+                if c.get("period"):     parts.append(f"기간: {c['period']}")
+                if c.get("role"):       parts.append(f"역할: {c['role']}")
+                if c.get("team"):       parts.append(f"팀: {c['team']}")
+                ts = c.get("tech_stack") or []
+                if ts: parts.append(f"기술: {', '.join(ts[:5])}")
+                content = " / ".join(parts) if parts else c["text"][:150]
+            elif key == "development":
+                contribs = c.get("contributions") or []
+                content = ("\n  ".join(f"• {x}" for x in contribs[:4])
+                           if contribs else c["text"][:300])
+            elif key == "result":
+                achs = c.get("achievements") or []
+                content = ("\n  ".join(f"• {x}" for x in achs[:4])
+                           if achs else c["text"][-200:])
+            else:
+                content = c["text"][:400]
+            lines.append(f"  [{proj}]\n  {content}")
+        return "\n\n".join(lines)
+
+    kp_block  = "\n".join(f"  - {kp}" for kp in cl_chunk.get("key_points", []))
+    ach_block = "\n".join(f"  - {a}"  for a in cl_chunk.get("achievements", []))
+    kw_block  = ", ".join(cl_chunk.get("keywords", []))
+    code_block = _build_code_analysis_block(code_analysis)
+
+    job_career_ctx = ""
+    if job or career:
+        job_career_ctx = (
+            f"[지원자 정보]\n"
+            + (f"직군: {job}\n" if job else "")
+            + (f"경력: {career}\n" if career else "")
+            + "\n"
+        )
+
+    prompt = (
+        f"{job_career_ctx}"
+        f"[자소서 원문]\n"
+        f"카테고리: {cl_chunk.get('category', '')}\n"
+        f"섹션 제목: {cl_chunk.get('section', '')}\n\n"
+        f"{cl_chunk['text']}\n\n"
+        f"[추출된 메타 정보]\n"
+        f"핵심 포인트(STAR):\n{kp_block}\n"
+        f"성과:\n{ach_block}\n"
+        f"키워드: {kw_block}\n\n"
+        f"[GitHub 코드 분석 결과 — 자소서 내용 보강에 활용 가능한 기술적 사실]\n"
+        f"{code_block}\n\n"
+        f"[서브섹션별 작성 기준 + 실제 포트폴리오 표현 예시]\n"
+        f"단, 예시의 내용(프로젝트명·수치·기술)은 절대 복사하지 말고 자소서+코드분석 사실만 사용하세요.\n\n"
+        f"── overview (개요) ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_OVERVIEW}\n"
+        f"실제 예시:\n{_sub_example('overview')}\n\n"
+        f"── development (개발) ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_DEVELOPMENT}\n"
+        f"실제 예시:\n{_sub_example('development')}\n\n"
+        f"── issue (이슈 및 해결) ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_ISSUE}\n"
+        f"실제 예시:\n{_sub_example('issue')}\n\n"
+        f"── result (성과) ──\n"
+        f"{_PF_GEN_SUBSECTION_GUIDE_RESULT}\n"
+        f"실제 예시:\n{_sub_example('result')}\n\n"
+        f"위 자소서 내용과 코드 분석을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
+        f"자소서에도 코드 분석에도 없는 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
+    )
+
+    resp = _generate_with_retry(
+        client,
+        model=_LLM_MODEL,
+        contents=prompt,
+        config=_genai_types.GenerateContentConfig(
+            system_instruction=_PF_GEN_SYSTEM_WITH_CODE,
+            response_mime_type="application/json",
+            response_schema=_PortfolioGenResult,
+        ),
+    )
+    return _PortfolioGenResult.model_validate_json(resp.text)
+
+
 def _generate_portfolio_section(
     cl_chunk: dict,
     refs: list[dict],
     client: _genai.Client,
+    job: str | None = None,
+    career: str | None = None,
 ) -> _PortfolioGenResult:
     """자소서 청크 1개 + 포트폴리오 레퍼런스 → 포트폴리오 섹션 생성."""
 
@@ -425,7 +639,17 @@ def _generate_portfolio_section(
     ach_block = "\n".join(f"  - {a}"  for a in cl_chunk.get("achievements", []))
     kw_block  = ", ".join(cl_chunk.get("keywords", []))
 
+    job_career_ctx = ""
+    if job or career:
+        job_career_ctx = (
+            f"[지원자 정보]\n"
+            + (f"직군: {job}\n" if job else "")
+            + (f"경력: {career}\n" if career else "")
+            + "\n"
+        )
+
     prompt = (
+        f"{job_career_ctx}"
         f"[자소서 원문 — 이 내용만 근거로 사용]\n"
         f"카테고리: {cl_chunk.get('category', '')}\n"
         f"섹션 제목: {cl_chunk.get('section', '')}\n\n"
