@@ -336,7 +336,7 @@ async def run_portfolio_from_pdf_task(
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_portfolio_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k),
         tag="RAG-4",
@@ -350,7 +350,7 @@ async def run_portfolio_from_pdf_with_code_task(
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_portfolio_from_pdf_with_code(pdf_s3_url, code_analysis, user_id=user_id, top_k=top_k),
         tag="RAG-5",

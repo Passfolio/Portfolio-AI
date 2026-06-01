@@ -10,6 +10,7 @@ from typing import Callable
 from app.jobs.store import JobStatus, update_job
 from app.services._rag_utils import OUTPUT_DIR
 from app.services.s3_client import download_pdf, upload_pdf
+from app.services.webhook import notify_be
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +49,28 @@ def cleanup_files(*paths: str) -> None:
             os.unlink(path)
 
 
-def run_job_pipeline(job_id: str, fn: Callable, tag: str = "") -> None:
-    """fn()을 호출하며 RUNNING/DONE/ERROR Job 상태를 관리한다."""
+async def run_job_pipeline(job_id: str, fn: Callable, tag: str = "") -> None:
+    """fn()을 호출하며 RUNNING/DONE/ERROR Job 상태를 관리하고 BE에 webhook을 전송한다."""
     logger.info("[%s][%s] Job 시작 (RUNNING)", tag, job_id)
     update_job(job_id, JobStatus.RUNNING)
+    output_pdf_url: str | None = None
+    error_message:  str | None = None
     try:
-        result = fn()
-        sections = result.get("sections", [])
+        result         = fn()
+        output_pdf_url = result.get("outputPdfS3Url")
+        sections       = result.get("sections", [])
         logger.info("[%s][%s] Job 완료 (DONE): %d개 섹션", tag, job_id, len(sections))
         update_job(job_id, JobStatus.DONE, result=result)
     except Exception as e:
+        error_message = str(e)
         logger.error("[%s][%s] Job 오류 (ERROR): %s", tag, job_id, e)
-        update_job(job_id, JobStatus.ERROR, message=str(e))
+        update_job(job_id, JobStatus.ERROR, message=error_message)
+    finally:
+        try:
+            await notify_be(
+                ai_job_id=job_id,
+                output_pdf_url=output_pdf_url,
+                error_message=error_message,
+            )
+        except Exception as webhook_err:
+            logger.error("[%s][%s] Webhook 전송 실패: %s", tag, job_id, webhook_err)

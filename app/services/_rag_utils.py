@@ -1,6 +1,7 @@
 """rag.py 공유 내부 유틸리티 — cover_letter / portfolio 서비스에서 공통 사용."""
 from __future__ import annotations
 
+import os
 import pickle
 import re
 import time

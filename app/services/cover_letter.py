@@ -833,7 +833,7 @@ async def run_portfolio_to_cover_letter_task(
     job: str | None = None,
     career: str | None = None,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career),
         tag="RAG-3",
@@ -848,7 +848,7 @@ async def run_cover_letter_to_portfolio_task(
     job: str | None = None,
     career: str | None = None,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career),
         tag="RAG-2",
@@ -862,7 +862,7 @@ async def run_cover_letter_from_pdf_task(
     top_k: int = TOP_K_FINAL,
     use_rag: bool = True,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k, use_rag=use_rag),
         tag="RAG-1",
@@ -878,7 +878,7 @@ async def run_cover_letter_from_pdf_with_code_task(
     job: str | None = None,
     career: str | None = None,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_from_pdf_with_code(
             pdf_s3_url, code_analysis, user_id=user_id, top_k=top_k, job=job, career=career,
@@ -896,7 +896,7 @@ async def run_cover_letter_to_portfolio_with_code_task(
     job: str | None = None,
     career: str | None = None,
 ) -> None:
-    run_job_pipeline(
+    await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_to_portfolio_with_code(
             pdf_s3_url, code_analysis, user_id=user_id, top_k=top_k, job=job, career=career,
