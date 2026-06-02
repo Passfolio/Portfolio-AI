@@ -12,8 +12,6 @@ __pycache__
 *.tar.*
 docs/
 tests/
-pdfsample/
-portfoliosample/
 app/output/
 output/*
 !output/bm25_cover_letters.pkl
