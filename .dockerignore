@@ -8,9 +8,15 @@ __pycache__
 *.pyo
 *.pyd
 *.egg-info
+*.tar
+*.tar.*
 docs/
 tests/
 pdfsample/
 portfoliosample/
+app/output/
+output/*
+!output/bm25_cover_letters.pkl
+!output/bm25_portfolios.pkl
 *.log
 server.log
