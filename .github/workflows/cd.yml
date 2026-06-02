@@ -22,6 +22,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 30099
+          command_timeout: 30m
           script: |
             BRANCH=${{ github.event.inputs.branch || github.ref_name }}
             REPO_URL=${{ github.server_url }}/${{ github.repository }}.git
