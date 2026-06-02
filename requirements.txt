@@ -15,3 +15,5 @@ numpy==2.4.5
 pg8000==1.31.5
 fpdf2==2.8.7
 docling==2.94.0
+pytest==8.3.5
+pytest-asyncio==0.24.0
