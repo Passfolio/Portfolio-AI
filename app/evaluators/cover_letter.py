@@ -1,6 +1,6 @@
 """
 자소서 평가 엔진 - Gemini-3-Flash preview
-LLM 통합 평가: 지원동기·직무역량·인재상·작성품질·AI의심도 전 항목 LLM 채점
+LLM 통합 평가: 지원동기·직무역량·인재상·작성품질 전 항목 LLM 채점
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ from pydantic import BaseModel
 
 # ─── 설정 ─────────────────────────────────────────────────────────────────────
 MODEL   = "gemini-3-flash-preview"
-WEIGHTS = {"A": 0.15, "B": 0.35, "C": 0.20, "D": 0.15, "E": 0.15}
-LABELS  = {"A": "지원동기", "B": "직무역량", "C": "인재상", "D": "작성품질", "E": "AI 의심도"}
+WEIGHTS = {"A": 0.20, "B": 0.40, "C": 0.25, "D": 0.15}
+LABELS  = {"A": "지원동기", "B": "직무역량", "C": "인재상", "D": "작성품질"}
 
 _SYSTEM_PROMPT = """\
 당신은 대한민국 채용 전문가입니다. 자소서를 아래 기준으로 평가하세요.
@@ -31,9 +31,9 @@ _SYSTEM_PROMPT = """\
 예) 직무역량 문항에서는 B 항목에 더 높은 기대치를 적용하세요.
 
 평가 기준:
-A. 지원동기(15%): 두괄식 구성 여부, 기업 이해도 반영, 입사 설득력
-B. 직무역량(35%): STAR 구조(상황-과제-행동-결과) 충족, 수치/정성 성과 포함, 경험→성장→기여 연결
-C. 인재상(20%): 핵심 가치관 부합, 소통/협업 경험, 갈등 해결 사례
+A. 지원동기(20%): 두괄식 구성 여부, 기업 이해도 반영, 입사 설득력
+B. 직무역량(40%): STAR 구조(상황-과제-행동-결과) 충족, 수치/정성 성과 포함, 경험→성장→기여 연결
+C. 인재상(25%): 핵심 가치관 부합, 소통/협업 경험, 갈등 해결 사례
 
 D. 작성품질(15%): 아래 세 항목을 엄격히 채점해 합산하세요.
   [D1. 분량] 0~40점
@@ -51,14 +51,7 @@ D. 작성품질(15%): 아래 세 항목을 엄격히 채점해 합산하세요.
   - 추상 표현("열심히", "최선을 다" 등) 1개당 -3점 (최대 -10점)
   - 동일 의미 중복 표현 1건당 -2점 (최대 -8점)
   - 내용 없는 bullet 단순 나열 4개 이상: -5점
-  → 최종 D = D1 + D2 + D3 (최솟값 0, 최댓값 80)
-
-E. AI의심도(15%): 아래 패턴이 많을수록 높은 점수(높으면 나쁨)
-  - 무견해/판단 회피
-  - 구조적 전형성
-  - 지나친 과장/편중
-  - 구체적 근거 부족
-  - 복잡한 서술 구조\
+  → 최종 D = D1 + D2 + D3 (최솟값 0, 최댓값 80)\
 """
 
 
@@ -89,17 +82,11 @@ class _ScoreD(BaseModel):
     reason:     str
     fix:        str
 
-class _ScoreE(BaseModel):
-    score:    int
-    detected: list[str]
-    reason:   str
-
 class _EvalResult(BaseModel):
     A:       _ScoreA
     B:       _ScoreB
     C:       _ScoreC
     D:       _ScoreD
-    E:       _ScoreE
     overall: str
 
 
@@ -175,13 +162,11 @@ def llm_evaluate(text: str, char_limit: int | None = None, question: str = "") -
 # ─── 가중 합산 ─────────────────────────────────────────────────────────────────
 
 def compute_weighted(llm: _EvalResult) -> float:
-    e_adj = 100 - llm.E.score
     total = (
         llm.A.score * WEIGHTS["A"] +
         llm.B.score * WEIGHTS["B"] +
         llm.C.score * WEIGHTS["C"] +
-        llm.D.score * WEIGHTS["D"] +
-        e_adj       * WEIGHTS["E"]
+        llm.D.score * WEIGHTS["D"]
     )
     return round(total, 2)
 
@@ -226,12 +211,6 @@ def print_result(llm: _EvalResult, weighted: float) -> None:
     print(f"    개선: {llm.D.fix}")
     print(sep)
 
-    e_adj = 100 - llm.E.score
-    print(f"[E] {LABELS['E']}  ({int(WEIGHTS['E']*100)}%)  →  원점수 {llm.E.score}/100  (역산 적용: {e_adj}/100)")
-    print(f"    감지 패턴: {', '.join(llm.E.detected) if llm.E.detected else '없음'}")
-    print(f"    근거: {llm.E.reason}")
-    print(sep)
-
     print(f"\n  총평: {llm.overall}\n")
 
 
@@ -253,7 +232,7 @@ def evaluate_comparison(original: str, improved: str, char_limit: int | None = N
     print(f"  {'항목':<12} {'원문':>6}  {'개선안':>6}  {'변화':>6}")
     print(f"  {'─'*40}")
 
-    for k in ["A", "B", "C", "D", "E"]:
+    for k in ["A", "B", "C", "D"]:
         b = before["llm"][k]["score"]
         a = after["llm"][k]["score"]
         print(f"  {k}. {LABELS[k]:<10} {b:>6}  {a:>6}  {a-b:>+6}")
@@ -275,7 +254,7 @@ def evaluate_comparison(original: str, improved: str, char_limit: int | None = N
                 "before_detail": {kk: vv for kk, vv in before["llm"][k].items() if kk != "score"},
                 "after_detail":  {kk: vv for kk, vv in after["llm"][k].items()  if kk != "score"},
             }
-            for k in ["A", "B", "C", "D", "E"]
+            for k in ["A", "B", "C", "D"]
         } | {
             "overall": {
                 "before": before["llm"]["overall"],
