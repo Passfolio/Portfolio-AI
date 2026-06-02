@@ -27,9 +27,12 @@ async def test_notify_be_done():
     mock_client = AsyncMock()
     mock_client.post = AsyncMock(return_value=mock_resp)
 
-    with patch("app.services.webhook.httpx.AsyncClient") as mock_cls:
+    with patch("app.services.webhook.httpx.AsyncClient") as mock_cls, \
+         patch("app.services.webhook.get_settings") as mock_settings:
         mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_settings.return_value.be_base_url = "http://localhost:8080"
+        mock_settings.return_value.passfolio_internal_api_key = "test-key"
 
         from app.services.webhook import notify_be
         await notify_be("job-abc", output_pdf_url="https://s3.example.com/f.pdf")
@@ -50,9 +53,12 @@ async def test_notify_be_error():
     mock_client = AsyncMock()
     mock_client.post = AsyncMock(return_value=mock_resp)
 
-    with patch("app.services.webhook.httpx.AsyncClient") as mock_cls:
+    with patch("app.services.webhook.httpx.AsyncClient") as mock_cls, \
+         patch("app.services.webhook.get_settings") as mock_settings:
         mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_settings.return_value.be_base_url = "http://localhost:8080"
+        mock_settings.return_value.passfolio_internal_api_key = "test-key"
 
         from app.services.webhook import notify_be
         await notify_be("job-xyz", error_message="파싱 오류")

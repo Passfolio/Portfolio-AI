@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ssl
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
@@ -22,13 +23,17 @@ class Settings(BaseSettings):
 
     @property
     def db_config(self) -> dict:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         return {
-            "host":     self.postgres_host,
-            "port":     self.postgres_port,
-            "database": self.postgres_db,
-            "user":     self.postgres_user,
-            "password": self.postgres_password,
-            "timeout":  10,
+            "host":        self.postgres_host,
+            "port":        self.postgres_port,
+            "database":    self.postgres_db,
+            "user":        self.postgres_user,
+            "password":    self.postgres_password,
+            "timeout":     10,
+            "ssl_context": ctx,
         }
 
     model_config = {"env_file": ".env", "extra": "ignore"}
