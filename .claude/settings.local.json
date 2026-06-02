@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"cd docling_test && python test.py\")",
+      "Bash(cmd /c \"cd docling_test && python -c \\\\\"print\\('hello'\\)\\\\\"\")"
+    ]
+  }
+}
