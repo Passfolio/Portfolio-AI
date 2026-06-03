@@ -502,7 +502,7 @@ def run_cover_letter_to_portfolio(
 
         logger.info("[RAG-2] 자소서 청킹 중...")
         chunks = cl_chunker.chunk(text, "cover_letter")
-        logger.info("[RAG-2] 청킹 완료: %d개 청크 (코드분석: %s)", len(chunks), "있음" if code_analysis else "없음")
+        logger.info("[RAG-2] 청킹 완료: %d개 청크 (코드분석: %s)", len(chunks), "있음" if code_analyses else "없음")
 
         _EXCLUDE_CATEGORIES = {"지원동기", "입사포부", "취미", "사회이슈"}
         cats_found = [c.get("category", "") for c in chunks]

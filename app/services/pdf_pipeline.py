@@ -7,6 +7,8 @@ import tempfile
 import uuid
 from typing import Callable
 
+import anyio
+
 from app.jobs.store import JobStatus, update_job
 from app.services._rag_utils import OUTPUT_DIR
 from app.services.s3_client import download_pdf, upload_pdf
@@ -56,7 +58,7 @@ async def run_job_pipeline(job_id: str, fn: Callable, tag: str = "") -> None:
     output_pdf_url: str | None = None
     error_message:  str | None = None
     try:
-        result         = fn()
+        result         = await anyio.to_thread.run_sync(fn)
         output_pdf_url = result.get("outputPdfS3Url")
         sections       = result.get("sections", [])
         logger.info("[%s][%s] Job 완료 (DONE): %d개 섹션", tag, job_id, len(sections))

@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import pickle
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -202,6 +203,29 @@ def _embed_query(text: str) -> list[float]:
 # BM25 검색
 # ───────────────────────────────────────────────────────────────
 
+_bm25_cache: dict[Path, dict] = {}
+
+_db_local = threading.local()
+
+
+def _get_conn() -> pg8000.Connection:
+    conn = getattr(_db_local, "conn", None)
+    if conn is None:
+        _db_local.conn = pg8000.connect(**get_settings().db_config)
+        return _db_local.conn
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        _db_local.conn = pg8000.connect(**get_settings().db_config)
+    return _db_local.conn
+
+
 def _bm25_search(
     query: str,
     bm25_path: Path,
@@ -210,8 +234,10 @@ def _bm25_search(
     job: str | None = None,
     career: str | None = None,
 ) -> list[tuple[str, float]]:
-    with open(bm25_path, "rb") as f:
-        data = pickle.load(f)
+    if bm25_path not in _bm25_cache:
+        with open(bm25_path, "rb") as f:
+            _bm25_cache[bm25_path] = pickle.load(f)
+    data = _bm25_cache[bm25_path]
     tokens = _tokenize_ko(query)
 
     sub_sections = data.get("sub_sections")
@@ -246,7 +272,7 @@ def _vector_search(
     career: str | None = None,
 ) -> list[tuple[str, float]]:
     emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
-    conn = pg8000.connect(**get_settings().db_config)
+    conn = _get_conn()
     cur  = conn.cursor()
 
     fetch_k = top_k * 3 if (job or career) and table == "cover_letter_chunks" else top_k
@@ -267,7 +293,6 @@ def _vector_search(
     cur.close()
     if (job or career) and table == "cover_letter_chunks":
         rows = [(id_, s) for id_, s in rows if _cl_id_matches(id_, job, career)]
-    conn.close()
     return rows
 
 
@@ -297,12 +322,11 @@ def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
         return []
     placeholders = ",".join(["%s"] * len(ids))
     col_str      = ", ".join(cols)
-    conn = pg8000.connect(**get_settings().db_config)
+    conn = _get_conn()
     cur  = conn.cursor()
     cur.execute(f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})", ids)
     rows       = [dict(zip(cols, row)) for row in cur.fetchall()]
     cur.close()
-    conn.close()
     id_to_row = {r["id"]: r for r in rows}
     return [id_to_row[id_] for id_ in ids if id_ in id_to_row]
 
