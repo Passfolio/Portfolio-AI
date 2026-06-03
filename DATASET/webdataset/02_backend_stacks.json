@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "role": "백엔드 / 서버 개발자",
+    "sources": ["잡코리아", "사람인(점핏)", "원티드", "아웃소싱타임스"],
+    "collected_date": "2026-06-01"
+  },
+  "market_position": {
+    "demand_rank": 1,
+    "job_postings_count": 2587,
+    "market_share_pct": 28.1,
+    "trend": "수요·공급 모두 서버·백엔드에 집중 (2026 상반기)",
+    "preferred_experience": "3~7년 경력",
+    "character": "신입 공채 감소, 경력직 수시채용 중심"
+  },
+  "languages": [
+    { "name": "Java", "demand_pct": 32.1, "note": "점핏 전체 공고 중 1위, 대기업·금융·SI 주축" },
+    { "name": "Python", "demand_pct": 18.0, "note": "2024 15% → 2025 18%, AI 백엔드·FastAPI 수요 견인" },
+    { "name": "Node.js (JavaScript/TypeScript)", "demand_pct": 16.5, "note": "스타트업·핀테크 선호, TypeScript 병행 필수화" },
+    { "name": "Kotlin", "demand_pct": 8.3, "note": "Spring Kotlin, JVM 생태계 현대화" },
+    { "name": "Go (Golang)", "demand_pct": 6.2, "note": "고성능 마이크로서비스, 클라우드 네이티브" },
+    { "name": "C / C++", "demand_pct": 4.1, "note": "임베디드·게임·시스템 백엔드, 최고연봉" },
+    { "name": "PHP", "demand_pct": 3.5, "note": "레거시 유지보수 수요, 신규 감소" },
+    { "name": "Ruby / Ruby on Rails", "demand_pct": 1.2, "note": "외국계·스타트업 소수" }
+  ],
+  "frameworks": [
+    { "name": "Spring Boot", "tier": "필수", "note": "Java/Kotlin 백엔드의 de-facto 표준" },
+    { "name": "FastAPI", "tier": "급부상", "note": "Python 백엔드, AI 서빙 API 연동에 최적" },
+    { "name": "Django / DRF", "tier": "중간", "note": "Python 중견기업·핀테크" },
+    { "name": "Express.js / NestJS", "tier": "주류", "note": "Node.js 스타트업 표준, NestJS는 TS 기반" },
+    { "name": "Gin / Echo", "tier": "성장", "note": "Go 마이크로서비스" }
+  ],
+  "databases": [
+    { "name": "MySQL / MariaDB", "tier": "필수", "demand_pct": 41 },
+    { "name": "PostgreSQL", "tier": "주류", "demand_pct": 28 },
+    { "name": "Redis", "tier": "필수 (캐싱)", "demand_pct": 35 },
+    { "name": "MongoDB", "tier": "보편", "demand_pct": 18 },
+    { "name": "Elasticsearch", "tier": "검색·로그", "demand_pct": 14 },
+    { "name": "Kafka", "tier": "이벤트 스트리밍", "demand_pct": 12 },
+    { "name": "DynamoDB / Firestore", "tier": "클라우드 서버리스", "demand_pct": 7 }
+  ],
+  "infrastructure": [
+    "Docker (컨테이너화 필수)",
+    "Kubernetes (오케스트레이션, 중급 이상 요구)",
+    "AWS (EC2, RDS, S3, Lambda, ECS)",
+    "GCP / Azure (중소 비중)",
+    "CI/CD: GitHub Actions, Jenkins, GitLab CI"
+  ],
+  "architecture_keywords": [
+    "RESTful API 설계",
+    "MSA (마이크로서비스)",
+    "이벤트 드리븐 아키텍처",
+    "서버리스",
+    "API Gateway",
+    "gRPC",
+    "클라우드 네이티브"
+  ],
+  "common_requirements": {
+    "must": [
+      "주력 언어 1개 이상 심화 역량",
+      "RDBMS 설계 및 쿼리 최적화",
+      "REST API 설계·구현",
+      "Git 버전 관리",
+      "Docker 기본 사용"
+    ],
+    "preferred": [
+      "Kubernetes 운영 경험",
+      "대용량 트래픽 처리 경험",
+      "MSA 설계 경험",
+      "AI API 연동 경험 (OpenAI, Claude 등)",
+      "테스트 자동화 (JUnit, pytest)"
+    ]
+  },
+  "salary_by_stack_万KRW": {
+    "Java_3yr": 4300,
+    "Python_3yr": 4500,
+    "Nodejs_3yr": 4200,
+    "Go_3yr": 5000,
+    "Cpp_senior": 5748
+  }
+}

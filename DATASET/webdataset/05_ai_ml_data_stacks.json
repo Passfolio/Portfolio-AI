@@ -1,0 +1,114 @@
+{
+  "meta": {
+    "roles": ["AI 엔지니어", "ML 엔지니어", "데이터 엔지니어", "데이터 사이언티스트", "MLOps 엔지니어"],
+    "sources": ["잡코리아", "원티드", "링크드인", "모두의연구소", "코드트리", "AI타임스"],
+    "collected_date": "2026-06-01"
+  },
+  "market_position": {
+    "demand_rank": 2,
+    "trend": "급증 (가장 빠른 성장)",
+    "data_engineer_yoy_growth_pct": 50,
+    "ai_role_share_early_stage_pct": 15,
+    "ai_role_share_late_stage_pct": 34,
+    "mlops_postings": 228,
+    "character": "투자 단계 높을수록 AI/데이터 비중 급증"
+  },
+  "sub_roles": {
+    "AI_엔지니어": {
+      "focus": "AI 서비스 개발 및 배포 (LLM 앱, AI API)",
+      "key_stacks": ["Python", "LangChain", "LangGraph", "FastAPI", "Docker", "RAG", "Vector DB"],
+      "experience": "3년 이상"
+    },
+    "ML_엔지니어": {
+      "focus": "모델 개발·학습·최적화",
+      "key_stacks": ["PyTorch", "TensorFlow", "Keras", "Scikit-learn", "ONNX", "Triton"],
+      "experience": "석사 이상 우대, 경력 2~4년"
+    },
+    "데이터_엔지니어": {
+      "focus": "데이터 파이프라인 설계·운영",
+      "key_stacks": ["Python", "Apache Spark", "Airflow", "Kafka", "dbt", "Hadoop", "SQL"],
+      "experience": "3~5년"
+    },
+    "데이터_사이언티스트": {
+      "focus": "데이터 분석·모델링·인사이트 도출",
+      "key_stacks": ["Python", "R", "Pandas", "Scikit-learn", "Tableau", "SQL"],
+      "experience": "석사 이상 선호"
+    },
+    "MLOps_엔지니어": {
+      "focus": "ML 모델 운영 인프라 구축",
+      "key_stacks": ["Kubeflow", "MLflow", "Airflow", "Docker", "Kubernetes", "Python"],
+      "experience": "3년 이상, DevOps + ML 경계"
+    }
+  },
+  "languages": [
+    { "name": "Python", "demand_pct": 95, "tier": "압도적 필수" },
+    { "name": "SQL", "demand_pct": 75, "tier": "데이터 직군 필수" },
+    { "name": "R", "demand_pct": 20, "note": "통계 분석, 학술 연구 배경" },
+    { "name": "Scala", "demand_pct": 15, "note": "Spark 기반 대규모 데이터 처리" },
+    { "name": "Java", "demand_pct": 10, "note": "Hadoop 생태계" }
+  ],
+  "ml_frameworks": [
+    { "name": "PyTorch", "demand_pct": 58, "avg_salary_万KRW": 5175 },
+    { "name": "TensorFlow / Keras", "demand_pct": 45, "avg_salary_万KRW": 5581 },
+    { "name": "Scikit-learn", "demand_pct": 62, "note": "전통 ML, 데이터사이언티스트 기본" },
+    { "name": "Hugging Face Transformers", "demand_pct": 38, "note": "LLM 파인튜닝 필수" },
+    { "name": "ONNX / TensorRT", "demand_pct": 22, "note": "모델 경량화·배포 최적화" }
+  ],
+  "llm_genai_stacks": [
+    { "name": "LangChain", "demand_pct": 45, "note": "LLM 앱 개발 de-facto" },
+    { "name": "LangGraph", "demand_pct": 28, "note": "AI 에이전트 워크플로우" },
+    { "name": "OpenAI API / GPT-4o", "demand_pct": 55 },
+    { "name": "Anthropic Claude API", "demand_pct": 25 },
+    { "name": "RAG (Retrieval-Augmented Generation)", "demand_pct": 42 },
+    { "name": "Vector DB (Pinecone, Weaviate, Chroma, Qdrant)", "demand_pct": 35 },
+    { "name": "Prompt Engineering", "demand_pct": 50 },
+    { "name": "Fine-tuning (LoRA, QLoRA)", "demand_pct": 28 }
+  ],
+  "data_pipeline_tools": [
+    { "name": "Apache Airflow", "demand_pct": 55 },
+    { "name": "Apache Spark", "demand_pct": 42 },
+    { "name": "Apache Kafka", "demand_pct": 38 },
+    { "name": "dbt (data build tool)", "demand_pct": 32, "note": "빠르게 표준화 진행" },
+    { "name": "Hadoop", "demand_pct": 20, "note": "레거시 대기업" },
+    { "name": "Flink", "demand_pct": 15 }
+  ],
+  "data_warehouses": [
+    "AWS Redshift",
+    "Google BigQuery",
+    "Snowflake",
+    "Databricks (성장세)",
+    "Apache Hive"
+  ],
+  "mlops_tools": [
+    "MLflow (실험 추적 표준)",
+    "Kubeflow (K8s 기반 ML 파이프라인)",
+    "Weights & Biases (W&B)",
+    "BentoML / Seldon (모델 서빙)",
+    "DVC (데이터 버전 관리)"
+  ],
+  "common_requirements": {
+    "AI_엔지니어_must": [
+      "Python 심화 개발 역량",
+      "LLM API 활용 경험 (OpenAI, Claude 등)",
+      "RAG 파이프라인 구현 경험",
+      "Docker / Linux 환경",
+      "자연어 처리 기본 이해"
+    ],
+    "데이터엔지니어_must": [
+      "SQL 고급 쿼리 (분석함수, 최적화)",
+      "Python 데이터 처리 (Pandas, PySpark)",
+      "Airflow DAG 작성",
+      "클라우드 데이터 플랫폼 경험",
+      "데이터 모델링"
+    ]
+  },
+  "salary_by_role_万KRW": {
+    "Python_avg": 5078,
+    "PyTorch_avg": 5175,
+    "TensorFlow_avg": 5581,
+    "Keras_avg": 5623,
+    "R_avg": 5130,
+    "MLOps_senior": 7000,
+    "데이터엔지니어_시니어": 6500
+  }
+}

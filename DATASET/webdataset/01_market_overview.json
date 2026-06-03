@@ -1,0 +1,57 @@
+{
+  "meta": {
+    "title": "2026 대한민국 개발자 채용시장 종합 개요",
+    "sources": ["잡코리아", "사람인(점핏)", "원티드", "링크드인", "인크루트", "아웃소싱타임스", "코드트리", "트리업"],
+    "collected_date": "2026-06-01",
+    "scope": "대한민국 전체 IT 개발자 채용공고 기반 분석"
+  },
+  "market_size": {
+    "backend_postings": 2587,
+    "data_engineer_postings": 2546,
+    "mlops_postings": 228,
+    "android_postings": 304,
+    "note": "잡코리아 기준 2026년 상반기 공고 수"
+  },
+  "top_demanded_roles": [
+    { "rank": 1, "role": "백엔드 / 서버 개발자", "share_pct": 28.1, "trend": "유지" },
+    { "rank": 2, "role": "AI / ML 엔지니어", "share_pct": 20.5, "trend": "급증" },
+    { "rank": 3, "role": "프론트엔드 개발자", "share_pct": 11.1, "trend": "소폭감소" },
+    { "rank": 4, "role": "데이터 엔지니어", "share_pct": 10.3, "trend": "급증" },
+    { "rank": 5, "role": "DevOps / 클라우드 엔지니어", "share_pct": 8.7, "trend": "증가" },
+    { "rank": 6, "role": "풀스택 개발자", "share_pct": 7.4, "trend": "증가" },
+    { "rank": 7, "role": "모바일 개발자 (iOS/Android)", "share_pct": 5.9, "trend": "유지" },
+    { "rank": 8, "role": "보안 엔지니어", "share_pct": 3.2, "trend": "소폭증가" },
+    { "rank": 9, "role": "게임 개발자", "share_pct": 2.8, "trend": "유지" },
+    { "rank": 10, "role": "임베디드 / 시스템 개발자", "share_pct": 2.0, "trend": "유지" }
+  ],
+  "hiring_quality_shift": {
+    "description": "2025~2026년 채용 시장은 '얼마나 많이 뽑느냐'보다 '누구를 뽑느냐' 중심으로 전환",
+    "ai_tool_usage_rate_pct": 84,
+    "companies_reducing_headcount_for_quality_pct": 63,
+    "preferred_experience_years": "4~7년 중간 경력직",
+    "key_hiring_criteria": [
+      "즉시 투입 가능한 실무 역량",
+      "다기능성 (풀스택 + 클라우드 아우름)",
+      "AI 도구 활용 능력",
+      "지속적 학습 능력"
+    ]
+  },
+  "ai_related_demand_growth": {
+    "data_engineer_yoy_growth_pct": 50,
+    "ai_data_role_share_by_investment_stage": {
+      "seed": "15%",
+      "series_b_plus": "34%"
+    }
+  },
+  "salary_overview": {
+    "note": "단위: 만원/년",
+    "average_new_grad": 3243,
+    "frontend_1yr": 3000,
+    "frontend_3yr": 3800,
+    "backend_1yr": 3500,
+    "backend_3yr": 4300,
+    "backend_senior_range": "5000~10000+",
+    "ai_ml_average": 5175,
+    "top_paying_stack": "C++ (5748), Keras (5623), TensorFlow (5581)"
+  }
+}

@@ -1,0 +1,1002 @@
+{
+  "meta": {
+    "title": "roadmap.csv 노드별 한국 채용시장 강조 오버레이",
+    "purpose": "기존 roadmap.csv의 각 노드 라벨에 한국 시장 기준 상태값을 매핑 → 다이어그램 강조표시용",
+    "sources": [
+      "DATASET/11_raw_job_postings.json (27개 실제 공고)",
+      "DATASET/12_stack_frequency_realdata.json",
+      "DATASET/14_linkareer_job_postings.json (18개 링커리어 공고)",
+      "DATASET/15_bigtech_company_stacks.json (네카라쿠배당토)",
+      "DATASET/16_stackoverflow_survey_2025.json (SO 2025)",
+      "점핏 2025 상반기 개발자 채용 리포트",
+      "원티드 2026 채용 트렌드 리포트"
+    ],
+    "collected_date": "2026-06-01",
+    "status_legend": {
+      "필수": "대부분 공고에서 요구 (40%+ 등장 또는 직군 핵심)",
+      "급증": "수요가 빠르게 증가 중 (YoY 30%+ 성장)",
+      "증가": "점진적 수요 증가 (YoY 10~30% 성장)",
+      "유지": "수요 안정적 유지",
+      "감소": "수요 감소 중 (레거시 위주)",
+      "하락": "신규 채용에서 사실상 퇴출 수준"
+    },
+    "usage_note": "node_label 값은 roadmap.csv의 topic_label 또는 subtopic의 topic_label과 정확히 매칭됨"
+  },
+  "overlay": {
+    "languages_backend": [
+      {
+        "node_label": "Java",
+        "kr_status": "필수",
+        "kr_demand_pct": 32.1,
+        "kr_demand_source": "잡코리아 전체 공고 중 1위",
+        "trend_direction": "유지",
+        "roles": [
+          "android",
+          "backend",
+          "computer-science",
+          "data-engineer"
+        ],
+        "badge_color": "green",
+        "kr_note": "대기업·금융·SI 백엔드 표준. Spring Boot와 함께 국내 1위 유지"
+      },
+      {
+        "node_label": "Python",
+        "kr_status": "필수",
+        "kr_demand_pct": 74,
+        "kr_demand_source": "실제 공고 74% 등장 (전 직군)",
+        "trend_direction": "급증",
+        "roles": [
+          "backend",
+          "blockchain",
+          "computer-science",
+          "cyber-security",
+          "data-engineer",
+          "devops",
+          "game-developer",
+          "machine-learning",
+          "mlops",
+          "software-architect"
+        ],
+        "badge_color": "green",
+        "kr_note": "AI·ML·데이터·백엔드·DevOps 전 직군 범용 언어. SO 기준 +7%p 급등"
+      },
+      {
+        "node_label": "JavaScript / TypeScript",
+        "kr_status": "필수",
+        "kr_demand_pct": 95,
+        "kr_demand_source": "프론트엔드 공고 사실상 전수",
+        "trend_direction": "유지",
+        "roles": [
+          "software-architect"
+        ],
+        "badge_color": "green",
+        "kr_note": "TypeScript 필수화 진행 중. JavaScript 단독 공고는 사실상 소멸"
+      },
+      {
+        "node_label": "TypeScript",
+        "kr_status": "급증→필수",
+        "kr_demand_pct": 78,
+        "kr_demand_source": "프론트엔드 공고 78%, 신입 공고에서도 필수",
+        "trend_direction": "급증",
+        "roles": [
+          "frontend"
+        ],
+        "badge_color": "orange",
+        "kr_note": "2025~2026 프론트엔드 공고 전수 등장. JavaScript만으론 탈락 위험"
+      },
+      {
+        "node_label": "Go",
+        "kr_status": "증가",
+        "kr_demand_pct": 6.2,
+        "kr_demand_source": "잡코리아 백엔드 기준",
+        "trend_direction": "증가",
+        "roles": [
+          "backend",
+          "blockchain",
+          "computer-science",
+          "cyber-security",
+          "data-engineer",
+          "devops",
+          "mlops",
+          "software-architect"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "고성능 마이크로서비스·클라우드 네이티브. 쏘카·풀림·네이버클라우드 요구 확인"
+      },
+      {
+        "node_label": "Rust",
+        "kr_status": "관심",
+        "kr_demand_pct": 2,
+        "kr_demand_source": "네이버클라우드 MLOps 등 소수",
+        "trend_direction": "증가",
+        "roles": [
+          "backend",
+          "blockchain",
+          "computer-science",
+          "devops",
+          "game-developer"
+        ],
+        "badge_color": "gray",
+        "kr_note": "국내 수요 아직 낮으나 글로벌 성장세로 관심 증가. 시스템 프로그래밍"
+      },
+      {
+        "node_label": "Java / Kotlin / Scala",
+        "kr_status": "필수",
+        "kr_demand_pct": 40,
+        "kr_demand_source": "JVM 생태계 전체 합산",
+        "trend_direction": "유지",
+        "roles": [
+          "software-architect"
+        ],
+        "badge_color": "green",
+        "kr_note": "Java → Kotlin 전환 가속 중. 네카라쿠배당토 모두 Kotlin 채택"
+      }
+    ],
+    "frontend_frameworks": [
+      {
+        "node_label": "React",
+        "kr_status": "필수",
+        "kr_demand_pct": 44.7,
+        "kr_demand_source": "한국 프론트엔드 시장 점유율 1위",
+        "trend_direction": "유지",
+        "roles": [
+          "blockchain",
+          "frontend",
+          "full-stack"
+        ],
+        "badge_color": "green",
+        "kr_note": "국내 프론트엔드 사실상 표준. React 없이 취업 불가 수준"
+      },
+      {
+        "node_label": "Next.js",
+        "kr_status": "급증",
+        "kr_demand_pct": 32,
+        "kr_demand_source": "원티드·점핏 프론트엔드 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "frontend"
+        ],
+        "badge_color": "orange",
+        "kr_note": "SSR·SEO 중시 기업 증가. 신입 공고에서도 등장. 2026년 사실상 필수화"
+      },
+      {
+        "node_label": "Vue",
+        "kr_status": "유지",
+        "kr_demand_pct": 18.5,
+        "kr_demand_source": "잡코리아·점핏",
+        "trend_direction": "감소",
+        "roles": [
+          "blockchain"
+        ],
+        "badge_color": "gray",
+        "kr_note": "중소기업·스타트업 일부 사용. React로 대체 추세지만 여전히 2위"
+      },
+      {
+        "node_label": "Vue.js",
+        "kr_status": "유지",
+        "kr_demand_pct": 18.5,
+        "kr_demand_source": "잡코리아·점핏",
+        "trend_direction": "감소",
+        "roles": [
+          "frontend"
+        ],
+        "badge_color": "gray",
+        "kr_note": "Vue와 동일. 중소기업 레거시 유지 수요"
+      },
+      {
+        "node_label": "Angular",
+        "kr_status": "감소",
+        "kr_demand_pct": 6.3,
+        "kr_demand_source": "잡코리아 기준",
+        "trend_direction": "하락",
+        "roles": [
+          "blockchain",
+          "frontend"
+        ],
+        "badge_color": "red",
+        "kr_note": "공공·SI·금융권 레거시만 잔존. 신규 프로젝트 채택 거의 없음"
+      }
+    ],
+    "databases": [
+      {
+        "node_label": "MySQL",
+        "kr_status": "필수",
+        "kr_demand_pct": 41,
+        "kr_demand_source": "잡코리아 RDBMS 1위",
+        "trend_direction": "유지",
+        "roles": [
+          "backend",
+          "data-engineer"
+        ],
+        "badge_color": "green",
+        "kr_note": "국내 1위 RDBMS. MariaDB 포함 시 더 높음"
+      },
+      {
+        "node_label": "PostgreSQL",
+        "kr_status": "증가",
+        "kr_demand_pct": 28,
+        "kr_demand_source": "잡코리아·점핏",
+        "trend_direction": "증가",
+        "roles": [
+          "backend",
+          "data-engineer",
+          "full-stack"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "MySQL에서 전환 증가. 글로벌 SO 기준 1위(58.2%)로 국내도 빠른 성장"
+      },
+      {
+        "node_label": "MongoDB",
+        "kr_status": "유지",
+        "kr_demand_pct": 18,
+        "kr_demand_source": "잡코리아 기준",
+        "trend_direction": "유지",
+        "roles": [
+          "backend",
+          "data-engineer"
+        ],
+        "badge_color": "gray",
+        "kr_note": "NoSQL 1위. 비정형 데이터 처리용"
+      },
+      {
+        "node_label": "Redis",
+        "kr_status": "필수",
+        "kr_demand_pct": 35,
+        "kr_demand_source": "잡코리아·점핏 (캐싱 표준)",
+        "trend_direction": "유지",
+        "roles": [
+          "backend",
+          "data-engineer",
+          "full-stack"
+        ],
+        "badge_color": "green",
+        "kr_note": "캐싱·세션·분산락 표준. 대기업 전체 사용. SO 기준 +8%p 증가"
+      },
+      {
+        "node_label": "Google BigQuery",
+        "kr_status": "급증",
+        "kr_demand_pct": 22,
+        "kr_demand_source": "데이터엔지니어 공고 집계",
+        "trend_direction": "급증",
+        "roles": [
+          "data-engineer"
+        ],
+        "badge_color": "orange",
+        "kr_note": "쏘카·컬리 등 데이터엔지니어 공고에 등장. GCP 생태계 확산"
+      },
+      {
+        "node_label": "Apache Kafka",
+        "kr_status": "증가",
+        "kr_demand_pct": 12,
+        "kr_demand_source": "실제 공고 11% (대기업·스타트업 모두)",
+        "trend_direction": "증가",
+        "roles": [
+          "data-engineer"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "이벤트 드리븐·MSA 확산으로 수요 증가. 대기업 파이프라인 표준"
+      },
+      {
+        "node_label": "Kafka",
+        "kr_status": "증가",
+        "kr_demand_pct": 12,
+        "kr_demand_source": "실제 공고 집계",
+        "trend_direction": "증가",
+        "roles": [
+          "backend",
+          "mlops"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "Apache Kafka와 동일"
+      },
+      {
+        "node_label": "Apache Spark",
+        "kr_status": "유지",
+        "kr_demand_pct": 15,
+        "kr_demand_source": "데이터엔지니어 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "data-engineer",
+          "software-architect"
+        ],
+        "badge_color": "gray",
+        "kr_note": "대규모 데이터 처리 표준. Databricks로 추상화 증가"
+      },
+      {
+        "node_label": "Spark",
+        "kr_status": "유지",
+        "kr_demand_pct": 15,
+        "kr_demand_source": "데이터엔지니어 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "data-analyst",
+          "mlops"
+        ],
+        "badge_color": "gray",
+        "kr_note": "Apache Spark와 동일"
+      }
+    ],
+    "devops_infra": [
+      {
+        "node_label": "Docker",
+        "kr_status": "필수",
+        "kr_demand_pct": 63,
+        "kr_demand_source": "실제 공고 63% 등장 (전 직군)",
+        "trend_direction": "유지",
+        "roles": [
+          "data-engineer",
+          "devops",
+          "mlops"
+        ],
+        "badge_color": "green",
+        "kr_note": "모든 서버사이드 직군 필수 도구. 2026년 기준 없으면 서류 탈락"
+      },
+      {
+        "node_label": "Kubernetes",
+        "kr_status": "급증",
+        "kr_demand_pct": 26,
+        "kr_demand_source": "실제 공고 26% (DevOps·MLOps 필수)",
+        "trend_direction": "급증",
+        "roles": [
+          "data-engineer",
+          "devops",
+          "mlops"
+        ],
+        "badge_color": "orange",
+        "kr_note": "DevOps·MLOps 공고에서 필수 요건화. 대기업은 기본 전제"
+      },
+      {
+        "node_label": "AWS",
+        "kr_status": "필수",
+        "kr_demand_pct": 48,
+        "kr_demand_source": "실제 공고 48%",
+        "trend_direction": "유지",
+        "roles": [
+          "cyber-security",
+          "devops"
+        ],
+        "badge_color": "green",
+        "kr_note": "국내 클라우드 1위. 모든 직군에서 기본 지식 요구"
+      },
+      {
+        "node_label": "AWS / Azure / GCP",
+        "kr_status": "필수",
+        "kr_demand_pct": 48,
+        "kr_demand_source": "실제 공고 집계",
+        "trend_direction": "유지",
+        "roles": [
+          "mlops"
+        ],
+        "badge_color": "green",
+        "kr_note": "DevOps 공고에서 멀티클라우드(AWS+Azure+GCP+NCP) 동시 요구 등장"
+      },
+      {
+        "node_label": "GCP",
+        "kr_status": "증가",
+        "kr_demand_pct": 22,
+        "kr_demand_source": "실제 공고 22%",
+        "trend_direction": "증가",
+        "roles": [
+          "cyber-security"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "BigQuery·GKE 수요로 증가. 데이터 직군에서 AWS와 멀티 클라우드 요구"
+      },
+      {
+        "node_label": "Azure",
+        "kr_status": "유지",
+        "kr_demand_pct": 18,
+        "kr_demand_source": "DevOps 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "cyber-security",
+          "devops"
+        ],
+        "badge_color": "gray",
+        "kr_note": "국내 기업 일부 사용. 멀티클라우드 DevOps 공고에서 등장"
+      },
+      {
+        "node_label": "Terraform",
+        "kr_status": "급증",
+        "kr_demand_pct": 58,
+        "kr_demand_source": "DevOps 공고 58% (요구 증가)",
+        "trend_direction": "급증",
+        "roles": [
+          "data-engineer",
+          "devops",
+          "full-stack"
+        ],
+        "badge_color": "orange",
+        "kr_note": "IaC 도구 1위. DevOps 공고에서 필수화 진행. 2026년 핵심 요건"
+      },
+      {
+        "node_label": "Ansible",
+        "kr_status": "유지",
+        "kr_demand_pct": 35,
+        "kr_demand_source": "DevOps 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "devops",
+          "full-stack",
+          "postgresql-dba"
+        ],
+        "badge_color": "gray",
+        "kr_note": "구성 관리 도구. Terraform과 함께 사용"
+      },
+      {
+        "node_label": "GitHub Actions",
+        "kr_status": "급증",
+        "kr_demand_pct": 55,
+        "kr_demand_source": "CI/CD 도구 통계",
+        "trend_direction": "급증",
+        "roles": [
+          "data-engineer",
+          "devops",
+          "full-stack",
+          "ios"
+        ],
+        "badge_color": "orange",
+        "kr_note": "Jenkins 대체 CI/CD 표준. 스타트업 사실상 필수"
+      },
+      {
+        "node_label": "Jenkins",
+        "kr_status": "유지",
+        "kr_demand_pct": 42,
+        "kr_demand_source": "CI/CD 도구 통계",
+        "trend_direction": "감소",
+        "roles": [
+          "devops",
+          "ios",
+          "qa"
+        ],
+        "badge_color": "gray",
+        "kr_note": "대기업·중견기업 기존 파이프라인 유지. GitHub Actions로 점진 교체 중"
+      },
+      {
+        "node_label": "GitLab CI",
+        "kr_status": "유지",
+        "kr_demand_pct": 32,
+        "kr_demand_source": "CI/CD 도구 통계",
+        "trend_direction": "유지",
+        "roles": [
+          "data-engineer",
+          "devops",
+          "qa"
+        ],
+        "badge_color": "gray",
+        "kr_note": "자체 GitLab 서버 운영 기업 사용"
+      },
+      {
+        "node_label": "ArgoCD",
+        "kr_status": "급증",
+        "kr_demand_pct": 28,
+        "kr_demand_source": "DevOps 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "data-engineer",
+          "devops"
+        ],
+        "badge_color": "orange",
+        "kr_note": "GitOps 방법론 확산으로 빠른 성장. K8s 환경 표준 배포 도구"
+      },
+      {
+        "node_label": "Nginx",
+        "kr_status": "유지",
+        "kr_demand_pct": 45,
+        "kr_demand_source": "백엔드·DevOps 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "backend",
+          "devops"
+        ],
+        "badge_color": "gray",
+        "kr_note": "리버스 프록시·웹서버 표준. 안정적 수요 유지"
+      },
+      {
+        "node_label": "Airflow",
+        "kr_status": "필수",
+        "kr_demand_pct": 55,
+        "kr_demand_source": "데이터엔지니어·MLOps 공고 100% 등장",
+        "trend_direction": "급증",
+        "roles": [
+          "mlops"
+        ],
+        "badge_color": "green",
+        "kr_note": "데이터 파이프라인 오케스트레이션 사실상 표준. 전수 등장 확인"
+      },
+      {
+        "node_label": "Apache Airflow",
+        "kr_status": "필수",
+        "kr_demand_pct": 55,
+        "kr_demand_source": "데이터엔지니어·MLOps 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "data-engineer"
+        ],
+        "badge_color": "green",
+        "kr_note": "Airflow와 동일"
+      },
+      {
+        "node_label": "AWS ECS / Fargate",
+        "kr_status": "증가",
+        "kr_demand_pct": 20,
+        "kr_demand_source": "백엔드·DevOps 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "devops"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "컨테이너 서비스 수요 증가"
+      },
+      {
+        "node_label": "AWS EKS",
+        "kr_status": "증가",
+        "kr_demand_pct": 22,
+        "kr_demand_source": "DevOps·MLOps 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "data-engineer"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "Kubernetes 관리형 서비스. K8s 채택 증가와 연동"
+      },
+      {
+        "node_label": "AWS Lambda",
+        "kr_status": "증가",
+        "kr_demand_pct": 20,
+        "kr_demand_source": "백엔드·DevOps 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "devops"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "서버리스 아키텍처 도입 증가"
+      },
+      {
+        "node_label": "AWS Sagemaker",
+        "kr_status": "증가",
+        "kr_demand_pct": 15,
+        "kr_demand_source": "MLOps·AI 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "ai-engineer"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "ML 워크로드 AWS 통합 관리"
+      }
+    ],
+    "api_protocols": [
+      {
+        "node_label": "GraphQL",
+        "kr_status": "유지",
+        "kr_demand_pct": 15,
+        "kr_demand_source": "백엔드·프론트엔드 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "backend",
+          "computer-science",
+          "frontend",
+          "ios",
+          "software-architect",
+          "system-design"
+        ],
+        "badge_color": "gray",
+        "kr_note": "당근마켓 등 일부 활용. REST 대비 복잡성으로 대중화 제한적"
+      },
+      {
+        "node_label": "gRPC",
+        "kr_status": "증가",
+        "kr_demand_pct": 10,
+        "kr_demand_source": "MSA 백엔드 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "backend",
+          "computer-science",
+          "software-architect",
+          "system-design"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "MSA 내부 통신 표준으로 증가. 대기업·핀테크 도입 증가"
+      }
+    ],
+    "security_auth": [
+      {
+        "node_label": "JWT",
+        "kr_status": "필수",
+        "kr_demand_pct": 80,
+        "kr_demand_source": "백엔드 인증 공고 전반",
+        "trend_direction": "유지",
+        "roles": [
+          "backend"
+        ],
+        "badge_color": "green",
+        "kr_note": "토큰 기반 인증 표준. REST API 인증의 기본"
+      },
+      {
+        "node_label": "OAuth",
+        "kr_status": "필수",
+        "kr_demand_pct": 75,
+        "kr_demand_source": "백엔드 인증 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "backend"
+        ],
+        "badge_color": "green",
+        "kr_note": "소셜 로그인·외부 API 연동 표준"
+      }
+    ],
+    "ai_ml": [
+      {
+        "node_label": "PyTorch",
+        "kr_status": "증가",
+        "kr_demand_pct": 58,
+        "kr_demand_source": "AI·ML 직군 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "machine-learning"
+        ],
+        "badge_color": "orange",
+        "kr_note": "딥러닝 모델 개발 1위. 연구·산업 양쪽 선호"
+      },
+      {
+        "node_label": "Pytorch",
+        "kr_status": "증가",
+        "kr_demand_pct": 58,
+        "kr_demand_source": "AI·ML 직군 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "data-analyst"
+        ],
+        "badge_color": "orange",
+        "kr_note": "PyTorch와 동일"
+      },
+      {
+        "node_label": "TensorFlow",
+        "kr_status": "유지",
+        "kr_demand_pct": 45,
+        "kr_demand_source": "AI·ML 직군 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "machine-learning"
+        ],
+        "badge_color": "gray",
+        "kr_note": "PyTorch 대비 하락세. 기존 프로덕션 서비스 유지보수"
+      },
+      {
+        "node_label": "Tensorflow",
+        "kr_status": "유지",
+        "kr_demand_pct": 45,
+        "kr_demand_source": "AI·ML 직군 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "data-analyst"
+        ],
+        "badge_color": "gray",
+        "kr_note": "TensorFlow와 동일"
+      },
+      {
+        "node_label": "Langchain",
+        "kr_status": "급증",
+        "kr_demand_pct": 45,
+        "kr_demand_source": "AI 엔지니어·LLM 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "ai-engineer"
+        ],
+        "badge_color": "orange",
+        "kr_note": "LLM 앱 개발 de-facto 표준. LG전자·네이버·센드버드 등 대기업 공고 확인"
+      },
+      {
+        "node_label": "LangChain for Multimodal Apps",
+        "kr_status": "급증",
+        "kr_demand_pct": 30,
+        "kr_demand_source": "AI 엔지니어 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "ai-engineer"
+        ],
+        "badge_color": "orange",
+        "kr_note": "LangChain 멀티모달 확장. 신흥 수요"
+      },
+      {
+        "node_label": "ReAct Prompting",
+        "kr_status": "급증",
+        "kr_demand_pct": 25,
+        "kr_demand_source": "AI 엔지니어 공고",
+        "trend_direction": "급증",
+        "roles": [
+          "ai-engineer"
+        ],
+        "badge_color": "orange",
+        "kr_note": "프롬프트 엔지니어링 기법. AI 에이전트 공고 필수 지식"
+      },
+      {
+        "node_label": "Google's Gemini",
+        "kr_status": "증가",
+        "kr_demand_pct": 20,
+        "kr_demand_source": "AI 엔지니어 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "ai-engineer"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "Google AI API 채택 증가. GPT·Claude와 함께 멀티 LLM 활용"
+      },
+      {
+        "node_label": "Azure AI",
+        "kr_status": "증가",
+        "kr_demand_pct": 15,
+        "kr_demand_source": "AI·DevOps 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "ai-engineer"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "기업 AI 솔루션 Azure 활용 증가"
+      }
+    ],
+    "version_control": [
+      {
+        "node_label": "GitHub",
+        "kr_status": "필수",
+        "kr_demand_pct": 52,
+        "kr_demand_source": "실제 공고 52%",
+        "trend_direction": "유지",
+        "roles": [
+          "android",
+          "backend",
+          "blockchain",
+          "devops",
+          "frontend",
+          "full-stack",
+          "ios",
+          "mlops",
+          "qa",
+          "software-architect"
+        ],
+        "badge_color": "green",
+        "kr_note": "협업 및 버전 관리 표준. PR 코드리뷰 문화 정착"
+      },
+      {
+        "node_label": "GitLab",
+        "kr_status": "유지",
+        "kr_demand_pct": 30,
+        "kr_demand_source": "백엔드·DevOps 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "android",
+          "backend",
+          "blockchain",
+          "devops",
+          "frontend",
+          "ios",
+          "qa"
+        ],
+        "badge_color": "gray",
+        "kr_note": "온프레미스 환경 기업 선호"
+      }
+    ],
+    "mobile": [
+      {
+        "node_label": "React Native",
+        "kr_status": "유지",
+        "kr_demand_pct": 28,
+        "kr_demand_source": "모바일 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "frontend"
+        ],
+        "badge_color": "gray",
+        "kr_note": "크로스플랫폼 2위. Flutter에 추격 당하는 중"
+      },
+      {
+        "node_label": "What is React Native?",
+        "kr_status": "유지",
+        "kr_demand_pct": 25,
+        "kr_demand_source": "모바일 공고",
+        "trend_direction": "유지",
+        "roles": [
+          "react-native"
+        ],
+        "badge_color": "gray",
+        "kr_note": "React Native 개념"
+      }
+    ],
+    "data_tools": [
+      {
+        "node_label": "Google Cloud",
+        "kr_status": "증가",
+        "kr_demand_pct": 22,
+        "kr_demand_source": "데이터·DevOps 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "devops"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "GCP BigQuery 중심으로 데이터 직군 채택 증가"
+      },
+      {
+        "node_label": "Google Cloud GKE",
+        "kr_status": "증가",
+        "kr_demand_pct": 15,
+        "kr_demand_source": "DevOps 공고",
+        "trend_direction": "증가",
+        "roles": [
+          "data-engineer"
+        ],
+        "badge_color": "yellow",
+        "kr_note": "K8s 관리형 서비스 GCP 버전"
+      },
+      {
+        "node_label": "Hadoop, Spark, MapReduce",
+        "kr_status": "감소",
+        "kr_demand_pct": 20,
+        "kr_demand_source": "데이터엔지니어 공고",
+        "trend_direction": "감소",
+        "roles": [
+          "software-architect"
+        ],
+        "badge_color": "red",
+        "kr_note": "대기업 레거시 잔존. 신규는 Databricks/클라우드 관리형으로 대체"
+      }
+    ],
+    "declining_tech": [
+      {
+        "node_label": "Angular Velocity",
+        "kr_status": "해당없음",
+        "kr_demand_pct": 0,
+        "trend_direction": "해당없음",
+        "roles": [
+          "game-developer"
+        ],
+        "badge_color": "gray",
+        "kr_note": "물리 엔진, IT 채용 관련 없음"
+      }
+    ]
+  },
+  "role_priority_matrix": {
+    "description": "직군별로 '필수' 상태 기술스택 우선순위",
+    "backend": {
+      "must_have": [
+        "Java 또는 Python 또는 TypeScript/Node.js",
+        "Spring Boot 또는 NestJS 또는 FastAPI",
+        "MySQL/PostgreSQL",
+        "Redis",
+        "Docker",
+        "AWS 기본",
+        "Git/GitHub"
+      ],
+      "growing": [
+        "Kotlin",
+        "Go",
+        "Kafka",
+        "Kubernetes",
+        "TypeScript",
+        "FastAPI"
+      ],
+      "declining": [
+        "PHP 신규",
+        "SVN",
+        "jQuery 백엔드"
+      ]
+    },
+    "frontend": {
+      "must_have": [
+        "React",
+        "TypeScript",
+        "HTML/CSS",
+        "Git/GitHub"
+      ],
+      "growing": [
+        "Next.js",
+        "Zustand",
+        "React Query",
+        "Tailwind CSS"
+      ],
+      "declining": [
+        "Angular 신규",
+        "jQuery",
+        "SVN"
+      ]
+    },
+    "devops": {
+      "must_have": [
+        "Docker",
+        "Kubernetes",
+        "AWS",
+        "Terraform",
+        "GitHub Actions 또는 Jenkins",
+        "Linux/Bash"
+      ],
+      "growing": [
+        "ArgoCD",
+        "GitOps",
+        "Prometheus+Grafana",
+        "FinOps"
+      ],
+      "declining": [
+        "SVN",
+        "물리 서버 직접 관리"
+      ]
+    },
+    "ai_engineer": {
+      "must_have": [
+        "Python",
+        "LangChain",
+        "RAG",
+        "OpenAI/Claude API",
+        "Docker"
+      ],
+      "growing": [
+        "LangGraph",
+        "CrewAI",
+        "Vector DB",
+        "vLLM",
+        "프롬프트 엔지니어링"
+      ],
+      "declining": []
+    },
+    "machine_learning": {
+      "must_have": [
+        "Python",
+        "PyTorch",
+        "Scikit-learn",
+        "MLflow",
+        "Docker"
+      ],
+      "growing": [
+        "ONNX",
+        "Triton",
+        "Airflow",
+        "Kubeflow"
+      ],
+      "declining": [
+        "TensorFlow (PyTorch 대비)"
+      ]
+    },
+    "data_engineer": {
+      "must_have": [
+        "Python",
+        "SQL",
+        "Airflow",
+        "AWS 또는 GCP"
+      ],
+      "growing": [
+        "dbt",
+        "Kafka",
+        "Databricks",
+        "BigQuery"
+      ],
+      "declining": [
+        "Hadoop 신규",
+        "MapReduce 직접 구현"
+      ]
+    }
+  },
+  "kr_market_signals_2026": {
+    "all_roles_baseline": [
+      "Python — 전 직군 범용화 완료 (74% 등장)",
+      "Docker — 서버사이드 전 직군 필수 (63%)",
+      "Git/GitHub — 협업 기본 인프라 (52%)",
+      "AI 도구 활용 능력 — 직종 무관 우대 (84% 개발자 사용)"
+    ],
+    "fastest_growing_2025_2026": [
+      "LangChain / LangGraph — AI 에이전트 표준 프레임워크",
+      "TypeScript — 프론트엔드 필수화 완료",
+      "Next.js — SSR 표준, 신입도 요구",
+      "Kubernetes — DevOps·MLOps 필수화",
+      "Terraform — IaC 도구 사실상 필수",
+      "Airflow — 데이터 파이프라인 오케스트레이션 표준",
+      "FastAPI — Python AI 백엔드 표준",
+      "Kotlin — Java 대체 대기업 채택 가속"
+    ],
+    "declining_2025_2026": [
+      "Angular — 신규 채용 사실상 없음",
+      "jQuery — 레거시 유지보수만 잔존",
+      "PHP 신규 채용 — 레거시 위주",
+      "SVN — Git으로 전면 대체",
+      "Hadoop 직접 구현 — Databricks·관리형 서비스로 대체",
+      "Jenkins 신규 — GitHub Actions로 대체 가속"
+    ]
+  }
+}

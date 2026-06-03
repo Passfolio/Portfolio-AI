@@ -1,0 +1,87 @@
+{
+  "meta": {
+    "role": "DevOps / 클라우드 / SRE 엔지니어",
+    "sources": ["원티드", "잡코리아", "점핏", "인크루트", "이랜서"],
+    "collected_date": "2026-06-01"
+  },
+  "market_position": {
+    "demand_rank": 5,
+    "market_share_pct": 8.7,
+    "trend": "증가",
+    "preferred_experience": "3~5년 이상",
+    "character": "경력직 우대, 인프라 전반 이해 필수, 신입 채용 매우 드묾"
+  },
+  "cloud_platforms": [
+    { "name": "AWS", "demand_pct": 68, "key_services": ["EC2", "EKS", "RDS", "S3", "Lambda", "CloudWatch", "Route53", "ECS", "IAM"] },
+    { "name": "GCP", "demand_pct": 22, "key_services": ["GKE", "Cloud Run", "BigQuery", "Pub/Sub"] },
+    { "name": "Azure", "demand_pct": 18, "key_services": ["AKS", "Azure DevOps", "Azure Monitor"] },
+    { "name": "NCP (Naver Cloud Platform)", "demand_pct": 15, "note": "국내 공공·엔터프라이즈 수요" },
+    { "name": "KTC (KT Cloud)", "demand_pct": 8, "note": "공공 기관·통신사 계열" }
+  ],
+  "container_orchestration": [
+    { "name": "Docker", "demand_pct": 85, "tier": "필수" },
+    { "name": "Kubernetes (K8s)", "demand_pct": 62, "tier": "중급 이상 필수" },
+    { "name": "Helm", "demand_pct": 35, "note": "K8s 패키지 매니저" },
+    { "name": "ArgoCD", "demand_pct": 28, "note": "GitOps CI/CD" },
+    { "name": "Istio / Service Mesh", "demand_pct": 18, "note": "MSA 환경 트래픽 관리" }
+  ],
+  "cicd_tools": [
+    { "name": "GitHub Actions", "demand_pct": 55 },
+    { "name": "Jenkins", "demand_pct": 42 },
+    { "name": "GitLab CI/CD", "demand_pct": 32 },
+    { "name": "ArgoCD", "demand_pct": 28 },
+    { "name": "CircleCI", "demand_pct": 12 }
+  ],
+  "iac_config_management": [
+    { "name": "Terraform", "demand_pct": 58, "tier": "사실상 필수" },
+    { "name": "Ansible", "demand_pct": 35 },
+    { "name": "Pulumi", "demand_pct": 12, "note": "코드로 인프라 정의, 성장세" },
+    { "name": "Chef / Puppet", "demand_pct": 8, "note": "레거시 기업 잔존" }
+  ],
+  "monitoring_observability": [
+    "Prometheus + Grafana (모니터링 표준)",
+    "ELK Stack (Elasticsearch, Logstash, Kibana)",
+    "Datadog (엔터프라이즈)",
+    "AWS CloudWatch",
+    "Jaeger / Zipkin (분산 추적)"
+  ],
+  "scripting_languages": [
+    { "name": "Python", "demand_pct": 72, "note": "자동화 스크립트, boto3" },
+    { "name": "Bash / Shell", "demand_pct": 80, "note": "Linux 환경 필수" },
+    { "name": "Go", "demand_pct": 25, "note": "CloudOps 도구 개발" }
+  ],
+  "security_networking": [
+    "Linux/Unix 시스템 관리",
+    "네트워크 (TCP/IP, DNS, VPN, VPC)",
+    "보안 그룹, IAM 정책 설계",
+    "SSL/TLS 인증서 관리",
+    "SAST / DAST 도구 연동"
+  ],
+  "common_requirements": {
+    "must": [
+      "Docker + Kubernetes 실무 경험",
+      "AWS 또는 GCP 클라우드 인프라 설계·운영",
+      "CI/CD 파이프라인 구축",
+      "Terraform IaC 경험",
+      "Linux 서버 운영"
+    ],
+    "preferred": [
+      "SRE 문화 (SLO/SLA/SLI 설계)",
+      "대규모 트래픽 인프라 운영 경험",
+      "보안 컴플라이언스 대응 (ISO27001, SOC2)",
+      "GitOps 방법론",
+      "FinOps (클라우드 비용 최적화)"
+    ]
+  },
+  "experience_requirements": {
+    "경력직_3년이상": "대부분의 공고",
+    "경력직_5년이상": "시니어·아키텍트 포지션",
+    "신입": "매우 드묾, 인턴십 후 전환 형태"
+  },
+  "salary_by_level_万KRW": {
+    "주니어_3yr": 4500,
+    "미드_5yr": 6000,
+    "시니어_7yr": 7500,
+    "아키텍트_10yr": 9000
+  }
+}

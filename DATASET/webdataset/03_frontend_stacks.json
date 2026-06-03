@@ -1,0 +1,76 @@
+{
+  "meta": {
+    "role": "프론트엔드 개발자",
+    "sources": ["사람인(점핏)", "원티드", "잡코리아", "링크드인"],
+    "collected_date": "2026-06-01"
+  },
+  "market_position": {
+    "demand_rank": 3,
+    "market_share_pct": 11.1,
+    "applicant_share_pct": 15.5,
+    "trend": "공급 > 수요 (경쟁 심화)",
+    "preferred_experience": "3년 이상 실무 경험",
+    "character": "신입 채용 감소, React 경험 없으면 서류 탈락 위험"
+  },
+  "languages": [
+    { "name": "JavaScript (ES6+)", "demand_pct": 95, "note": "프론트엔드 기본 언어, 사실상 필수" },
+    { "name": "TypeScript", "demand_pct": 78, "note": "중견 이상에서 필수화 진행 중, 정적 타이핑 선호" },
+    { "name": "HTML5 / CSS3", "demand_pct": 90, "note": "기본 역량으로 간주" }
+  ],
+  "frameworks_libraries": [
+    { "name": "React", "demand_pct": 44.7, "tier": "1순위 필수", "note": "한국 프론트엔드 시장 사실상 표준" },
+    { "name": "Next.js", "demand_pct": 32.0, "tier": "빠르게 필수화", "note": "SSR·SSG, SEO 중시 기업 증가" },
+    { "name": "Vue.js", "demand_pct": 18.5, "tier": "중간", "note": "스타트업·중소기업 여전히 사용" },
+    { "name": "Nuxt.js", "demand_pct": 8.2, "tier": "틈새", "note": "Vue 기반 SSR" },
+    { "name": "Svelte / SvelteKit", "demand_pct": 4.1, "tier": "신흥", "note": "성능 최적화 관심 기업" },
+    { "name": "Angular", "demand_pct": 6.3, "tier": "하락", "note": "공공·SI·레거시 일부 잔존" }
+  ],
+  "state_management": [
+    { "name": "Redux / Redux Toolkit", "demand_pct": 35, "note": "대규모 앱 상태관리 표준" },
+    { "name": "React Query (TanStack Query)", "demand_pct": 42, "note": "서버 상태관리 de-facto 표준화" },
+    { "name": "Recoil", "demand_pct": 18, "note": "카카오·네이버 계열 선호" },
+    { "name": "Zustand", "demand_pct": 22, "note": "경량 전역 상태관리, 빠르게 채택" },
+    { "name": "Jotai", "demand_pct": 8, "note": "원자 단위 상태관리" }
+  ],
+  "styling_tools": [
+    "Tailwind CSS (급성장, 빠른 UI 개발)",
+    "Styled-components / Emotion (CSS-in-JS)",
+    "Sass / SCSS (레거시 호환)",
+    "Storybook (컴포넌트 문서화)"
+  ],
+  "build_tools": [
+    "Vite (빌드 속도 이유로 급성장)",
+    "Webpack (레거시 표준)",
+    "Turbopack (Next.js 내장)",
+    "ESLint + Prettier (코드 품질 필수)"
+  ],
+  "testing": [
+    "Jest (유닛 테스트)",
+    "React Testing Library",
+    "Cypress / Playwright (E2E 테스트)"
+  ],
+  "common_requirements": {
+    "must": [
+      "React + TypeScript 프로젝트 경험",
+      "REST API 연동 및 비동기 처리 (async/await, Promise)",
+      "컴포넌트 설계 (재사용성, 성능 최적화)",
+      "반응형 웹 / 크로스 브라우저 대응",
+      "Git 협업 (PR, Code Review)"
+    ],
+    "preferred": [
+      "Next.js SSR / SSG 경험",
+      "성능 최적화 (Lighthouse, Web Vitals)",
+      "접근성 (a11y) 이해",
+      "테스트 코드 작성 경험",
+      "디자인 시스템 구축 경험",
+      "WebSocket / 실시간 통신"
+    ]
+  },
+  "salary_by_level_万KRW": {
+    "신입_0yr": 3000,
+    "주니어_2yr": 3500,
+    "미드_3yr": 3800,
+    "시니어_5yr": 5000,
+    "리드_7yr": 6500
+  }
+}

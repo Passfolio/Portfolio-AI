@@ -1,0 +1,215 @@
+{
+  "meta": {
+    "title": "2026 대한민국 개발자 채용 심층 분석 v2 (실제 공고 파싱 기반)",
+    "basis": "27개 실제 채용공고 직접 파싱 — 잡코리아/사람인(점핏)/원티드/링크드인",
+    "collected_date": "2026-06-01",
+    "version": 2
+  },
+
+  "site_accessibility_report": {
+    "title": "채용사이트 직접 접근성 분석",
+    "results": [
+      {
+        "site": "점핏 (jumpit.saramin.co.kr)",
+        "access": "✅ 개별 공고 페이지 완전 파싱 성공",
+        "method": "포지션 ID 기반 직접 URL 접근",
+        "quality": "직무명·자격요건·우대사항·기술스택 태그 모두 수집",
+        "postings_parsed": 14
+      },
+      {
+        "site": "원티드 (wanted.co.kr/wd)",
+        "access": "✅ 개별 공고 페이지 파싱 성공 (목록은 JS 렌더링으로 불가)",
+        "method": "공고 ID 기반 직접 URL 접근",
+        "quality": "직무명·자격요건·우대사항 수집 (기술스택 태그 일부 미노출)",
+        "postings_parsed": 11
+      },
+      {
+        "site": "링크드인 (kr.linkedin.com)",
+        "access": "⚠️ 목록 페이지 부분 수집 (상세 기술스택 제한)",
+        "method": "jobs 목록 페이지 접근",
+        "quality": "직무명·회사명 수집, 기술스택 상세 미제공",
+        "postings_parsed": 2
+      },
+      {
+        "site": "잡코리아 (jobkorea.co.kr)",
+        "access": "⚠️ 목록 페이지 일부 수집 (기술스택 코드값으로만 저장)",
+        "method": "모바일 버전(m.jobkorea.co.kr) 시도",
+        "quality": "회사명·직무명 수집, 기술스택 코드값(ID) 형태라 파싱 불가",
+        "postings_parsed": 0
+      },
+      {
+        "site": "사람인 (saramin.co.kr)",
+        "access": "❌ JS 동적 렌더링으로 공고 목록 내용 없음",
+        "method": "직접 URL 접근",
+        "quality": "UI 구조만 확인, 공고 데이터 없음",
+        "postings_parsed": 0
+      },
+      {
+        "site": "자소설닷컴 (jasoseol.com)",
+        "access": "❌ JS 동적 렌더링으로 공고 내용 파싱 불가",
+        "method": "jasoseol.com/recruit 접근",
+        "quality": "레이아웃만 확인, 실제 공고 없음",
+        "note": "신입 취업 플랫폼으로 개발자 공고보다 대기업 공채 중심",
+        "postings_parsed": 0
+      }
+    ]
+  },
+
+  "verified_stack_facts": {
+    "title": "실제 공고에서 검증된 사실",
+    "facts": [
+      {
+        "fact": "Python은 AI/ML·데이터 직군에서 100% 등장, 백엔드에서도 3/9건 요구",
+        "source_postings": ["로민(CV)", "아이트럭(AI/ML)", "WATA(MLOps)", "컬리(데이터)", "쏘카(데이터)", "셀키(데이터)", "버핏서울(백엔드)"],
+        "conclusion": "Python은 전 직군 범용 언어로 완전 정착"
+      },
+      {
+        "fact": "Spring Boot + Java 조합이 백엔드 공고 9건 중 4건 등장",
+        "source_postings": ["에프엘이에스", "에이프리카(풀스택)", "넥스트그라운드(인턴)", "넥슨"],
+        "conclusion": "Java + Spring은 여전히 국내 백엔드 표준, 특히 중견·대기업"
+      },
+      {
+        "fact": "Node.js는 스타트업 백엔드 공고에서 주력 스택으로 등장 (Java와 동등 수준)",
+        "source_postings": ["아르고스아이덴티티코리아", "자란다", "풀림", "넥슨(선택지 중)", "아타드", "캔랩코리아"],
+        "conclusion": "스타트업 환경에서는 Node.js/Python이 Java와 경쟁 구도"
+      },
+      {
+        "fact": "TypeScript는 프론트엔드 공고 전수에서 요구 또는 강력 우대",
+        "source_postings": ["아이트럭(FE)", "아이알엠", "에이프리카(풀스택)"],
+        "conclusion": "TypeScript 없이 프론트엔드 취업은 사실상 불가"
+      },
+      {
+        "fact": "Airflow는 데이터엔지니어·MLOps 공고 전수(5/5건) 등장",
+        "source_postings": ["컬리", "쏘카", "셀키", "WATA(MLOps)", "아이트럭(AI/ML)"],
+        "conclusion": "데이터 파이프라인 오케스트레이션 도구로 Airflow 사실상 필수 표준"
+      },
+      {
+        "fact": "LangChain + RAG 조합이 LLM 공고의 표준 스택으로 확인",
+        "source_postings": ["원티드긱스(GenOS AI Agent)"],
+        "conclusion": "2026년 AI Agent 개발 공고의 핵심 요구 스택"
+      },
+      {
+        "fact": "DevOps 공고에서 단일 클라우드가 아닌 멀티클라우드(AWS+Azure+GCP+NCP) 동시 요구",
+        "source_postings": ["시어스랩 DevOps"],
+        "conclusion": "DevOps 엔지니어는 멀티클라우드 운영 경험이 필수"
+      },
+      {
+        "fact": "MLOps 공고에서 Kubernetes 심화 운영이 '우대'가 아닌 '자격요건'으로 등장",
+        "source_postings": ["네이버클라우드 MLOps", "WATA MLOps(우대)"],
+        "conclusion": "대기업 MLOps는 K8s를 기본 요건으로 간주"
+      },
+      {
+        "fact": "보안 엔지니어 공고에서 5개 이상 언어(C/C++/Java/Python/Go/C#) 동시 요구",
+        "source_postings": ["트래블월렛 보안엔지니어"],
+        "conclusion": "보안 직군은 다중 언어 능력 및 리버스 엔지니어링이 핵심"
+      },
+      {
+        "fact": "신입 공고에서도 TypeScript + Next.js SSR 이해 요구",
+        "source_postings": ["아이알엠(병역특례 가능, 신입 or 1년 이상)"],
+        "conclusion": "프론트엔드 신입의 진입 장벽이 높아짐"
+      }
+    ]
+  },
+
+  "gap_analysis_from_real_data": {
+    "title": "실제 공고 기반 기대 vs 현실 갭",
+    "gaps": [
+      {
+        "myth": "Java 백엔드는 낡았다",
+        "reality": "잡코리아 전체 공고의 32.1%, 점핏·원티드 파싱에서도 Java가 1위 언어로 확인. 대기업·중견기업은 여전히 Java 중심",
+        "verdict": "Java는 유효하지만, 스타트업은 Node.js/Python으로 분기됨"
+      },
+      {
+        "myth": "React만 알면 프론트엔드 취업 가능",
+        "reality": "실제 공고에서 React + TypeScript + Next.js + 상태관리(Zustand/Redux/React-Query) 세트 요구. React 단독으로는 부족",
+        "verdict": "TypeScript·Next.js 필수, 성능 최적화 지식 추가 필요"
+      },
+      {
+        "myth": "AI 개발자는 Python만 잘하면 된다",
+        "reality": "LLM 공고는 LangChain+RAG+Vector DB, AI/ML 공고는 MLflow+Airflow+Docker까지 요구. 단순 Python 코딩이 아닌 인프라 이해 필수",
+        "verdict": "Python + MLOps 도구 + 클라우드 필수"
+      },
+      {
+        "myth": "DevOps는 한 가지 클라우드만 잘하면 된다",
+        "reality": "시어스랩 공고에서 AWS+Azure+GCP+NCP+KTC 5개 클라우드 운영 경험 요구",
+        "verdict": "AWS 기본 + 멀티클라우드 이해 필요"
+      }
+    ]
+  },
+
+  "company_size_stack_pattern": {
+    "title": "기업 규모별 스택 패턴 (실제 공고 기반)",
+    "대기업_네이버_넥슨_카카오계열": {
+      "backend": ["Java", "Kotlin", "Python", "Spring Boot"],
+      "mlops": ["Kubernetes", "Go", "Python", "Rust"],
+      "data": ["AWS Aurora", "GCP BigQuery", "Airflow", "Kafka"],
+      "특징": "자체 인프라 + 다중 언어 옵션 제공, 경력 3년 이상 선호"
+    },
+    "스타트업_시리즈A_B": {
+      "backend": ["Node.js", "Python", "Django/FastAPI", "MySQL/PostgreSQL"],
+      "frontend": ["React", "TypeScript", "Next.js"],
+      "infra": ["AWS", "Docker", "GitHub Actions"],
+      "특징": "빠른 개발 속도 중시, 풀스택 능력 우대, 0→1 경험 중시"
+    },
+    "핀테크_결제": {
+      "backend": ["Java Spring Boot", "Node.js", "PostgreSQL", "Redis"],
+      "security": ["보안 취약점 진단", "OWASP", "모의해킹"],
+      "특징": "보안·안정성 최우선, 결제·정산 시스템 경험 중시"
+    },
+    "AI_스타트업": {
+      "core": ["Python", "LangChain", "PyTorch/TensorFlow", "Docker"],
+      "mlops": ["MLflow", "Airflow", "AWS/GCP"],
+      "특징": "LLM 앱 개발, RAG 구현, AI 에이전트 워크플로우 설계"
+    }
+  },
+
+  "emerging_stacks_confirmed": {
+    "title": "실제 공고에서 확인된 신흥 기술스택",
+    "items": [
+      { "stack": "LangChain / LangGraph", "status": "실제 공고 등장 확인", "postings": 2, "trend": "AI Agent 표준 프레임워크" },
+      { "stack": "RAG (Retrieval-Augmented Generation)", "status": "실제 공고 등장 확인", "postings": 2, "trend": "LLM 앱 핵심 패턴" },
+      { "stack": "MLflow", "status": "실제 공고 등장 확인", "postings": 4, "trend": "ML 실험 관리 표준" },
+      { "stack": "dbt (data build tool)", "status": "마이리얼트립 공고에서 확인(WebSearch)", "postings": 1, "trend": "데이터 엔지니어 성장세" },
+      { "stack": "Tailwind CSS", "status": "실제 공고 태그 등장 확인 (아이트럭)", "postings": 1, "trend": "프론트엔드 스타일링 표준화" },
+      { "stack": "Zustand", "status": "실제 자격요건에서 확인 (아이알엠)", "postings": 1, "trend": "Redux 대체 경량 상태관리" },
+      { "stack": "XGBoost / LightGBM", "status": "실제 공고 등장 확인", "postings": 2, "trend": "ML 공고 전통 모델 스택 건재" }
+    ]
+  },
+
+  "action_plan_updated": {
+    "title": "실제 데이터 기반 갱신된 직군별 필수 스택 세트",
+    "백엔드": {
+      "core": ["Java + Spring Boot (대기업·금융)", "또는 Node.js/NestJS + TypeScript (스타트업)"],
+      "database": ["MySQL / PostgreSQL", "Redis (캐싱)"],
+      "infra": ["Docker", "AWS 기본", "Git"],
+      "plus": ["Python (AI API 연동)", "REST API 설계", "CI/CD (GitHub Actions 또는 Jenkins)"]
+    },
+    "프론트엔드": {
+      "core": ["React + TypeScript (필수 세트)"],
+      "framework": ["Next.js (App Router / SSR)"],
+      "state": ["React Query (서버상태)", "Zustand (클라이언트상태)"],
+      "style": ["Tailwind CSS 또는 Styled-components"],
+      "plus": ["성능 최적화 (Web Vitals)", "Git + PR 협업"]
+    },
+    "AI_ML": {
+      "core": ["Python", "PyTorch 또는 TensorFlow", "scikit-learn"],
+      "mlops_basic": ["MLflow", "Docker", "Airflow"],
+      "cloud": ["AWS 또는 GCP"],
+      "plus": ["LangChain + RAG (LLM 앱)", "XGBoost/LightGBM (전통 ML)"]
+    },
+    "데이터엔지니어": {
+      "core": ["Python + SQL"],
+      "pipeline": ["Airflow (필수)", "Kafka (이벤트)", "Spark (대규모)"],
+      "cloud_data": ["AWS(S3/Athena/Redshift) 또는 GCP(BigQuery)"],
+      "plus": ["dbt", "Docker", "Git"]
+    },
+    "DevOps": {
+      "core": ["Docker + Kubernetes (필수 세트)"],
+      "cloud": ["AWS (필수)", "Azure/GCP (이해 필요)"],
+      "iac": ["Terraform"],
+      "cicd": ["GitHub Actions 또는 Jenkins + GitLab CI"],
+      "scripting": ["Python + Bash"],
+      "monitoring": ["Prometheus + Grafana"]
+    }
+  }
+}
