@@ -377,7 +377,7 @@ def _generate_with_retry(
     model: str,
     contents,
     config,
-    max_attempts: int = 3,
+    max_attempts: int = 4,
 ):
     """generate_content 호출 래퍼 — 429/503 에러 시 재시도."""
     for attempt in range(max_attempts):
@@ -393,8 +393,8 @@ def _generate_with_retry(
                 wait = 30 * (attempt + 1)
                 print(f"  [Gemini 429 Rate Limit] model={model} attempt={attempt+1}/{max_attempts} → {wait}초 대기")
                 time.sleep(wait)
-            elif attempt < max_attempts - 1 and ("503" in err or "500" in err):
-                wait = 10 * (attempt + 1)
+            elif attempt < max_attempts - 1 and ("503" in err or "500" in err or "UNAVAILABLE" in err):
+                wait = 10 * (2 ** attempt)   # 10s → 20s → 40s
                 print(f"  [Gemini 503 서버오류] model={model} attempt={attempt+1}/{max_attempts} → {wait}초 대기")
                 time.sleep(wait)
             else:
