@@ -202,6 +202,9 @@ def _embed_query(text: str) -> list[float]:
 # BM25 검색
 # ───────────────────────────────────────────────────────────────
 
+_bm25_cache: dict[Path, dict] = {}
+
+
 def _bm25_search(
     query: str,
     bm25_path: Path,
@@ -210,8 +213,10 @@ def _bm25_search(
     job: str | None = None,
     career: str | None = None,
 ) -> list[tuple[str, float]]:
-    with open(bm25_path, "rb") as f:
-        data = pickle.load(f)
+    if bm25_path not in _bm25_cache:
+        with open(bm25_path, "rb") as f:
+            _bm25_cache[bm25_path] = pickle.load(f)
+    data = _bm25_cache[bm25_path]
     tokens = _tokenize_ko(query)
 
     sub_sections = data.get("sub_sections")
