@@ -53,3 +53,5 @@ CLAUDE.md
 # Output
 output/
 app/output/
+!output/bm25_cover_letters.pkl
+!output/bm25_portfolios.pkl
