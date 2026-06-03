@@ -441,6 +441,23 @@ def _fetch_code_analysis(url: str) -> dict:
     return resp.json()
 
 
+def _fetch_code_analyses(urls: list[str]) -> list[dict]:
+    """복수의 코드 분석 URL을 fetch해 list[dict]로 반환."""
+    return [_fetch_code_analysis(url) for url in urls if url]
+
+
+def _build_code_analyses_block(code_analyses: list[dict]) -> str:
+    """list[dict] 코드 분석 결과 → LLM 프롬프트 삽입용 텍스트 블록."""
+    if not code_analyses:
+        return ""
+    parts = [
+        f"[코드 분석 {i+1}/{len(code_analyses)} — {ca.get('service_name', '')}]\n"
+        + _build_code_analysis_block(ca)
+        for i, ca in enumerate(code_analyses)
+    ]
+    return "\n\n".join(parts)
+
+
 def _build_code_analysis_block(code_analysis: dict) -> str:
     """코드 분석 결과 JSON (CDN 스키마) → LLM 프롬프트 삽입용 텍스트 블록.
 
@@ -561,10 +578,10 @@ def _generate_portfolio_section(
     client: _genai.Client,
     job: str | None = None,
     career: str | None = None,
-    code_analysis: dict | None = None,
+    code_analyses: list[dict] = [],
 ) -> _PortfolioGenResult:
     """자소서 청크 + 포트폴리오 레퍼런스 → 포트폴리오 섹션 생성.
-    code_analysis가 있으면 코드 분석 결과를 프롬프트에 추가해 강화.
+    code_analyses가 있으면 코드 분석 결과를 프롬프트에 추가해 강화.
     """
 
     def _sub_example(key: str) -> str:
@@ -609,20 +626,20 @@ def _generate_portfolio_section(
         )
 
     code_block_section = ""
-    if code_analysis:
+    if code_analyses:
         code_block_section = (
             f"[GitHub 코드 분석 결과 — 자소서 내용 보강에 활용 가능한 기술적 사실]\n"
-            f"{_build_code_analysis_block(code_analysis)}\n\n"
+            f"{_build_code_analyses_block(code_analyses)}\n\n"
         )
 
     origin_note = (
-        "자소서+코드분석 사실만 사용하세요." if code_analysis
+        "자소서+코드분석 사실만 사용하세요." if code_analyses
         else "자소서 원문 사실만 사용하세요."
     )
     closing_note = (
         "위 자소서 내용과 코드 분석을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
         "자소서에도 코드 분석에도 없는 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
-        if code_analysis else
+        if code_analyses else
         "위 자소서 내용을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
         "자소서에 언급되지 않은 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
     )
@@ -655,7 +672,7 @@ def _generate_portfolio_section(
         f"{closing_note}"
     )
 
-    system = _PF_GEN_SYSTEM_WITH_CODE if code_analysis else _PF_GEN_SYSTEM
+    system = _PF_GEN_SYSTEM_WITH_CODE if code_analyses else _PF_GEN_SYSTEM
     resp = _generate_with_retry(
         client,
         model=_LLM_MODEL,

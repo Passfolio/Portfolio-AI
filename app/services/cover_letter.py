@@ -24,10 +24,9 @@ from app.services._rag_utils import (
     _ImprovedResult,
     _LLM_MODEL,
     _bm25_search,
-    _build_code_analysis_block,
     _embed_query,
     _fetch_chunks,
-    _fetch_code_analysis,
+    _fetch_code_analyses,
     _generate_portfolio_section,
     _generate_with_retry,
     _get_gemini_client,
@@ -146,11 +145,9 @@ def _improve_cover_letter_text(
     job: str | None = None,
     career: str | None = None,
     use_rag: bool = True,
-    code_analysis: dict | None = None,
 ) -> dict:
     from app.evaluators.cover_letter import is_competency_question
 
-    # RAG 예시 검색
     if use_rag:
         query_emb  = _embed_query(query)
         bm25_res   = _bm25_search(query, CL_BM25_PATH, TOP_K_BM25, job=job, career=career)
@@ -174,44 +171,19 @@ def _improve_cover_letter_text(
         target_min  = None
         volume_rule = "개선안은 400~600자로 작성하세요."
 
-    # 코드 분석 블록
-    code_block_section = ""
-    if code_analysis:
-        code_block_section = (
-            f"[GitHub 코드 분석 결과 — 아래 기술적 사실은 자소서 내용 보강에 활용 가능]\n"
-            f"{_build_code_analysis_block(code_analysis)}\n\n"
-        )
-
-    if code_analysis:
-        constraints_header = (
-            f"[절대 준수 사항 — 위반 시 무효]\n"
-            f"1. 원문 또는 코드 분석에서 확인된 사실만 사용하세요 (둘 다에 없는 내용 추가 금지).\n"
-            f"2. 코드 분석의 pattern_summary에 있는 기술 구현 세부사항은 자소서 내용 구체화에 활용 가능합니다.\n"
-            f"3. 코드 분석에서 확인된 기술·수치가 원문에 막연하게 언급된 경우 구체적 표현으로 대체 가능합니다.\n"
-            f"4. 허용 범위: 문장 구조 재배치, 두괄식 전환, 표현 구체화, 코드 분석 기반 기술 세부사항 보강\n"
-        )
-        changes_note = "- changes: 주요 변경 사항 목록 (코드분석 추가분은 '[코드분석]' 태그 표시)"
-        reasoning_note = "- reasoning: 개선 근거 (코드 분석에서 보강한 내용 명시, 2~3문장)"
-    else:
-        constraints_header = (
-            f"[절대 준수 사항 — 위반 시 무효]\n"
-            f"1. 원문에 없는 프로젝트·경험·수치·기술을 절대 추가하지 마세요.\n"
-            f"2. 원문에 명시된 사실(프로젝트명, 역할, 수치, 기술스택 등)만 사용하세요.\n"
-            f"3. 수치가 원문에 없으면 임의로 만들지 말고 정성적 표현을 구체화하는 데 집중하세요.\n"
-            f"4. 허용 범위: 문장 구조 재배치, 두괄식 전환, 표현 구체화, 불필요한 문장 제거\n"
-        )
-        changes_note = "- changes: 주요 변경 사항 목록 (항목당 한 줄, 추가된 내용 없이 수정만)"
-        reasoning_note = "- reasoning: 개선 근거 (왜 이렇게 바꿨는지 2~3문장)"
-
     _CONSTRAINTS = (
-        constraints_header
-        + f"5. [분량 필수] {volume_rule}\n"
+        f"[절대 준수 사항 — 위반 시 무효]\n"
+        f"1. 원문에 없는 프로젝트·경험·수치·기술을 절대 추가하지 마세요.\n"
+        f"2. 원문에 명시된 사실(프로젝트명, 역할, 수치, 기술스택 등)만 사용하세요.\n"
+        f"3. 수치가 원문에 없으면 임의로 만들지 말고 정성적 표현을 구체화하는 데 집중하세요.\n"
+        f"4. 허용 범위: 문장 구조 재배치, 두괄식 전환, 표현 구체화, 불필요한 문장 제거\n"
+        f"5. [분량 필수] {volume_rule}\n"
         f"6. [수치 보존] 원문에 있는 숫자·단위(%, ms, 배, 건 등)는 개선안에 반드시 유지하세요.\n\n"
         f"[개선할 자소서]\n{query}\n\n"
         f"다음 JSON 형식으로 응답하세요:\n"
         f"- improved: 개선된 자소서 전문\n"
-        f"{reasoning_note}\n"
-        f"{changes_note}"
+        f"- reasoning: 개선 근거 (왜 이렇게 바꿨는지 2~3문장)\n"
+        f"- changes: 주요 변경 사항 목록 (항목당 한 줄, 추가된 내용 없이 수정만)"
     )
 
     if use_rag:
@@ -219,7 +191,6 @@ def _improve_cover_letter_text(
             f"다음은 실제 합격자 수준의 자소서 예시들입니다 (구조·표현 참고용):\n\n"
             f"{context_block}\n\n"
             f"{_EVALUATION_CRITERIA}\n\n"
-            f"{code_block_section}"
             f"위 예시들과 평가 기준을 참고하여 아래 자소서를 개선해주세요.\n"
             f"예시 자소서의 내용(경험, 수치 등)을 원문에 옮겨 쓰지 마세요 — 구조와 표현 방식만 참고하세요.\n\n"
             + _CONSTRAINTS
@@ -227,7 +198,6 @@ def _improve_cover_letter_text(
     else:
         prompt = (
             f"{_EVALUATION_CRITERIA}\n\n"
-            f"{code_block_section}"
             f"아래 자소서를 평가 기준에 맞게 개선해주세요.\n\n"
             + _CONSTRAINTS
         )
@@ -285,7 +255,6 @@ def run_cover_letter_from_pdf(
     use_rag: bool = True,
     job: str | None = None,
     career: str | None = None,
-    code_analysis: dict | None = None,
 ) -> dict:
     from docling.document_converter import DocumentConverter
     from app.chunkers import cover_letter as cl_chunker
@@ -300,7 +269,7 @@ def run_cover_letter_from_pdf(
 
         logger.info("[RAG-1] 자소서 청킹 중...")
         chunks = cl_chunker.chunk(text, source="cover_letter")
-        logger.info("[RAG-1] 청킹 완료: %d개 청크 (코드분석: %s)", len(chunks), "있음" if code_analysis else "없음")
+        logger.info("[RAG-1] 청킹 완료: %d개 청크", len(chunks))
 
         results = []
         for idx, c in enumerate(chunks):
@@ -311,7 +280,7 @@ def run_cover_letter_from_pdf(
             logger.info("[RAG-1] [%d/%d] 텍스트 개선: %s / %s", idx + 1, len(chunks), section, category)
             result      = _improve_cover_letter_text(
                 c["text"], top_k=top_k, char_limit=char_limit, section=section,
-                job=job, career=career, use_rag=use_rag, code_analysis=code_analysis,
+                job=job, career=career, use_rag=use_rag,
             )
             eval_result = evaluate_comparison(c["text"], result["improved"], char_limit=char_limit, question=section)
 
@@ -519,7 +488,7 @@ def run_cover_letter_to_portfolio(
     top_k: int = TOP_K_FINAL,
     job: str | None = None,
     career: str | None = None,
-    code_analysis: dict | None = None,
+    code_analyses: list[dict] = [],
 ) -> dict:
     from docling.document_converter import DocumentConverter
     from app.chunkers import cover_letter as cl_chunker
@@ -547,7 +516,7 @@ def run_cover_letter_to_portfolio(
         for idx, chunk in enumerate(chunks):
             logger.info("[RAG-2] [%d/%d] 포트폴리오 섹션 생성: %s / %s", idx + 1, len(chunks), chunk.get("section", ""), chunk.get("category", ""))
             refs = _search_portfolio_refs(chunk, top_k=top_k)
-            gen  = _generate_portfolio_section(chunk, refs, client, job=job, career=career, code_analysis=code_analysis)
+            gen  = _generate_portfolio_section(chunk, refs, client, job=job, career=career, code_analyses=code_analyses)
 
             full_text = "\n\n".join(filter(None, [
                 gen.sections.overview,
@@ -608,14 +577,12 @@ async def run_cover_letter_from_pdf_task(
     use_rag: bool = True,
     job: str | None = None,
     career: str | None = None,
-    code_analysis_url: str | None = None,
 ) -> None:
-    code_analysis = _fetch_code_analysis(code_analysis_url) if code_analysis_url else None
     await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_from_pdf(
             pdf_s3_url, user_id=user_id, top_k=top_k, use_rag=use_rag,
-            job=job, career=career, code_analysis=code_analysis,
+            job=job, career=career,
         ),
         tag="RAG-1",
     )
@@ -628,14 +595,14 @@ async def run_cover_letter_to_portfolio_task(
     top_k: int = TOP_K_FINAL,
     job: str | None = None,
     career: str | None = None,
-    code_analysis_url: str | None = None,
+    code_analysis_urls: list[str] = [],
 ) -> None:
-    code_analysis = _fetch_code_analysis(code_analysis_url) if code_analysis_url else None
+    code_analyses = _fetch_code_analyses(code_analysis_urls)
     await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_to_portfolio(
             pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career,
-            code_analysis=code_analysis,
+            code_analyses=code_analyses,
         ),
         tag="RAG-2",
     )

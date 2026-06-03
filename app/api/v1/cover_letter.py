@@ -53,6 +53,5 @@ async def cover_letter_from_pdf(
         user_id=req.user_id,
         job=req.job_position or None,
         career=map_career_input(req.career) if req.career else None,
-        code_analysis_url=req.code_analysis_url or None,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)

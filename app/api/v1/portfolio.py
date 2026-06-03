@@ -29,7 +29,7 @@ async def portfolio_from_pdf(
         job_id=str(job.job_id),
         pdf_s3_url=req.pdf_url,
         user_id=req.user_id,
-        code_analysis_url=req.code_analysis_url or None,
+        code_analysis_urls=req.code_analysis_urls,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)
 
@@ -47,6 +47,6 @@ async def portfolio_from_cover_letter(
         user_id=req.user_id,
         job=req.job_position or None,
         career=map_career_input(req.career) if req.career else None,
-        code_analysis_url=req.code_analysis_url or None,
+        code_analysis_urls=req.code_analysis_urls,
     )
     return JobStatusResponse(job_id=str(job.job_id), status=job.status)

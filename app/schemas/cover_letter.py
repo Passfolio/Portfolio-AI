@@ -8,7 +8,7 @@ class FromPortfolioRequest(BaseModel):
     user_id:           int | None = None
     job_position:      str = ""
     career:            str = ""
-    code_analysis_url: str | None = None
+    code_analysis_urls: list[str] = []
 
 
 class FromCoverLetterRequest(BaseModel):
@@ -16,4 +16,4 @@ class FromCoverLetterRequest(BaseModel):
     user_id:           int | None = None
     job_position:      str = ""
     career:            str = ""
-    code_analysis_url: str | None = None
+    code_analysis_urls: list[str] = []

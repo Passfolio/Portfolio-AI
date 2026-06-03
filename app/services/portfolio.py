@@ -17,7 +17,7 @@ from app.services._rag_utils import (
     _ImprovedResult,
     _LLM_MODEL,
     _bm25_search,
-    _build_code_analysis_block,
+    _build_code_analyses_block,
     _embed_query,
     _fetch_chunks,
     _generate_with_retry,
@@ -38,7 +38,7 @@ def _improve_portfolio_text(
     query: str,
     top_k: int = TOP_K_FINAL,
     img_context: str = "",
-    code_analysis: dict | None = None,
+    code_analyses: list[dict] = [],
 ) -> dict:
     query_emb  = _embed_query(query)
     bm25_res   = _bm25_search(query, PORTFOLIO_BM25_PATH, TOP_K_BM25)
@@ -61,13 +61,13 @@ def _improve_portfolio_text(
     )
 
     code_block_section = ""
-    if code_analysis:
+    if code_analyses:
         code_block_section = (
             f"[GitHub 코드 분석 결과 — 아래 기술적 사실은 포트폴리오 보강에 활용 가능]\n"
-            f"{_build_code_analysis_block(code_analysis)}\n\n"
+            f"{_build_code_analyses_block(code_analyses)}\n\n"
         )
 
-    if code_analysis:
+    if code_analyses:
         constraints = (
             f"[준수 사항]\n"
             f"1. 원문 또는 코드 분석에서 확인된 사실만 사용하세요 (둘 다에 없는 내용 추가 금지).\n"
@@ -151,7 +151,7 @@ def _generate_portfolio_from_code_analysis(
     code_analysis: dict,
     top_k: int = TOP_K_FINAL,
 ) -> dict:
-    """코드 분석 결과만으로 포트폴리오 신규 섹션 텍스트 생성."""
+    """단일 코드 분석 결과로 포트폴리오 신규 섹션 텍스트 생성."""
     service_name = code_analysis.get("service_name", "")
     query        = f"{service_name} {code_analysis.get('service_description', '')}"
 
@@ -166,6 +166,7 @@ def _generate_portfolio_from_code_analysis(
         for i, c in enumerate(chunks)
     )
 
+    from app.services._rag_utils import _build_code_analysis_block
     code_block = _build_code_analysis_block(code_analysis)
 
     prompt = (
@@ -222,7 +223,7 @@ def run_portfolio_from_pdf(
     pdf_s3_url: str,
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
-    code_analysis: dict | None = None,
+    code_analyses: list[dict] = [],
 ) -> dict:
     from app.chunkers.portfolio import chunk
     from app.evaluators.portfolio import evaluate_comparison as pf_evaluate_comparison
@@ -246,8 +247,8 @@ def run_portfolio_from_pdf(
                 img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
             )
 
-        results      = []
-        matched_code = False  # 코드분석 프로젝트가 기존 포폴에 있었는지 추적
+        results: list[dict] = []
+        matched_service_names: set[str] = set()  # 매칭된 코드분석 service_name 추적
 
         for idx, c in enumerate(text_chunks):
             section     = c.get("section", "")
@@ -255,22 +256,23 @@ def run_portfolio_from_pdf(
             sub_section = c.get("sub_section", "")
             meta        = c.get("meta") or None
 
-            # 프로젝트명 매칭 → 같은 프로젝트만 코드분석 컨텍스트 적용
-            use_code = (
-                code_analysis is not None and
-                _match_project(project, code_analysis.get("service_name", ""))
+            # 이 섹션 프로젝트와 매칭되는 코드분석 찾기 (리스트에서 첫 번째 매칭)
+            matched_ca = next(
+                (ca for ca in code_analyses if _match_project(project, ca.get("service_name", ""))),
+                None,
             )
-            if use_code:
-                matched_code = True
+            if matched_ca:
+                matched_service_names.add(matched_ca.get("service_name", ""))
 
             logger.info(
                 "[RAG-4] [%d/%d] 텍스트 개선: %s / %s (코드분석 적용: %s)",
-                idx + 1, len(text_chunks), project, sub_section, "Y" if use_code else "N",
+                idx + 1, len(text_chunks), project, sub_section,
+                matched_ca.get("service_name", "Y") if matched_ca else "N",
             )
             img_context = img_ctx_by_project.get(project, "")
             result      = _improve_portfolio_text(
                 c["text"], top_k=top_k, img_context=img_context,
-                code_analysis=code_analysis if use_code else None,
+                code_analyses=[matched_ca] if matched_ca else [],
             )
             eval_result = pf_evaluate_comparison(c["text"], result["improved"], meta=meta)
 
@@ -288,12 +290,12 @@ def run_portfolio_from_pdf(
                 "eval_detail": eval_result["per_category"],
             })
 
-        # 코드분석 프로젝트가 기존 포폴에 없었으면 신규 섹션 생성 후 append
-        if code_analysis and not matched_code:
-            service_name = code_analysis.get("service_name", "")
-            logger.info("[RAG-4] 코드분석 프로젝트 '%s'가 포트폴리오에 없음 → 신규 섹션 생성", service_name)
-            new_section = _generate_portfolio_from_code_analysis(code_analysis, top_k=top_k)
-            results.append(new_section)
+        # 포트폴리오에 없는 코드분석 프로젝트 → 신규 섹션 생성
+        for ca in code_analyses:
+            if ca.get("service_name", "") not in matched_service_names:
+                sn = ca.get("service_name", "")
+                logger.info("[RAG-4] 코드분석 프로젝트 '%s'가 포트폴리오에 없음 → 신규 섹션 생성", sn)
+                results.append(_generate_portfolio_from_code_analysis(ca, top_k=top_k))
 
         for ic in img_chunks:
             results.append({
@@ -329,12 +331,12 @@ async def run_portfolio_from_pdf_task(
     pdf_s3_url: str,
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
-    code_analysis_url: str | None = None,
+    code_analysis_urls: list[str] = [],
 ) -> None:
     from app.services._rag_utils import _fetch_code_analysis
-    code_analysis = _fetch_code_analysis(code_analysis_url) if code_analysis_url else None
+    code_analyses = _fetch_code_analyses(code_analysis_urls)
     await run_job_pipeline(
         job_id,
-        lambda: run_portfolio_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k, code_analysis=code_analysis),
+        lambda: run_portfolio_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k, code_analyses=code_analyses),
         tag="RAG-4",
     )
