@@ -1,0 +1,171 @@
+{
+  "meta": {
+    "title": "한국 주요 IT 기업 실제 기술스택 (네카라쿠배당토 + 빅테크)",
+    "sources": [
+      "velog 5년차 백엔드 개발자 빅테크 기술스택 리뷰",
+      "각 기업 테크블로그 (tech.kakao.com, toss.tech, medium/daangn)",
+      "각 기업 채용공고 (careers.kakao.com, toss.im, coupang.com)"
+    ],
+    "collected_date": "2026-06-01",
+    "note": "실제 서비스 운영 기준이며 공식 발표 또는 테크블로그 기반"
+  },
+
+  "companies": {
+    "naver": {
+      "name": "네이버 (NAVER)",
+      "scale": "대기업",
+      "backend": {
+        "languages": ["Kotlin", "Java", "Python", "Go"],
+        "frameworks": ["Spring Boot", "Spring Framework"],
+        "rpc": ["gRPC"]
+      },
+      "databases": ["MySQL", "MongoDB", "Redis", "Elasticsearch"],
+      "data_pipeline": ["Kafka", "Hadoop", "Spark", "Flink"],
+      "monitoring": ["Grafana", "Prometheus", "Kibana"],
+      "infra": ["Docker", "Kubernetes", "Jenkins", "GitHub Actions"],
+      "cloud": ["NCP (Naver Cloud Platform)", "AWS"],
+      "notable": "자체 클라우드(NCP) 운영, LLM HyperCLOVA X 서비스"
+    },
+    "kakao": {
+      "name": "카카오 (Kakao)",
+      "scale": "대기업",
+      "backend": {
+        "languages": ["Kotlin", "Java", "Python"],
+        "frameworks": ["Spring Boot", "Spring Framework", "Hibernate"],
+        "messaging": ["RabbitMQ", "Kafka"]
+      },
+      "databases": ["MySQL", "PostgreSQL", "Redis", "MongoDB", "Elasticsearch"],
+      "data_pipeline": ["Kafka", "Hadoop", "Kibana"],
+      "monitoring": ["Grafana", "Prometheus", "Kibana"],
+      "infra": ["Docker", "Kubernetes", "Jenkins", "GitHub Actions"],
+      "cloud": ["AWS", "Kakao Cloud (자체)"],
+      "notable": "카카오뱅크: Java/Kotlin + Spring Boot 메인, Recoil 프론트 상태관리"
+    },
+    "line": {
+      "name": "라인 (LINE / LY Corp)",
+      "scale": "대기업",
+      "backend": {
+        "languages": ["Kotlin", "Java", "Python", "Go"],
+        "frameworks": ["Spring Boot", "Armeria (자체 RPC 프레임워크)"]
+      },
+      "databases": ["MySQL", "HBase", "Redis", "Elasticsearch"],
+      "data_pipeline": ["Kafka", "Flink", "Hadoop"],
+      "infra": ["Docker", "Kubernetes"],
+      "cloud": ["자체 데이터센터", "AWS 일부"],
+      "notable": "글로벌 서비스 운영, 자체 오픈소스 Armeria/Centraldogma 보유"
+    },
+    "coupang": {
+      "name": "쿠팡 (Coupang)",
+      "scale": "대기업",
+      "backend": {
+        "languages": ["Kotlin", "Java"],
+        "frameworks": ["Spring Boot", "Spring Framework", "Hibernate", "Swagger/OpenAPI"]
+      },
+      "databases": ["MySQL", "PostgreSQL", "Redis", "Elasticsearch"],
+      "data_pipeline": ["Kafka", "Hadoop", "Spark", "Kibana"],
+      "monitoring": ["Grafana", "Prometheus"],
+      "infra": ["Docker", "Kubernetes", "Jenkins"],
+      "cloud": ["AWS (메인)", "일부 자체 IDC"],
+      "notable": "AWS 의존도 높음, MSA 완전 전환, React 수요 3년 전 대비 244% 증가"
+    },
+    "woowabros": {
+      "name": "우아한형제들 (배달의민족)",
+      "scale": "대기업",
+      "backend": {
+        "languages": ["Kotlin", "Java"],
+        "frameworks": ["Spring Boot", "Spring Framework", "Hibernate", "MyBatis", "RabbitMQ"]
+      },
+      "databases": ["MySQL", "PostgreSQL", "Redis", "MariaDB", "MongoDB", "Elasticsearch", "InfluxDB"],
+      "data_pipeline": ["Kafka", "Kibana"],
+      "monitoring": ["Grafana", "Prometheus"],
+      "infra": ["Docker", "Kubernetes"],
+      "cloud": ["AWS"],
+      "notable": "다양한 DB 활용, 영향력 있는 기술 컨퍼런스 우아한테크토크 운영"
+    },
+    "daangn": {
+      "name": "당근마켓 (Daangn)",
+      "scale": "유니콘 스타트업",
+      "backend": {
+        "languages": ["Kotlin", "Go", "Ruby"],
+        "frameworks": ["gRPC", "GraphQL"]
+      },
+      "frontend": {
+        "languages": ["TypeScript"],
+        "frameworks": ["React.js", "Redux"]
+      },
+      "databases": ["PostgreSQL", "Redis", "Elasticsearch"],
+      "data_pipeline": ["Kafka"],
+      "infra": ["Docker", "Kubernetes"],
+      "cloud": ["AWS"],
+      "notable": "Go + gRPC MSA 구조, 최근 Kotlin 전환 가속, GraphQL 활용"
+    },
+    "toss": {
+      "name": "토스 (Toss / Viva Republica)",
+      "scale": "유니콘 스타트업",
+      "backend": {
+        "languages": ["Kotlin", "Java"],
+        "frameworks": ["Spring Boot", "gRPC", "REST API"]
+      },
+      "frontend": {
+        "languages": ["TypeScript"],
+        "frameworks": ["React", "Next.js"],
+        "state": ["자체 상태관리 솔루션"]
+      },
+      "mobile": {
+        "android": ["Kotlin"],
+        "ios": ["Swift"]
+      },
+      "databases": ["MySQL", "PostgreSQL", "Redis"],
+      "infra": ["Docker", "Kubernetes", "GitHub Actions"],
+      "cloud": ["AWS"],
+      "notable": "금융 서비스 특성상 보안·안정성 최우선, SLASH 기술 컨퍼런스 운영"
+    },
+    "kakaobank": {
+      "name": "카카오뱅크",
+      "scale": "대기업 (금융)",
+      "backend": {
+        "languages": ["Java 11+", "Kotlin"],
+        "frameworks": ["Spring Boot"]
+      },
+      "mobile": {
+        "android": ["Kotlin", "Java"],
+        "ios": ["Swift"]
+      },
+      "notable": "금융 규제 환경, Java/Kotlin 우선, 안정성·보안 최우선"
+    }
+  },
+
+  "common_stack_patterns": {
+    "언어_공통": {
+      "description": "네카라쿠배당토 공통 언어 패턴",
+      "backend_primary": "Kotlin (Java에서 빠르게 전환 중)",
+      "backend_secondary": "Java (레거시 유지보수)",
+      "data_ai": "Python",
+      "systems_cloud": "Go",
+      "web": "TypeScript"
+    },
+    "인프라_공통": {
+      "container": "Docker (100% 사용)",
+      "orchestration": "Kubernetes (100% 사용)",
+      "monitoring": "Prometheus + Grafana (표준화)",
+      "pipeline": "Kafka (대기업 필수)",
+      "search": "Elasticsearch (모두 사용)"
+    },
+    "클라우드": {
+      "dominant": "AWS",
+      "domestic": "NCP (네이버), Kakao Cloud",
+      "note": "국내 규제·공공 분야는 NCP/KTC 병행"
+    }
+  },
+
+  "key_insights": [
+    "Java → Kotlin 전환이 대기업 전반에서 진행 중 (배민·카카오·토스·네이버 모두 Kotlin 채택)",
+    "Spring Boot는 여전히 대기업 백엔드 표준 프레임워크 (흔들림 없음)",
+    "Kafka는 대기업 데이터 파이프라인의 사실상 표준",
+    "당근마켓은 Go + gRPC 구조로 국내 빅테크 중 독특한 포지션",
+    "토스·당근은 TypeScript + React + Next.js 프론트엔드 표준",
+    "쿠팡은 AWS 의존도 가장 높음, React 수요 급증",
+    "Elasticsearch는 모든 대기업에서 검색/로그 분석에 활용",
+    "금융계(카카오뱅크·토스)는 Java/Kotlin + Spring Boot 고수"
+  ]
+}

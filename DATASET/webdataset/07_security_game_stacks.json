@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "roles": ["보안 엔지니어", "게임 개발자"],
+    "sources": ["잡코리아", "카카오게임즈", "웹젠", "보안뉴스", "NC Soft"],
+    "collected_date": "2026-06-01"
+  },
+  "security_engineer": {
+    "market_position": {
+      "demand_rank": 8,
+      "market_share_pct": 3.2,
+      "trend": "소폭 증가",
+      "character": "게임 보안 + 일반 보안 수요 병행, 경력직 중심"
+    },
+    "sub_roles": {
+      "앱_보안": {
+        "tools": ["IDA Pro", "JEB", "Ghidra", "Frida", "Burp Suite"],
+        "skills": ["리버스 엔지니어링", "모바일 앱 취약점 분석", "안티치트"],
+        "experience": "경력 2년 이상"
+      },
+      "웹_보안": {
+        "tools": ["Burp Suite", "OWASP ZAP", "Metasploit", "Nmap"],
+        "skills": ["OWASP Top 10", "모의해킹", "취약점 진단", "WAF 운영"],
+        "certifications": ["정보보안기사", "CISSP", "CEH", "OSCP"]
+      },
+      "클라우드_보안": {
+        "tools": ["AWS IAM", "GuardDuty", "Security Hub", "CloudTrail"],
+        "skills": ["CSPM", "SIEM 운영", "IAM 정책 설계", "GDPR/개인정보보호법 대응"]
+      },
+      "게임_보안": {
+        "tools": ["IDA Pro", "JEB", "Ghidra", "Vermill"],
+        "skills": ["안티해킹", "안티치트", "패킷 분석", "게임 핵 대응"],
+        "required_exp_years": 2
+      }
+    },
+    "common_requirements": {
+      "must": [
+        "취약점 분석 및 진단 경험",
+        "침투 테스트 기본 역량",
+        "네트워크 프로토콜 이해",
+        "Linux 시스템 이해"
+      ],
+      "preferred": [
+        "관련 자격증 (정보보안기사, CISSP, OSCP)",
+        "보안 솔루션 운영 경험 (WAF, IDS/IPS, SIEM)",
+        "개인정보보호법 / GDPR 이해",
+        "시큐어 코딩 리뷰 경험"
+      ]
+    },
+    "salary_万KRW": {
+      "주니어_2yr": 4000,
+      "미드_4yr": 5500,
+      "시니어_7yr": 7000
+    }
+  },
+  "game_developer": {
+    "market_position": {
+      "demand_rank": 9,
+      "market_share_pct": 2.8,
+      "trend": "유지",
+      "character": "대형 게임사 경력직 위주, 신입은 인턴·공채 한정",
+      "major_companies": ["넥슨", "NC소프트", "카카오게임즈", "크래프톤", "스마일게이트", "웹젠", "키다리스튜디오"]
+    },
+    "sub_roles": {
+      "클라이언트_개발": {
+        "engines": ["Unreal Engine 5 (C++)", "Unity (C#)"],
+        "languages": ["C++", "C#", "Lua (스크립트)"],
+        "skills": ["렌더링 파이프라인", "물리 엔진", "최적화", "셰이더 (HLSL/GLSL)"]
+      },
+      "서버_개발": {
+        "languages": ["C++", "Java", "Go"],
+        "frameworks": ["Spring Boot", "자체 게임 서버 프레임워크"],
+        "skills": ["대용량 동접자 처리", "실시간 통신 (TCP/UDP)", "게임로직 서버"]
+      },
+      "그래픽스_엔지니어": {
+        "skills": ["DirectX 11/12", "Vulkan", "OpenGL", "렌더링 최적화", "VFX"],
+        "tools": ["3DS Max", "Maya", "Houdini"]
+      }
+    },
+    "common_requirements": {
+      "client_must": [
+        "C++ 또는 C# 심화",
+        "Unreal Engine 또는 Unity 실무 경험",
+        "3D 수학 (벡터, 행렬, 쿼터니언)",
+        "멀티스레딩 이해"
+      ],
+      "server_must": [
+        "C++ 또는 Java 심화",
+        "네트워크 프로그래밍 (TCP/UDP)",
+        "대용량 처리 설계 경험",
+        "DB 설계 및 최적화"
+      ]
+    },
+    "salary_万KRW": {
+      "신입_공채": 3500,
+      "주니어_2yr": 4500,
+      "미드_4yr": 5500,
+      "시니어_7yr": 7500,
+      "넥슨_NC_대형사_시니어": 9000
+    }
+  }
+}

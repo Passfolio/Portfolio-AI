@@ -1,0 +1,82 @@
+{
+  "meta": {
+    "roles": ["Android 개발자", "iOS 개발자", "크로스플랫폼 개발자"],
+    "sources": ["잡코리아", "원티드", "점핏", "Indeed Korea"],
+    "collected_date": "2026-06-01"
+  },
+  "market_position": {
+    "demand_rank": 7,
+    "android_postings": 304,
+    "market_share_pct": 5.9,
+    "trend": "유지 (모바일 앱 시장 연평균 22.95% 성장 전망)",
+    "character": "iOS+Android 동시 경험자 우대, Flutter 등 크로스플랫폼 인기"
+  },
+  "android": {
+    "primary_language": "Kotlin",
+    "secondary_language": "Java (레거시 유지보수)",
+    "key_frameworks": [
+      "Jetpack Compose (UI 표준으로 전환 중)",
+      "Android Jetpack (ViewModel, LiveData, Room, Navigation)",
+      "Retrofit2 (네트워크)",
+      "Coroutines + Flow (비동기 표준)",
+      "Hilt / Dagger (DI)"
+    ],
+    "architecture": ["MVVM", "Clean Architecture", "MVI"],
+    "testing": ["JUnit", "Espresso", "Mockito"],
+    "common_requirements": {
+      "must": ["Kotlin 숙련", "Jetpack 컴포넌트", "REST API 연동", "Git"],
+      "preferred": ["Jetpack Compose", "Coroutines", "Clean Architecture 경험"]
+    }
+  },
+  "ios": {
+    "primary_language": "Swift",
+    "secondary_language": "Objective-C (레거시 유지보수)",
+    "key_frameworks": [
+      "SwiftUI (UI 표준으로 전환 중)",
+      "UIKit (여전히 다수 기업 사용)",
+      "Combine (반응형 프로그래밍)",
+      "Alamofire (네트워크)",
+      "Realm / Core Data (로컬 DB)"
+    ],
+    "architecture": ["MVVM", "Clean Architecture", "TCA (The Composable Architecture)"],
+    "testing": ["XCTest", "Quick/Nimble"],
+    "common_requirements": {
+      "must": ["Swift 숙련", "UIKit 또는 SwiftUI", "REST API 연동", "Git"],
+      "preferred": ["SwiftUI + Combine", "앱스토어 배포 경험", "Push Notification"]
+    }
+  },
+  "cross_platform": [
+    {
+      "name": "Flutter (Dart)",
+      "demand_pct": 38,
+      "trend": "급성장",
+      "note": "iOS + Android 동시 개발, 스타트업 선호"
+    },
+    {
+      "name": "React Native",
+      "demand_pct": 28,
+      "trend": "유지",
+      "note": "JS/TS 개발자 모바일 진입점"
+    },
+    {
+      "name": "Kotlin Multiplatform (KMP)",
+      "demand_pct": 10,
+      "trend": "신흥",
+      "note": "비즈니스 로직 공유, 실험적"
+    }
+  ],
+  "common_tools": [
+    "Firebase (인증, 푸시, Analytics)",
+    "Sentry (크래시 리포팅)",
+    "Fastlane (자동 빌드·배포)",
+    "App Center / TestFlight",
+    "GitHub Actions (모바일 CI/CD)"
+  ],
+  "salary_by_level_万KRW": {
+    "신입_0yr": 3200,
+    "주니어_2yr": 3800,
+    "미드_4yr": 4500,
+    "시니어_6yr": 5500,
+    "flutter_프리미엄": "동급 대비 10~15% 높음"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "meta": {
+    "title": "Stack Overflow Developer Survey 2025 — 전문 개발자 기술스택 사용률",
+    "source": "https://survey.stackoverflow.co/2025/technology",
+    "collected_date": "2026-06-01",
+    "respondents": "49,000+명 (177개국)",
+    "scope": "전문 개발자(Professional Developer) 응답 기준",
+    "relevance_to_kr": "글로벌 데이터이나, 한국 시장은 글로벌 트렌드를 1~2년 후행 흡수하므로 방향성 지표로 활용"
+  },
+
+  "programming_languages": [
+    { "name": "JavaScript",  "pct": 68.8, "trend": "유지",   "kr_relevance": "높음" },
+    { "name": "HTML/CSS",    "pct": 63.0, "trend": "유지",   "kr_relevance": "높음" },
+    { "name": "SQL",         "pct": 61.3, "trend": "유지",   "kr_relevance": "높음" },
+    { "name": "Python",      "pct": 54.8, "trend": "급증 (+7%p)", "kr_relevance": "매우높음" },
+    { "name": "Bash/Shell",  "pct": 48.8, "trend": "유지",   "kr_relevance": "높음" },
+    { "name": "TypeScript",  "pct": 48.8, "trend": "급증",   "kr_relevance": "매우높음 (FE 필수화)" },
+    { "name": "Java",        "pct": 30.3, "trend": "유지",   "kr_relevance": "매우높음 (국내 BE 1위)" },
+    { "name": "C#",          "pct": 27.1, "trend": "유지",   "kr_relevance": "중간" },
+    { "name": "Go",          "pct": 14.7, "trend": "증가",   "kr_relevance": "높음 (빠르게 성장)" },
+    { "name": "Rust",        "pct": 12.6, "trend": "증가",   "kr_relevance": "중간" },
+    { "name": "Kotlin",      "pct": 9.4,  "trend": "증가",   "kr_relevance": "매우높음 (국내 대기업 전환)" },
+    { "name": "PHP",         "pct": 18.2, "trend": "감소",   "kr_relevance": "낮음 (신규 채용 감소)" }
+  ],
+
+  "web_frameworks": [
+    { "name": "Node.js",       "pct": 49.1, "trend": "유지",   "kr_note": "스타트업 백엔드 주류" },
+    { "name": "React",         "pct": 46.9, "trend": "유지",   "kr_note": "한국 FE 표준 (44.7%)" },
+    { "name": "jQuery",        "pct": 24.1, "trend": "감소",   "kr_note": "레거시 유지보수용만 잔존" },
+    { "name": "Next.js",       "pct": 21.5, "trend": "급증",   "kr_note": "한국 32% 수요, SSR 표준화" },
+    { "name": "Express",       "pct": 20.3, "trend": "유지",   "kr_note": "Node.js 생태계 핵심" },
+    { "name": "Vue.js",        "pct": 17.3, "trend": "유지",   "kr_note": "국내 중소기업 여전히 활용 (18.5%)" },
+    { "name": "Angular",       "pct": 17.1, "trend": "감소",   "kr_note": "공공·SI·레거시 잔존, 신규 급감" },
+    { "name": "FastAPI",       "pct": 8.4,  "trend": "급증 (+5%p)", "kr_note": "Python AI 백엔드 표준" },
+    { "name": "Django",        "pct": 13.0, "trend": "유지",   "kr_note": "Python 백엔드 안정적 수요" },
+    { "name": "Spring Boot",   "pct": 12.1, "trend": "유지",   "kr_note": "한국 BE 실질 1위 (국내 비중 >> 글로벌)" },
+    { "name": "NestJS",        "pct": 6.7,  "trend": "증가",   "kr_note": "TypeScript 스타트업 채택 급증" }
+  ],
+
+  "databases": [
+    { "name": "PostgreSQL",    "pct": 58.2, "trend": "증가",   "kr_note": "MySQL에서 전환 증가 추세" },
+    { "name": "MySQL",         "pct": 39.6, "trend": "유지",   "kr_note": "국내 1위 RDBMS (MySQL+MariaDB)" },
+    { "name": "SQLite",        "pct": 36.9, "trend": "유지",   "kr_note": "모바일/임베디드 로컬" },
+    { "name": "MongoDB",       "pct": 24.3, "trend": "유지",   "kr_note": "NoSQL 1위" },
+    { "name": "Redis",         "pct": 30.7, "trend": "증가 (+8%p)", "kr_note": "캐싱/세션 표준, 모든 백엔드" },
+    { "name": "Elasticsearch", "pct": 12.0, "trend": "유지",   "kr_note": "검색/로그 분석 표준" },
+    { "name": "Microsoft SQL Server", "pct": 30.9, "trend": "감소", "kr_note": "국내 공공·금융 일부" }
+  ],
+
+  "cloud_and_tools": [
+    { "name": "Docker",           "pct": 73.8, "trend": "유지", "kr_note": "전 직군 필수 도구" },
+    { "name": "npm",              "pct": 59.3, "trend": "유지", "kr_note": "JS 생태계" },
+    { "name": "AWS",              "pct": 45.9, "trend": "유지", "kr_note": "국내 클라우드 1위 (48%)" },
+    { "name": "Kubernetes",       "pct": 30.1, "trend": "급증", "kr_note": "국내 DevOps/MLOps 필수화" },
+    { "name": "Microsoft Azure",  "pct": 27.2, "trend": "유지", "kr_note": "국내 기업 일부 사용" },
+    { "name": "Google Cloud",     "pct": 26.1, "trend": "증가", "kr_note": "국내 BigQuery 수요 증가 (GCP)" },
+    { "name": "GitHub Actions",   "pct": 47.8, "trend": "급증", "kr_note": "CI/CD 표준으로 빠르게 대체" },
+    { "name": "Terraform",        "pct": 18.9, "trend": "급증", "kr_note": "IaC 국내 필수화 진행 중" }
+  ],
+
+  "ai_llm_tools": [
+    { "name": "OpenAI GPT",       "pct": 81.9, "trend": "필수", "kr_note": "개발자 AI 도구 1위" },
+    { "name": "Claude Sonnet",    "pct": 44.9, "trend": "급증", "kr_note": "프로 개발자 채택률 높음" },
+    { "name": "Gemini Flash",     "pct": 34.4, "trend": "증가", "kr_note": "Google 생태계" },
+    { "name": "GitHub Copilot",   "pct": 37.2, "trend": "증가", "kr_note": "IDE 통합 AI 코딩" },
+    { "name": "Cursor",           "pct": 19.3, "trend": "급증", "kr_note": "AI-first IDE" }
+  ],
+
+  "notable_global_trends": {
+    "Python": "채용 공고 비중 15% → 18%, SO 사용률 7%p 급등 — AI/ML 수요 견인",
+    "TypeScript": "글로벌 48.8%, 한국 프론트엔드 78% — 사실상 필수화",
+    "Redis": "SO 기준 +8%p — 캐싱·마이크로서비스 확산 반영",
+    "FastAPI": "Python 프레임워크 중 가장 빠른 성장 (+5%p)",
+    "jQuery": "24.1%로 하락 지속 — 레거시 유지보수만 잔존",
+    "Angular": "17.1%로 하락 — React/Vue 대비 경쟁력 저하",
+    "AI_tools": "84%의 개발자가 AI 도구 활용 또는 계획 중",
+    "Go": "14.7% 사용률, 클라우드 네이티브·고성능 백엔드 성장",
+    "Kotlin": "9.4% 글로벌, 국내는 대기업 중심으로 더 빠른 채택"
+  }
+}

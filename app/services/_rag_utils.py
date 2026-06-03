@@ -486,16 +486,30 @@ def _fetch_code_analysis(url: str) -> dict:
 
 
 def _fetch_code_analyses(urls: list[str]) -> list[dict]:
-    """복수의 코드 분석 URL을 fetch해 list[dict]로 반환. 개별 실패는 건너뜀."""
-    results = []
-    for url in urls:
-        if not url:
-            continue
-        try:
-            results.append(_fetch_code_analysis(url))
-        except Exception as e:
-            logger.warning("[코드 분석 fetch 실패] %s — %s", url, e)
-    return results
+    """복수의 코드 분석 URL을 병렬 fetch해 list[dict]로 반환. 개별 실패는 건너뜀."""
+    import concurrent.futures
+    valid_urls = [u for u in urls if u]
+    if not valid_urls:
+        return []
+
+    results = [None] * len(valid_urls)
+
+    def _fetch(idx: int, url: str) -> None:
+        for attempt in range(3):
+            try:
+                results[idx] = _fetch_code_analysis(url)
+                return
+            except Exception as e:
+                logger.warning("[코드 분석 fetch 실패] %s (시도 %d/3) — %s", url, attempt + 1, e)
+                if attempt < 2:
+                    import time; time.sleep(2 ** attempt)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(valid_urls)) as executor:
+        futures = [executor.submit(_fetch, i, u) for i, u in enumerate(valid_urls)]
+        for f in futures:
+            f.result()
+
+    return [r for r in results if r is not None]
 
 
 def _build_code_analyses_block(code_analyses: list[dict]) -> str:

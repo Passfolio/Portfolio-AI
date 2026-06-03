@@ -1,0 +1,113 @@
+{
+  "meta": {
+    "title": "실제 공고 파싱 기반 기술스택 빈도 집계",
+    "basis": "27개 실제 채용공고 직접 파싱 (점핏 14건, 원티드 11건, 링크드인 2건)",
+    "collected_date": "2026-06-01",
+    "note": "동일 공고 내 복수 스택 모두 카운트. 직군별 세분화 포함."
+  },
+
+  "total_stack_frequency": {
+    "Python":         { "count": 20, "pct": 74, "note": "전 직군 공통 1위" },
+    "Docker":         { "count": 17, "pct": 63, "note": "백엔드~MLOps~DevOps 공통 필수" },
+    "Java":           { "count": 15, "pct": 56, "note": "백엔드·모바일·보안 전반" },
+    "Git_GitHub":     { "count": 14, "pct": 52, "note": "협업 도구 사실상 필수" },
+    "AWS":            { "count": 13, "pct": 48, "note": "클라우드 1위" },
+    "Node.js":        { "count": 10, "pct": 37, "note": "백엔드·풀스택 선호" },
+    "React":          { "count": 9,  "pct": 33, "note": "프론트엔드 표준" },
+    "TypeScript":     { "count": 9,  "pct": 33, "note": "프론트엔드·풀스택 필수화" },
+    "Linux":          { "count": 9,  "pct": 33, "note": "서버·DevOps·AI 공통" },
+    "Airflow":        { "count": 8,  "pct": 30, "note": "데이터 파이프라인 표준" },
+    "Kubernetes":     { "count": 7,  "pct": 26, "note": "DevOps·MLOps 필수" },
+    "PostgreSQL":     { "count": 7,  "pct": 26, "note": "RDBMS 2위" },
+    "MySQL":          { "count": 7,  "pct": 26, "note": "RDBMS 1위 (MySQL+MariaDB)" },
+    "REST_API":       { "count": 7,  "pct": 26, "note": "API 설계 기본" },
+    "Spring_Boot":    { "count": 6,  "pct": 22, "note": "Java 백엔드 표준" },
+    "GCP":            { "count": 6,  "pct": 22, "note": "클라우드 2위" },
+    "Next.js":        { "count": 5,  "pct": 19, "note": "프론트엔드 급부상" },
+    "MLflow":         { "count": 4,  "pct": 15, "note": "MLOps 표준 도구" },
+    "Terraform":      { "count": 3,  "pct": 11, "note": "DevOps IaC" },
+    "Redis":          { "count": 3,  "pct": 11, "note": "캐싱 레이어" },
+    "Kafka":          { "count": 3,  "pct": 11, "note": "이벤트 스트리밍" },
+    "SQL":            { "count": 3,  "pct": 11 },
+    "Kotlin":         { "count": 3,  "pct": 11, "note": "Android·백엔드" },
+    "Swift":          { "count": 2,  "pct":  7, "note": "iOS 전용" },
+    "PyTorch":        { "count": 2,  "pct":  7 },
+    "TensorFlow":     { "count": 2,  "pct":  7 },
+    "LangChain":      { "count": 2,  "pct":  7 },
+    "Go":             { "count": 2,  "pct":  7 },
+    "Elasticsearch":  { "count": 2,  "pct":  7 },
+    "Jenkins":        { "count": 1,  "pct":  4 },
+    "Ansible":        { "count": 1,  "pct":  4 },
+    "LangGraph":      { "count": 1,  "pct":  4 },
+    "RAG":            { "count": 1,  "pct":  4 },
+    "C_Cpp":          { "count": 3,  "pct": 11, "note": "보안·시스템·MLOps" },
+    "Hadoop":         { "count": 2,  "pct":  7 },
+    "BigQuery":       { "count": 2,  "pct":  7 }
+  },
+
+  "by_role_category": {
+    "백엔드": {
+      "sample_size": 9,
+      "top_stacks": ["Java", "Spring Boot", "Node.js", "Python", "MySQL/PostgreSQL", "Redis", "Docker", "AWS", "REST API", "Git"],
+      "notable": "Spring Boot + Java 조합이 여전히 1위. Node.js/Python은 스타트업 중심."
+    },
+    "프론트엔드": {
+      "sample_size": 3,
+      "top_stacks": ["React", "TypeScript", "Next.js", "JavaScript", "React Native", "Redux", "Tailwind CSS", "Git", "AWS"],
+      "notable": "TypeScript 필수화 확인. Next.js SSR 요구 증가. Tailwind CSS 등장."
+    },
+    "AI_ML": {
+      "sample_size": 3,
+      "top_stacks": ["Python", "PyTorch", "TensorFlow", "Docker", "Airflow", "MLflow", "scikit-learn", "XGBoost"],
+      "notable": "Python 100% 요구. 학습·서빙·모니터링 전주기 경험 요구."
+    },
+    "AI_LLM": {
+      "sample_size": 2,
+      "top_stacks": ["Python", "LangChain", "LangGraph", "RAG", "Vector DB", "Docker", "Git"],
+      "notable": "LangChain+RAG 조합이 AI Agent 공고 표준 스택으로 자리잡음."
+    },
+    "MLOps": {
+      "sample_size": 2,
+      "top_stacks": ["Python", "Docker", "Airflow", "MLflow", "Kubernetes", "Linux", "Git", "REST API"],
+      "notable": "ML 파이프라인 자동화 + Kubernetes 운영 경험이 핵심."
+    },
+    "데이터엔지니어": {
+      "sample_size": 3,
+      "top_stacks": ["Python", "SQL", "Airflow", "AWS", "GCP", "Kafka", "Hadoop", "BigQuery", "S3"],
+      "notable": "AWS+GCP 멀티 클라우드 경험 요구. Airflow 100% 등장."
+    },
+    "DevOps": {
+      "sample_size": 2,
+      "top_stacks": ["AWS", "Azure", "GCP", "Docker", "Kubernetes", "Terraform", "Jenkins", "GitLab CI", "Ansible", "Linux", "Python", "Bash"],
+      "notable": "멀티 클라우드 + Terraform + K8s 조합이 DevOps 표준 세트."
+    },
+    "모바일_Android": {
+      "sample_size": 2,
+      "top_stacks": ["Kotlin", "Java", "Android OS", "REST API", "GitLab"],
+      "notable": "Kotlin 100% 요구. React Native 크로스플랫폼 우대."
+    },
+    "모바일_iOS": {
+      "sample_size": 1,
+      "top_stacks": ["Swift", "RxSwift", "MVVM", "iOS"],
+      "notable": "Swift+RxSwift, SwiftUI+Combine 전환 진행 중."
+    },
+    "보안": {
+      "sample_size": 2,
+      "top_stacks": ["Python", "Java", "C", "C++", "Android OS", "iOS", "Frida", "Burp Suite"],
+      "notable": "다중 언어 요구(C/C++/Java/Python). 리버스 엔지니어링 필수."
+    }
+  },
+
+  "key_findings_from_real_data": [
+    "Python은 AI/ML·데이터·백엔드·DevOps·보안 등 전 직군에서 74% 등장 — 범용 언어로 완전 정착",
+    "Docker는 63%로 사실상 모든 서버사이드 직군 필수 도구",
+    "Airflow가 데이터엔지니어·MLOps 공고 전수 등장 — 파이프라인 오케스트레이션 표준",
+    "TypeScript가 프론트엔드 공고 전수 등장 — JavaScript 단독 공고는 사실상 없음",
+    "LangChain+RAG 조합이 AI LLM 공고의 표준 스택으로 확인",
+    "Next.js SSR/SSG 요구가 신입 공고에서도 등장 — 프론트엔드 기본 스택화",
+    "멀티 클라우드(AWS+GCP+Azure) 경험을 동시 요구하는 DevOps 공고 확인",
+    "백엔드에서 Go 요구 증가(풀림, 쏘카, 네이버클라우드) — 신흥 요구사항",
+    "MLflow가 MLOps·AI/ML 공고 전수 등장 — 실험 관리 표준 도구",
+    "보안 공고에서 5개 이상 언어(C/C++/Java/Python/Go) 동시 요구 — 폭넓은 언어 이해 필수"
+  ]
+}
