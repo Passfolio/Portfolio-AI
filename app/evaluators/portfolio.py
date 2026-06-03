@@ -5,6 +5,7 @@ LLM 통합 평가: 과정/판단력·역할/기여도·성과/인사이트·작�
 
 from __future__ import annotations
 
+import concurrent.futures
 import os
 
 from dotenv import load_dotenv
@@ -131,18 +132,23 @@ def _get_gemini_client() -> _genai.Client:
 @track_metrics
 def llm_evaluate(text: str) -> _EvalResult:
     client = _get_gemini_client()
-    resp = client.models.generate_content(
-        model=MODEL,
-        contents=f"다음 포트폴리오 내용을 평가해주세요:\n\n{text}",
-        config=_genai_types.GenerateContentConfig(
-            system_instruction=_SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            response_schema=_EvalResult,
-            temperature=0,
-            max_output_tokens=4096,
-        ),
-    )
-    return _EvalResult.model_validate_json(resp.text)
+    for attempt in range(3):
+        resp = client.models.generate_content(
+            model=MODEL,
+            contents=f"다음 포트폴리오 내용을 평가해주세요:\n\n{text}",
+            config=_genai_types.GenerateContentConfig(
+                system_instruction=_SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                response_schema=_EvalResult,
+                temperature=0,
+            ),
+        )
+        try:
+            return _EvalResult.model_validate_json(resp.text)
+        except Exception:
+            if attempt == 2:
+                raise
+    raise RuntimeError("llm_evaluate 재시도 실패")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -173,40 +179,33 @@ def grade_label(score: float) -> str:
 
 def print_result(llm: _EvalResult, weighted: float) -> None:
     sep = "─" * 56
-
     print(f"\n{'═'*56}")
     print(f"  포트폴리오 평가 결과  |  모델: {MODEL}")
     print(f"{'═'*56}")
     print(f"  최종 점수  {weighted:6.2f} / 100   {grade_label(weighted)}")
     print(f"{'═'*56}\n")
-
     print(f"[A] {LABELS['A']}  ({int(WEIGHTS['A']*100)}%)  →  {llm.A.score}/100")
     print(f"    근거: {llm.A.reason}")
     print(f"    개선: {llm.A.fix}")
     print(sep)
-
     print(f"[B] {LABELS['B']}  ({int(WEIGHTS['B']*100)}%)  →  {llm.B.score}/100")
     print(f"    근거: {llm.B.reason}")
     print(f"    개선: {llm.B.fix}")
     print(sep)
-
     print(f"[C] {LABELS['C']}  ({int(WEIGHTS['C']*100)}%)  →  {llm.C.score}/100"
           f"  (정량성과: {'✓' if llm.C.has_quantitative else '✗'})")
     print(f"    근거: {llm.C.reason}")
     print(f"    개선: {llm.C.fix}")
     print(sep)
-
     print(f"[D] {LABELS['D']}  ({int(WEIGHTS['D']*100)}%)  →  {llm.D.score}/80")
     print(f"    D1 분량: {llm.D.d1_volume}/40  |  D2 수치성과: {llm.D.d2_quant}/40  |  D3 감점: {llm.D.d3_penalty}")
     print(f"    근거: {llm.D.reason}")
     print(f"    개선: {llm.D.fix}")
     print(sep)
-
     print(f"[E] {LABELS['E']}  ({int(WEIGHTS['E']*100)}%)  →  {llm.E.score}/100")
     print(f"    근거: {llm.E.reason}")
     print(f"    개선: {llm.E.fix}")
     print(sep)
-
     print(f"\n  총평: {llm.overall}\n")
 
 
@@ -221,10 +220,8 @@ def evaluate(text: str, meta: dict | None = None) -> dict:
 
     print("  [1/2] Gemini-3-Flash preview 평가 중...")
     llm = llm_evaluate(text)
-
     print("  [2/2] 점수 합산 중...")
     weighted = compute_weighted(llm)
-
     print_result(llm, weighted)
     return {"llm": llm.model_dump(), "weighted": weighted}
 
@@ -239,30 +236,23 @@ def evaluate_comparison(
     improved: str,
     meta: dict | None = None,
 ) -> dict:
-    print("\n  ── 원문 평가 ──")
-    before = evaluate(original, meta=meta)
-    print("\n  ── 개선안 평가 ──")
-    after  = evaluate(improved, meta=meta)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        f_before = executor.submit(evaluate, original, meta)
+        f_after  = executor.submit(evaluate, improved, meta)
+        before   = f_before.result()
+        after    = f_after.result()
 
     delta = round(after["weighted"] - before["weighted"], 2)
     sign  = "+" if delta >= 0 else ""
-
-    sep = "═" * 56
-    print(f"\n{sep}")
-    print(f"  전후 비교 요약")
-    print(f"{sep}")
-    print(f"  {'항목':<16} {'원문':>6}  {'개선안':>6}  {'변화':>6}")
-    print(f"  {'─'*42}")
 
     for k in ["A", "B", "C", "D", "E"]:
         b = before["llm"][k]["score"]
         a = after["llm"][k]["score"]
         print(f"  {k}. {LABELS[k]:<14} {b:>6}  {a:>6}  {a-b:>+6}")
-
     print(f"  {'─'*42}")
     print(f"  {'최종 점수':<16} {before['weighted']:>6.2f}  {after['weighted']:>6.2f}  {sign}{delta:>+5.2f}")
     print(f"  {'등급':<16} {grade_label(before['weighted']):>8}  {grade_label(after['weighted']):>8}")
-    print(f"{sep}\n")
+    print(f"{'═'*56}\n")
 
     return {
         "before": before,
