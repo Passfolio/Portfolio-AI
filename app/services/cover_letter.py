@@ -24,11 +24,10 @@ from app.services._rag_utils import (
     _ImprovedResult,
     _LLM_MODEL,
     _bm25_search,
-    _build_code_analysis_block,
     _embed_query,
     _fetch_chunks,
+    _fetch_code_analyses,
     _generate_portfolio_section,
-    _generate_portfolio_section_with_code,
     _generate_with_retry,
     _get_gemini_client,
     _rrf_fusion,
@@ -163,14 +162,14 @@ def _improve_cover_letter_text(
         context_block = ""
 
     if char_limit:
-        target_min   = int(char_limit * 0.9)
-        volume_rule  = f"개선안은 {target_min}자 이상 {char_limit}자 이하로 작성하세요 (제한의 90% 이상 채워야 만점)."
+        target_min  = int(char_limit * 0.9)
+        volume_rule = f"개선안은 {target_min}자 이상 {char_limit}자 이하로 작성하세요 (제한의 90% 이상 채워야 만점)."
     elif is_competency_question(section):
-        target_min   = None
-        volume_rule  = "개선안은 600~800자로 작성하세요 (직무역량 문항 기준)."
+        target_min  = None
+        volume_rule = "개선안은 600~800자로 작성하세요 (직무역량 문항 기준)."
     else:
-        target_min   = None
-        volume_rule  = "개선안은 400~600자로 작성하세요."
+        target_min  = None
+        volume_rule = "개선안은 400~600자로 작성하세요."
 
     _CONSTRAINTS = (
         f"[절대 준수 사항 — 위반 시 무효]\n"
@@ -182,7 +181,7 @@ def _improve_cover_letter_text(
         f"6. [수치 보존] 원문에 있는 숫자·단위(%, ms, 배, 건 등)는 개선안에 반드시 유지하세요.\n\n"
         f"[개선할 자소서]\n{query}\n\n"
         f"다음 JSON 형식으로 응답하세요:\n"
-        f"- improved: 개선된 자소서 전문 (원문 사실만 사용)\n"
+        f"- improved: 개선된 자소서 전문\n"
         f"- reasoning: 개선 근거 (왜 이렇게 바꿨는지 2~3문장)\n"
         f"- changes: 주요 변경 사항 목록 (항목당 한 줄, 추가된 내용 없이 수정만)"
     )
@@ -246,115 +245,17 @@ def _improve_cover_letter_text(
 
 
 # ───────────────────────────────────────────────────────────────
-# 내부 helper: 자소서 텍스트 개선 + 코드 분석
+# RAG-1: 자소서 PDF → 섹션별 개선 (코드 분석 선택적)
 # ───────────────────────────────────────────────────────────────
 
-def _improve_cover_letter_text_with_code(
-    query: str,
-    code_analysis: dict,
+def run_cover_letter_from_pdf(
+    pdf_s3_url: str,
+    user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
-    char_limit: int | None = None,
-    section: str = "",
+    use_rag: bool = True,
     job: str | None = None,
     career: str | None = None,
 ) -> dict:
-    from app.evaluators.cover_letter import is_competency_question
-
-    query_emb  = _embed_query(query)
-    bm25_res   = _bm25_search(query, CL_BM25_PATH, TOP_K_BM25, job=job, career=career)
-    vector_res = _vector_search(query_emb, "cover_letter_chunks", TOP_K_VECTOR, job=job, career=career)
-    fused_ids  = _rrf_fusion(bm25_res, vector_res)[:top_k]
-    chunks     = _fetch_chunks(fused_ids, "cover_letter_chunks", ["id", "sub_section", "category", "text"])
-    context_block = "\n\n---\n\n".join(
-        f"[예시 {i+1} | {c['category']} — {c['sub_section']}]\n{c['text']}"
-        for i, c in enumerate(chunks)
-    )
-
-    if char_limit:
-        target_min  = int(char_limit * 0.9)
-        volume_rule = f"개선안은 {target_min}자 이상 {char_limit}자 이하로 작성하세요 (제한의 90% 이상 채워야 만점)."
-    elif is_competency_question(section):
-        target_min  = None
-        volume_rule = "개선안은 600~800자로 작성하세요 (직무역량 문항 기준)."
-    else:
-        target_min  = None
-        volume_rule = "개선안은 400~600자로 작성하세요."
-
-    code_block = _build_code_analysis_block(code_analysis)
-
-    _CONSTRAINTS = (
-        f"[절대 준수 사항 — 위반 시 무효]\n"
-        f"1. 원문 또는 코드 분석에서 확인된 사실만 사용하세요 (둘 다에 없는 내용 추가 금지).\n"
-        f"2. 코드 분석의 pattern_summary에 있는 기술 구현 세부사항은 자소서 내용 구체화에 활용 가능합니다.\n"
-        f"3. 코드 분석에서 확인된 기술·수치가 원문에 막연하게 언급된 경우, 구체적 표현으로 대체 가능합니다.\n"
-        f"4. 허용 범위: 문장 구조 재배치, 두괄식 전환, 표현 구체화, 코드 분석 기반 기술 세부사항 보강\n"
-        f"5. [분량 필수] {volume_rule}\n"
-        f"6. [수치 보존] 원문에 있는 숫자·단위(%, ms, 배, 건 등)는 개선안에 반드시 유지하세요.\n\n"
-        f"[개선할 자소서]\n{query}\n\n"
-        f"다음 JSON 형식으로 응답하세요:\n"
-        f"- improved: 개선된 자소서 전문\n"
-        f"- reasoning: 개선 근거 (코드 분석에서 보강한 내용 명시, 2~3문장)\n"
-        f"- changes: 주요 변경 사항 목록 (코드분석 추가분은 '[코드분석]' 태그 표시)"
-    )
-
-    prompt = (
-        f"다음은 실제 합격자 수준의 자소서 예시들입니다 (구조·표현 참고용):\n\n"
-        f"{context_block}\n\n"
-        f"{_EVALUATION_CRITERIA}\n\n"
-        f"[GitHub 코드 분석 결과 — 아래 기술적 사실은 자소서 내용 보강에 활용 가능]\n"
-        f"{code_block}\n\n"
-        f"위 예시·평가 기준·코드 분석을 참고하여 아래 자소서를 개선해주세요.\n"
-        f"예시 자소서의 내용(경험, 수치 등)을 원문에 옮겨 쓰지 마세요 — 구조와 표현 방식만 참고하세요.\n\n"
-        + _CONSTRAINTS
-    )
-
-    client = _get_gemini_client()
-    _MAX_VOLUME_RETRY = 2
-    result = None
-
-    for attempt in range(_MAX_VOLUME_RETRY + 1):
-        current_prompt = prompt
-
-        if attempt > 0 and result is not None and target_min is not None:
-            short_by = target_min - len(result.improved)
-            current_prompt = (
-                f"[분량 미달 재작성 요청 — {attempt}회차]\n"
-                f"이전 결과는 {len(result.improved)}자로, 목표 {target_min}자에 {short_by}자 부족합니다.\n"
-                f"원문·코드 분석 사실 범위 안에서 문장을 더 구체화하고 설명을 보강해 "
-                f"{target_min}자 이상 {char_limit}자 이하로 반드시 완성하세요.\n\n"
-                f"[보강할 자소서 (이전 결과)]\n{result.improved}\n\n"
-                f"다음 JSON 형식으로 응답하세요:\n"
-                f"- improved: 보강된 자소서 전문\n"
-                f"- reasoning: 보강 근거 (2~3문장)\n"
-                f"- changes: 주요 변경 사항 목록"
-            )
-
-        resp = _generate_with_retry(
-            client,
-            model=_LLM_MODEL,
-            contents=current_prompt,
-            config=_genai_types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=_ImprovedResult,
-            ),
-        )
-        result = _ImprovedResult.model_validate_json(resp.text)
-
-        if not char_limit or target_min is None or len(result.improved) >= target_min:
-            break
-
-    return {
-        "improved":  result.improved,
-        "reasoning": result.reasoning,
-        "changes":   result.changes,
-    }
-
-
-# ───────────────────────────────────────────────────────────────
-# RAG-1: 자소서 PDF → 섹션별 개선
-# ───────────────────────────────────────────────────────────────
-
-def run_cover_letter_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL, use_rag: bool = True) -> dict:
     from docling.document_converter import DocumentConverter
     from app.chunkers import cover_letter as cl_chunker
     from app.evaluators.cover_letter import evaluate_comparison, parse_char_limit
@@ -377,69 +278,9 @@ def run_cover_letter_from_pdf(pdf_s3_url: str, user_id: int | None = None, top_k
             char_limit = parse_char_limit(section)
 
             logger.info("[RAG-1] [%d/%d] 텍스트 개선: %s / %s", idx + 1, len(chunks), section, category)
-            result      = _improve_cover_letter_text(c["text"], top_k=top_k, char_limit=char_limit, section=section, use_rag=use_rag)
-            eval_result = evaluate_comparison(c["text"], result["improved"], char_limit=char_limit, question=section)
-
-            results.append({
-                "section":     section,
-                "category":    category,
-                "original":    c["text"],
-                "improved":    result["improved"],
-                "reasoning":   result["reasoning"],
-                "changes":     result["changes"],
-                "eval_before": eval_result["before"]["weighted"],
-                "eval_after":  eval_result["after"]["weighted"],
-                "eval_delta":  eval_result["delta"],
-                "eval_detail": eval_result["per_category"],
-            })
-
-        logger.info("[RAG-1] PDF 생성 중...")
-        save_cl_improvement_pdf(results, out_pdf)
-        output_s3_url = upload_pdf_file(out_pdf, user_id)
-        return {"sections": results, "outputPdfS3Url": output_s3_url}
-    finally:
-        cleanup_files(tmp_path, out_pdf)
-
-
-# ───────────────────────────────────────────────────────────────
-# RAG-7: 자소서 PDF + 코드 분석 → 섹션별 개선
-# ───────────────────────────────────────────────────────────────
-
-def run_cover_letter_from_pdf_with_code(
-    pdf_s3_url: str,
-    code_analysis: dict,
-    user_id: int | None = None,
-    top_k: int = TOP_K_FINAL,
-    job: str | None = None,
-    career: str | None = None,
-) -> dict:
-    """RAG-7: 자소서 PDF 개선 + GitHub 코드 분석 통합."""
-    from docling.document_converter import DocumentConverter
-    from app.chunkers import cover_letter as cl_chunker
-    from app.evaluators.cover_letter import evaluate_comparison, parse_char_limit
-    from app.exporters.cover_letter_pdf import save_cl_improvement_pdf
-
-    tmp_path = download_pdf_to_temp(pdf_s3_url)
-    out_pdf  = make_output_path("cl_improvement_with_code")
-    try:
-        converter = DocumentConverter()
-        text      = converter.convert(tmp_path).document.export_to_text()
-
-        logger.info("[RAG-7] 자소서 청킹 중...")
-        chunks = cl_chunker.chunk(text, source="cover_letter")
-        logger.info("[RAG-7] 청킹 완료: %d개 청크", len(chunks))
-
-        results = []
-        for idx, c in enumerate(chunks):
-            section    = c.get("section", "")
-            category   = c.get("category", "")
-            char_limit = parse_char_limit(section)
-
-            logger.info("[RAG-7] [%d/%d] 텍스트 개선+코드분석: %s / %s", idx + 1, len(chunks), section, category)
-            result      = _improve_cover_letter_text_with_code(
-                c["text"], code_analysis,
-                top_k=top_k, char_limit=char_limit, section=section,
-                job=job, career=career,
+            result      = _improve_cover_letter_text(
+                c["text"], top_k=top_k, char_limit=char_limit, section=section,
+                job=job, career=career, use_rag=use_rag,
             )
             eval_result = evaluate_comparison(c["text"], result["improved"], char_limit=char_limit, question=section)
 
@@ -456,7 +297,7 @@ def run_cover_letter_from_pdf_with_code(
                 "eval_detail": eval_result["per_category"],
             })
 
-        logger.info("[RAG-7] PDF 생성 중...")
+        logger.info("[RAG-1] PDF 생성 중...")
         save_cl_improvement_pdf(results, out_pdf)
         output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}
@@ -641,7 +482,14 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
 # RAG-2: 자소서 PDF → 포트폴리오 생성
 # ───────────────────────────────────────────────────────────────
 
-def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL, job: str | None = None, career: str | None = None) -> dict:
+def run_cover_letter_to_portfolio(
+    pdf_s3_url: str,
+    user_id: int | None = None,
+    top_k: int = TOP_K_FINAL,
+    job: str | None = None,
+    career: str | None = None,
+    code_analyses: list[dict] = [],
+) -> dict:
     from docling.document_converter import DocumentConverter
     from app.chunkers import cover_letter as cl_chunker
     from app.exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
@@ -651,19 +499,15 @@ def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, t
     try:
         converter = DocumentConverter()
         text      = converter.convert(tmp_path).document.export_to_text()
-        source    = "cover_letter"
 
         logger.info("[RAG-2] 자소서 청킹 중...")
-        chunks = cl_chunker.chunk(text, source)
-        logger.info("[RAG-2] 청킹 완료: %d개 청크", len(chunks))
+        chunks = cl_chunker.chunk(text, "cover_letter")
+        logger.info("[RAG-2] 청킹 완료: %d개 청크 (코드분석: %s)", len(chunks), "있음" if code_analysis else "없음")
 
-        # 포트폴리오 생성에 부적합한 카테고리만 제외 (나머지는 모두 포함)
         _EXCLUDE_CATEGORIES = {"지원동기", "입사포부", "취미", "사회이슈"}
-
         cats_found = [c.get("category", "") for c in chunks]
         logger.info("[RAG-2] 청크 카테고리 목록: %s", cats_found)
-
-        chunks  = [c for c in chunks if c.get("category", "") not in _EXCLUDE_CATEGORIES]
+        chunks = [c for c in chunks if c.get("category", "") not in _EXCLUDE_CATEGORIES]
         logger.info("[RAG-2] 필터 후 %d개 청크 처리 예정", len(chunks))
 
         client  = _get_gemini_client()
@@ -672,102 +516,7 @@ def run_cover_letter_to_portfolio(pdf_s3_url: str, user_id: int | None = None, t
         for idx, chunk in enumerate(chunks):
             logger.info("[RAG-2] [%d/%d] 포트폴리오 섹션 생성: %s / %s", idx + 1, len(chunks), chunk.get("section", ""), chunk.get("category", ""))
             refs = _search_portfolio_refs(chunk, top_k=top_k)
-            gen  = _generate_portfolio_section(chunk, refs, client, job=job, career=career)
-
-            full_text  = "\n\n".join(filter(None, [
-                gen.sections.overview,
-                gen.sections.development,
-                gen.sections.issue,
-                gen.sections.result,
-            ]))
-            eval_result = None
-            if len(full_text.strip()) >= 50:
-                from app.evaluators.portfolio import evaluate as pf_evaluate
-                try:
-                    eval_result = pf_evaluate(full_text, meta={
-                        "period":     gen.period,
-                        "role":       gen.role,
-                        "team":       gen.team,
-                        "tech_stack": gen.tech_stack,
-                    })
-                except Exception:
-                    pass
-
-            results.append({
-                "section":          chunk["section"],
-                "category":         chunk["category"],
-                "project":          gen.project,
-                "period":           gen.period,
-                "role":             gen.role,
-                "team":             gen.team,
-                "tech_stack":       gen.tech_stack,
-                "overview":         gen.sections.overview,
-                "development":      gen.sections.development,
-                "issue":            gen.sections.issue,
-                "result":           gen.sections.result,
-                "image_suggestion": gen.image_suggestion,
-                "gaps": [
-                    {
-                        "field":       g.field,
-                        "reason":      g.reason,
-                        "user_action": g.user_action,
-                        "example":     g.example,
-                    }
-                    for g in gen.gaps
-                ],
-                "eval": eval_result,
-            })
-
-        logger.info("[RAG-2] PDF 생성 중...")
-        save_generated_portfolio_pdf(results, out_pdf)
-        output_s3_url = upload_pdf_file(out_pdf, user_id)
-        return {"sections": results, "outputPdfS3Url": output_s3_url}
-    finally:
-        cleanup_files(tmp_path, out_pdf)
-
-
-# ───────────────────────────────────────────────────────────────
-# RAG-6: 자소서 PDF + 코드 분석 → 포트폴리오 생성
-# ───────────────────────────────────────────────────────────────
-
-def run_cover_letter_to_portfolio_with_code(
-    pdf_s3_url: str,
-    code_analysis: dict,
-    user_id: int | None = None,
-    top_k: int = TOP_K_FINAL,
-    job: str | None = None,
-    career: str | None = None,
-) -> dict:
-    """RAG-6: 자소서 PDF → 포트폴리오 생성 + GitHub 코드 분석 통합."""
-    from docling.document_converter import DocumentConverter
-    from app.chunkers import cover_letter as cl_chunker
-    from app.exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
-
-    tmp_path = download_pdf_to_temp(pdf_s3_url)
-    out_pdf  = make_output_path("cl_to_portfolio_with_code")
-    try:
-        converter = DocumentConverter()
-        text      = converter.convert(tmp_path).document.export_to_text()
-
-        logger.info("[RAG-6] 자소서 청킹 중...")
-        chunks = cl_chunker.chunk(text, "cover_letter")
-        logger.info("[RAG-6] 청킹 완료: %d개 청크", len(chunks))
-
-        _EXCLUDE_CATEGORIES = {"지원동기", "입사포부", "취미", "사회이슈"}
-
-        cats_found = [c.get("category", "") for c in chunks]
-        logger.info("[RAG-6] 청크 카테고리 목록: %s", cats_found)
-
-        chunks = [c for c in chunks if c.get("category", "") not in _EXCLUDE_CATEGORIES]
-        logger.info("[RAG-6] 필터 후 %d개 청크 처리 예정", len(chunks))
-
-        client = _get_gemini_client()
-        results = []
-
-        for idx, chunk in enumerate(chunks):
-            logger.info("[RAG-6] [%d/%d] 포트폴리오+코드분석 생성: %s / %s", idx + 1, len(chunks), chunk.get("section", ""), chunk.get("category", ""))
-            refs = _search_portfolio_refs(chunk, top_k=top_k)
-            gen  = _generate_portfolio_section_with_code(chunk, refs, client, code_analysis, job=job, career=career)
+            gen  = _generate_portfolio_section(chunk, refs, client, job=job, career=career, code_analyses=code_analyses)
 
             full_text = "\n\n".join(filter(None, [
                 gen.sections.overview,
@@ -802,18 +551,13 @@ def run_cover_letter_to_portfolio_with_code(
                 "result":           gen.sections.result,
                 "image_suggestion": gen.image_suggestion,
                 "gaps": [
-                    {
-                        "field":       g.field,
-                        "reason":      g.reason,
-                        "user_action": g.user_action,
-                        "example":     g.example,
-                    }
+                    {"field": g.field, "reason": g.reason, "user_action": g.user_action, "example": g.example}
                     for g in gen.gaps
                 ],
                 "eval": eval_result,
             })
 
-        logger.info("[RAG-6] PDF 생성 중...")
+        logger.info("[RAG-2] PDF 생성 중...")
         save_generated_portfolio_pdf(results, out_pdf)
         output_s3_url = upload_pdf_file(out_pdf, user_id)
         return {"sections": results, "outputPdfS3Url": output_s3_url}
@@ -822,8 +566,47 @@ def run_cover_letter_to_portfolio_with_code(
 
 
 # ───────────────────────────────────────────────────────────────
-# BackgroundTask 래퍼
+# BackgroundTask 래퍼 — code_analysis_url 있으면 fetch 후 전달
 # ───────────────────────────────────────────────────────────────
+
+async def run_cover_letter_from_pdf_task(
+    job_id: str,
+    pdf_s3_url: str,
+    user_id: int | None = None,
+    top_k: int = TOP_K_FINAL,
+    use_rag: bool = True,
+    job: str | None = None,
+    career: str | None = None,
+) -> None:
+    await run_job_pipeline(
+        job_id,
+        lambda: run_cover_letter_from_pdf(
+            pdf_s3_url, user_id=user_id, top_k=top_k, use_rag=use_rag,
+            job=job, career=career,
+        ),
+        tag="RAG-1",
+    )
+
+
+async def run_cover_letter_to_portfolio_task(
+    job_id: str,
+    pdf_s3_url: str,
+    user_id: int | None = None,
+    top_k: int = TOP_K_FINAL,
+    job: str | None = None,
+    career: str | None = None,
+    code_analysis_urls: list[str] = [],
+) -> None:
+    code_analyses = _fetch_code_analyses(code_analysis_urls)
+    await run_job_pipeline(
+        job_id,
+        lambda: run_cover_letter_to_portfolio(
+            pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career,
+            code_analyses=code_analyses,
+        ),
+        tag="RAG-2",
+    )
+
 
 async def run_portfolio_to_cover_letter_task(
     job_id: str,
@@ -837,69 +620,4 @@ async def run_portfolio_to_cover_letter_task(
         job_id,
         lambda: run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career),
         tag="RAG-3",
-    )
-
-
-async def run_cover_letter_to_portfolio_task(
-    job_id: str,
-    pdf_s3_url: str,
-    user_id: int | None = None,
-    top_k: int = TOP_K_FINAL,
-    job: str | None = None,
-    career: str | None = None,
-) -> None:
-    await run_job_pipeline(
-        job_id,
-        lambda: run_cover_letter_to_portfolio(pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career),
-        tag="RAG-2",
-    )
-
-
-async def run_cover_letter_from_pdf_task(
-    job_id: str,
-    pdf_s3_url: str,
-    user_id: int | None = None,
-    top_k: int = TOP_K_FINAL,
-    use_rag: bool = True,
-) -> None:
-    await run_job_pipeline(
-        job_id,
-        lambda: run_cover_letter_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k, use_rag=use_rag),
-        tag="RAG-1",
-    )
-
-
-async def run_cover_letter_from_pdf_with_code_task(
-    job_id: str,
-    pdf_s3_url: str,
-    code_analysis: dict,
-    user_id: int | None = None,
-    top_k: int = TOP_K_FINAL,
-    job: str | None = None,
-    career: str | None = None,
-) -> None:
-    await run_job_pipeline(
-        job_id,
-        lambda: run_cover_letter_from_pdf_with_code(
-            pdf_s3_url, code_analysis, user_id=user_id, top_k=top_k, job=job, career=career,
-        ),
-        tag="RAG-7",
-    )
-
-
-async def run_cover_letter_to_portfolio_with_code_task(
-    job_id: str,
-    pdf_s3_url: str,
-    code_analysis: dict,
-    user_id: int | None = None,
-    top_k: int = TOP_K_FINAL,
-    job: str | None = None,
-    career: str | None = None,
-) -> None:
-    await run_job_pipeline(
-        job_id,
-        lambda: run_cover_letter_to_portfolio_with_code(
-            pdf_s3_url, code_analysis, user_id=user_id, top_k=top_k, job=job, career=career,
-        ),
-        tag="RAG-6",
     )

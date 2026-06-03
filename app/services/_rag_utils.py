@@ -430,44 +430,113 @@ _PF_GEN_SUBSECTION_GUIDE_RESULT = """\
 
 
 # ───────────────────────────────────────────────────────────────
-# 코드 분석 통합 유틸 (RAG-5/6 전용)
+# 코드 분석 유틸
 # ───────────────────────────────────────────────────────────────
 
+def _fetch_code_analysis(url: str) -> dict:
+    """코드 분석 결과 JSON을 URL에서 fetch."""
+    import httpx
+    resp = httpx.get(url, timeout=15.0)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _fetch_code_analyses(urls: list[str]) -> list[dict]:
+    """복수의 코드 분석 URL을 fetch해 list[dict]로 반환."""
+    return [_fetch_code_analysis(url) for url in urls if url]
+
+
+def _build_code_analyses_block(code_analyses: list[dict]) -> str:
+    """list[dict] 코드 분석 결과 → LLM 프롬프트 삽입용 텍스트 블록."""
+    if not code_analyses:
+        return ""
+    parts = [
+        f"[코드 분석 {i+1}/{len(code_analyses)} — {ca.get('service_name', '')}]\n"
+        + _build_code_analysis_block(ca)
+        for i, ca in enumerate(code_analyses)
+    ]
+    return "\n\n".join(parts)
+
+
 def _build_code_analysis_block(code_analysis: dict) -> str:
-    """GitHub 레포 코드 분석 JSON → LLM 프롬프트 삽입용 텍스트 블록."""
+    """코드 분석 결과 JSON (CDN 스키마) → LLM 프롬프트 삽입용 텍스트 블록.
+
+    스키마:
+      service_name, service_description, dev_type, frameworks, skills,
+      user_role, contribute_share_percent, analysis_period,
+      analysis.core_feat, analysis.core_perf, analysis.feedback, analysis.contribute
+    """
+    from collections import defaultdict
+
     lines = [
-        f"[프로젝트] {code_analysis.get('title', '')}",
-        f"[설명] {code_analysis.get('description', '')}",
+        f"[프로젝트] {code_analysis.get('service_name', '')}",
+        f"[설명] {code_analysis.get('service_description', '')}",
     ]
 
-    skills = code_analysis.get("skills", {})
-    skill_parts = [
-        ", ".join(skills.get(k, []))
-        for k in ("languages", "frameworks", "data_stores", "auth", "deployment")
-        if skills.get(k)
-    ]
-    if skill_parts:
-        lines.append(f"[기술스택] {' / '.join(skill_parts)}")
+    dev_type = code_analysis.get("dev_type", [])
+    if dev_type:
+        lines.append(f"[개발 유형] {', '.join(dev_type)}")
 
-    contrib = code_analysis.get("author_contribution", {})
-    if contrib.get("summary"):
-        lines.append(f"\n[기여 요약]\n{contrib['summary']}")
-    for resp in contrib.get("responsibilities", []):
-        lines.append(f"  · {resp['area_name']}: {resp['description']}")
+    # 기술스택 — frameworks + skills (category별)
+    frameworks = [f["name"] for f in code_analysis.get("frameworks", [])]
+    skills_by_cat: dict[str, list[str]] = defaultdict(list)
+    for s in code_analysis.get("skills", []):
+        skills_by_cat[s.get("category", "기타")].append(s["name"])
 
-    perfs = code_analysis.get("core_performances", [])
-    if perfs:
+    skill_lines = []
+    if frameworks:
+        skill_lines.append(f"  · 프레임워크: {', '.join(frameworks)}")
+    for cat, names in skills_by_cat.items():
+        skill_lines.append(f"  · {cat}: {', '.join(names)}")
+    if skill_lines:
+        lines.append("[기술스택]\n" + "\n".join(skill_lines))
+
+    # 기여 역할 요약
+    user_role = code_analysis.get("user_role", "")
+    if user_role:
+        lines.append(f"\n[기여 역할]\n{user_role}")
+
+    share  = code_analysis.get("contribute_share_percent")
+    period = code_analysis.get("analysis_period", {})
+    meta_parts = []
+    if share is not None:
+        meta_parts.append(f"기여 비율: {share}%")
+    if period:
+        meta_parts.append(
+            f"분석 기간: {period.get('start', '')} ~ {period.get('end', '')} ({period.get('days', '')}일)"
+        )
+    if meta_parts:
+        lines.append(f"[기여 메타] {' / '.join(meta_parts)}")
+
+    analysis = code_analysis.get("analysis", {})
+
+    # 핵심 기능
+    core_feat = analysis.get("core_feat", [])
+    if core_feat:
+        lines.append("\n[핵심 기능 — 프로젝트가 제공하는 기능]")
+        for f in core_feat:
+            lines.append(f"• {f['feat_title']}: {f['description']}")
+
+    # 기여한 기능 목록
+    contrib_titles = analysis.get("contribute", {}).get("contribute_titles", [])
+    if contrib_titles:
+        lines.append("\n[본인이 기여한 기능]\n" + "\n".join(f"  · {t}" for t in contrib_titles))
+
+    # 핵심 기술 구현 패턴
+    core_perf = analysis.get("core_perf", [])
+    if core_perf:
         lines.append("\n[핵심 기술 구현 패턴 — 코드에서 직접 확인된 사실]")
-        for p in perfs:
-            lines.append(f"• {p['title']}\n  {p['pattern_summary']}")
-            if p.get("why_likely_matters"):
-                lines.append(f"  → 면접 포인트: {p['why_likely_matters']}")
+        for p in core_perf:
+            lines.append(f"• {p['perf_title']} (관련 기능: {p.get('about_feat_title', '')})")
+            lines.append(f"  {p['description']}")
 
-    feedbacks = code_analysis.get("feedback", [])
+    # 검증 피드백
+    feedbacks = analysis.get("feedback", [])
     if feedbacks:
-        lines.append("\n[수치화·검증 가능 항목 — 포트폴리오 보강 힌트]")
+        lines.append("\n[수치화·검증 가능 항목 — 포트폴리오 성과 보강 힌트]")
         for fb in feedbacks:
-            lines.append(f"• {fb['linked_performance_title']}: {fb['how_to_verify']}")
+            lines.append(f"• {fb['feedback_title']} (관련: {fb.get('about_perf_title', '')})")
+            lines.append(f"  {fb['feedback']}")
 
     return "\n".join(lines)
 
@@ -503,15 +572,17 @@ E. 직무연관성(10%): 직무 역량과 연결되는 경험임을 명시
 """
 
 
-def _generate_portfolio_section_with_code(
+def _generate_portfolio_section(
     cl_chunk: dict,
     refs: list[dict],
     client: _genai.Client,
-    code_analysis: dict,
     job: str | None = None,
     career: str | None = None,
+    code_analyses: list[dict] = [],
 ) -> _PortfolioGenResult:
-    """자소서 청크 + 포트폴리오 레퍼런스 + 코드 분석 → 포트폴리오 섹션 생성 (RAG-6)."""
+    """자소서 청크 + 포트폴리오 레퍼런스 → 포트폴리오 섹션 생성.
+    code_analyses가 있으면 코드 분석 결과를 프롬프트에 추가해 강화.
+    """
 
     def _sub_example(key: str) -> str:
         items = refs[:3]
@@ -544,7 +615,6 @@ def _generate_portfolio_section_with_code(
     kp_block  = "\n".join(f"  - {kp}" for kp in cl_chunk.get("key_points", []))
     ach_block = "\n".join(f"  - {a}"  for a in cl_chunk.get("achievements", []))
     kw_block  = ", ".join(cl_chunk.get("keywords", []))
-    code_block = _build_code_analysis_block(code_analysis)
 
     job_career_ctx = ""
     if job or career:
@@ -554,6 +624,25 @@ def _generate_portfolio_section_with_code(
             + (f"경력: {career}\n" if career else "")
             + "\n"
         )
+
+    code_block_section = ""
+    if code_analyses:
+        code_block_section = (
+            f"[GitHub 코드 분석 결과 — 자소서 내용 보강에 활용 가능한 기술적 사실]\n"
+            f"{_build_code_analyses_block(code_analyses)}\n\n"
+        )
+
+    origin_note = (
+        "자소서+코드분석 사실만 사용하세요." if code_analyses
+        else "자소서 원문 사실만 사용하세요."
+    )
+    closing_note = (
+        "위 자소서 내용과 코드 분석을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
+        "자소서에도 코드 분석에도 없는 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
+        if code_analyses else
+        "위 자소서 내용을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
+        "자소서에 언급되지 않은 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
+    )
 
     prompt = (
         f"{job_career_ctx}"
@@ -565,10 +654,9 @@ def _generate_portfolio_section_with_code(
         f"핵심 포인트(STAR):\n{kp_block}\n"
         f"성과:\n{ach_block}\n"
         f"키워드: {kw_block}\n\n"
-        f"[GitHub 코드 분석 결과 — 자소서 내용 보강에 활용 가능한 기술적 사실]\n"
-        f"{code_block}\n\n"
+        f"{code_block_section}"
         f"[서브섹션별 작성 기준 + 실제 포트폴리오 표현 예시]\n"
-        f"단, 예시의 내용(프로젝트명·수치·기술)은 절대 복사하지 말고 자소서+코드분석 사실만 사용하세요.\n\n"
+        f"단, 예시의 내용(프로젝트명·수치·기술)은 절대 복사하지 말고 {origin_note}\n\n"
         f"── overview (개요) ──\n"
         f"{_PF_GEN_SUBSECTION_GUIDE_OVERVIEW}\n"
         f"실제 예시:\n{_sub_example('overview')}\n\n"
@@ -581,107 +669,16 @@ def _generate_portfolio_section_with_code(
         f"── result (성과) ──\n"
         f"{_PF_GEN_SUBSECTION_GUIDE_RESULT}\n"
         f"실제 예시:\n{_sub_example('result')}\n\n"
-        f"위 자소서 내용과 코드 분석을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
-        f"자소서에도 코드 분석에도 없는 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
+        f"{closing_note}"
     )
 
+    system = _PF_GEN_SYSTEM_WITH_CODE if code_analyses else _PF_GEN_SYSTEM
     resp = _generate_with_retry(
         client,
         model=_LLM_MODEL,
         contents=prompt,
         config=_genai_types.GenerateContentConfig(
-            system_instruction=_PF_GEN_SYSTEM_WITH_CODE,
-            response_mime_type="application/json",
-            response_schema=_PortfolioGenResult,
-        ),
-    )
-    return _PortfolioGenResult.model_validate_json(resp.text)
-
-
-def _generate_portfolio_section(
-    cl_chunk: dict,
-    refs: list[dict],
-    client: _genai.Client,
-    job: str | None = None,
-    career: str | None = None,
-) -> _PortfolioGenResult:
-    """자소서 청크 1개 + 포트폴리오 레퍼런스 → 포트폴리오 섹션 생성."""
-
-    def _sub_example(key: str) -> str:
-        items = refs[:3]
-        if not items:
-            return "  (레퍼런스 없음)"
-        lines = []
-        for c in items:
-            proj = c.get("project", "")
-            if key == "overview":
-                parts = []
-                if c.get("period"):     parts.append(f"기간: {c['period']}")
-                if c.get("role"):       parts.append(f"역할: {c['role']}")
-                if c.get("team"):       parts.append(f"팀: {c['team']}")
-                ts = c.get("tech_stack") or []
-                if ts: parts.append(f"기술: {', '.join(ts[:5])}")
-                content = " / ".join(parts) if parts else c["text"][:150]
-            elif key == "development":
-                contribs = c.get("contributions") or []
-                content = ("\n  ".join(f"• {x}" for x in contribs[:4])
-                           if contribs else c["text"][:300])
-            elif key == "result":
-                achs = c.get("achievements") or []
-                content = ("\n  ".join(f"• {x}" for x in achs[:4])
-                           if achs else c["text"][-200:])
-            else:
-                content = c["text"][:400]
-            lines.append(f"  [{proj}]\n  {content}")
-        return "\n\n".join(lines)
-
-    kp_block  = "\n".join(f"  - {kp}" for kp in cl_chunk.get("key_points", []))
-    ach_block = "\n".join(f"  - {a}"  for a in cl_chunk.get("achievements", []))
-    kw_block  = ", ".join(cl_chunk.get("keywords", []))
-
-    job_career_ctx = ""
-    if job or career:
-        job_career_ctx = (
-            f"[지원자 정보]\n"
-            + (f"직군: {job}\n" if job else "")
-            + (f"경력: {career}\n" if career else "")
-            + "\n"
-        )
-
-    prompt = (
-        f"{job_career_ctx}"
-        f"[자소서 원문 — 이 내용만 근거로 사용]\n"
-        f"카테고리: {cl_chunk.get('category', '')}\n"
-        f"섹션 제목: {cl_chunk.get('section', '')}\n\n"
-        f"{cl_chunk['text']}\n\n"
-        f"[추출된 메타 정보]\n"
-        f"핵심 포인트(STAR):\n{kp_block}\n"
-        f"성과:\n{ach_block}\n"
-        f"키워드: {kw_block}\n\n"
-        f"[서브섹션별 작성 기준 + 실제 포트폴리오 표현 예시]\n"
-        f"단, 예시의 내용(프로젝트명·수치·기술)은 절대 복사하지 말고 자소서 원문 사실만 사용하세요.\n\n"
-        f"── overview (개요) ──\n"
-        f"{_PF_GEN_SUBSECTION_GUIDE_OVERVIEW}\n"
-        f"실제 예시:\n{_sub_example('overview')}\n\n"
-        f"── development (개발) ──\n"
-        f"{_PF_GEN_SUBSECTION_GUIDE_DEVELOPMENT}\n"
-        f"실제 예시:\n{_sub_example('development')}\n\n"
-        f"── issue (이슈 및 해결) ──\n"
-        f"{_PF_GEN_SUBSECTION_GUIDE_ISSUE}\n"
-        f"실제 예시:\n{_sub_example('issue')}\n\n"
-        f"── result (성과) ──\n"
-        f"{_PF_GEN_SUBSECTION_GUIDE_RESULT}\n"
-        f"실제 예시:\n{_sub_example('result')}\n\n"
-        f"위 자소서 내용을 바탕으로 포트폴리오 섹션을 작성하세요.\n"
-        f"자소서에 언급되지 않은 내용은 절대 추가하지 말고 해당 서브섹션을 \"\"로 두세요."
-    )
-
-    resp = _generate_with_retry(
-        client,
-        model=_LLM_MODEL,
-        contents=prompt,
-        config=_genai_types.GenerateContentConfig(
-            system_instruction=_PF_GEN_SYSTEM,
+            system_instruction=system,
             response_mime_type="application/json",
             response_schema=_PortfolioGenResult,
         ),
