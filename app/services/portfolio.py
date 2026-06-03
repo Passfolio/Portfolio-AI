@@ -234,7 +234,7 @@ def run_portfolio_from_pdf(
     try:
         logger.info("[RAG-4] PDF 청킹 중...")
         all_chunks = chunk(tmp_path)
-        logger.info("[RAG-4] 청킹 완료: %d개 청크 (코드분석: %s)", len(all_chunks), "있음" if code_analysis else "없음")
+        logger.info("[RAG-4] 청킹 완료: %d개 청크 (코드분석: %s)", len(all_chunks), "있음" if code_analyses else "없음")
 
         img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
         text_chunks = [c for c in all_chunks if c.get("sub_section") != "이미지"]

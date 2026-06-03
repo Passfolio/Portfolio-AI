@@ -23,18 +23,20 @@ class Settings(BaseSettings):
 
     @property
     def db_config(self) -> dict:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        return {
-            "host":        self.postgres_host,
-            "port":        self.postgres_port,
-            "database":    self.postgres_db,
-            "user":        self.postgres_user,
-            "password":    self.postgres_password,
-            "timeout":     10,
-            "ssl_context": ctx,
+        config: dict = {
+            "host":     self.postgres_host,
+            "port":     self.postgres_port,
+            "database": self.postgres_db,
+            "user":     self.postgres_user,
+            "password": self.postgres_password,
+            "timeout":  10,
         }
+        if self.postgres_host != "localhost":
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            config["ssl_context"] = ctx
+        return config
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 
