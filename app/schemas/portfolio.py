@@ -4,5 +4,6 @@ from pydantic import BaseModel
 
 
 class FromPdfRequest(BaseModel):
-    pdf_url: str
-    user_id: int | None = None
+    pdf_url:           str
+    user_id:           int | None = None
+    code_analysis_url: str | None = None

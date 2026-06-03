@@ -4,12 +4,16 @@ from pydantic import BaseModel
 
 
 class FromPortfolioRequest(BaseModel):
-    pdf_url:      str
-    user_id:      int | None = None
-    job_position: str = ""
-    career:       str = ""
+    pdf_url:           str
+    user_id:           int | None = None
+    job_position:      str = ""
+    career:            str = ""
+    code_analysis_url: str | None = None
 
 
 class FromCoverLetterRequest(BaseModel):
-    pdf_url:  str
-    user_id:  int | None = None
+    pdf_url:           str
+    user_id:           int | None = None
+    job_position:      str = ""
+    career:            str = ""
+    code_analysis_url: str | None = None
