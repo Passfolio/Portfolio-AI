@@ -283,23 +283,24 @@ def _vector_search(
     emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
     conn = _get_conn()
     cur  = conn.cursor()
-
-    fetch_k = top_k * 3 if (job or career) and table == "cover_letter_chunks" else top_k
-    if sub_section_filter:
-        cur.execute(
-            f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
-            f"FROM {table} WHERE sub_section = %s "
-            f"ORDER BY embedding <=> %s::vector LIMIT %s",
-            (emb_str, sub_section_filter, emb_str, fetch_k),
-        )
-    else:
-        cur.execute(
-            f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
-            f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
-            (emb_str, emb_str, fetch_k),
-        )
-    rows = [(row[0], float(row[1])) for row in cur.fetchall()]
-    cur.close()
+    try:
+        fetch_k = top_k * 3 if (job or career) and table == "cover_letter_chunks" else top_k
+        if sub_section_filter:
+            cur.execute(
+                f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
+                f"FROM {table} WHERE sub_section = %s "
+                f"ORDER BY embedding <=> %s::vector LIMIT %s",
+                (emb_str, sub_section_filter, emb_str, fetch_k),
+            )
+        else:
+            cur.execute(
+                f"SELECT id, 1 - (embedding <=> %s::vector) AS score "
+                f"FROM {table} ORDER BY embedding <=> %s::vector LIMIT %s",
+                (emb_str, emb_str, fetch_k),
+            )
+        rows = [(row[0], float(row[1])) for row in cur.fetchall()]
+    finally:
+        cur.close()
     if (job or career) and table == "cover_letter_chunks":
         rows = [(id_, s) for id_, s in rows if _cl_id_matches(id_, job, career)]
     return rows
@@ -335,9 +336,11 @@ def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
     col_str      = ", ".join(cols)
     conn = _get_conn()
     cur  = conn.cursor()
-    cur.execute(f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})", ids)
-    rows       = [dict(zip(cols, row)) for row in cur.fetchall()]
-    cur.close()
+    try:
+        cur.execute(f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})", ids)
+        rows = [dict(zip(cols, row)) for row in cur.fetchall()]
+    finally:
+        cur.close()
     id_to_row = {r["id"]: r for r in rows}
     return [id_to_row[id_] for id_ in ids if id_ in id_to_row]
 
@@ -472,14 +475,24 @@ _PF_GEN_SUBSECTION_GUIDE_RESULT = """\
 def _fetch_code_analysis(url: str) -> dict:
     """코드 분석 결과 JSON을 URL에서 fetch."""
     import httpx
-    resp = httpx.get(url, timeout=15.0)
+    settings = get_settings()
+    headers = {"X-INTERNAL-API-KEY": settings.passfolio_internal_api_key}
+    resp = httpx.get(url, headers=headers, timeout=15.0)
     resp.raise_for_status()
     return resp.json()
 
 
 def _fetch_code_analyses(urls: list[str]) -> list[dict]:
-    """복수의 코드 분석 URL을 fetch해 list[dict]로 반환."""
-    return [_fetch_code_analysis(url) for url in urls if url]
+    """복수의 코드 분석 URL을 fetch해 list[dict]로 반환. 개별 실패는 건너뜀."""
+    results = []
+    for url in urls:
+        if not url:
+            continue
+        try:
+            results.append(_fetch_code_analysis(url))
+        except Exception as e:
+            logger.warning("[코드 분석 fetch 실패] %s — %s", url, e)
+    return results
 
 
 def _build_code_analyses_block(code_analyses: list[dict]) -> str:

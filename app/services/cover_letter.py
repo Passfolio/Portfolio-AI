@@ -607,12 +607,11 @@ async def run_cover_letter_to_portfolio_task(
     career: str | None = None,
     code_analysis_urls: list[str] = [],
 ) -> None:
-    code_analyses = _fetch_code_analyses(code_analysis_urls)
     await run_job_pipeline(
         job_id,
         lambda: run_cover_letter_to_portfolio(
             pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career,
-            code_analyses=code_analyses,
+            code_analyses=_fetch_code_analyses(code_analysis_urls),
         ),
         tag="RAG-2",
     )
