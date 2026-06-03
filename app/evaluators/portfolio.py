@@ -14,6 +14,8 @@ from google import genai as _genai
 from google.genai import types as _genai_types
 from pydantic import BaseModel
 
+from app.core.metrics import track_metrics
+
 
 # ═══════════════════════════════════════════════════════════════
 # 설정
@@ -126,6 +128,7 @@ def _get_gemini_client() -> _genai.Client:
 # LLM 평가
 # ═══════════════════════════════════════════════════════════════
 
+@track_metrics
 def llm_evaluate(text: str) -> _EvalResult:
     client = _get_gemini_client()
     resp = client.models.generate_content(
@@ -211,6 +214,7 @@ def print_result(llm: _EvalResult, weighted: float) -> None:
 # 메인 평가 함수
 # ═══════════════════════════════════════════════════════════════
 
+@track_metrics
 def evaluate(text: str, meta: dict | None = None) -> dict:
     if len(text.strip()) < 50:
         raise ValueError("포트폴리오 내용을 50자 이상 입력해주세요.")
@@ -229,6 +233,7 @@ def evaluate(text: str, meta: dict | None = None) -> dict:
 # 전후 비교
 # ═══════════════════════════════════════════════════════════════
 
+@track_metrics
 def evaluate_comparison(
     original: str,
     improved: str,

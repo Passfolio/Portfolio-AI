@@ -15,6 +15,8 @@ from google import genai as _genai
 from google.genai import types as _genai_types
 from pydantic import BaseModel
 
+from app.core.metrics import track_metrics
+
 
 # ─── 설정 ─────────────────────────────────────────────────────────────────────
 MODEL   = "gemini-3-flash-preview"
@@ -136,6 +138,7 @@ def _get_gemini_client() -> _genai.Client:
 
 # ─── LLM 평가 ─────────────────────────────────────────────────────────────────
 
+@track_metrics
 def llm_evaluate(text: str, char_limit: int | None = None, question: str = "") -> _EvalResult:
     client = _get_gemini_client()
     context = ""
@@ -216,6 +219,7 @@ def print_result(llm: _EvalResult, weighted: float) -> None:
 
 # ─── 전후 비교 ─────────────────────────────────────────────────────────────────
 
+@track_metrics
 def evaluate_comparison(original: str, improved: str, char_limit: int | None = None, question: str = "") -> dict:
     print("\n  ── 원문 평가 ──")
     before = evaluate(original, char_limit, question)
@@ -266,6 +270,7 @@ def evaluate_comparison(original: str, improved: str, char_limit: int | None = N
 
 # ─── 메인 평가 함수 ────────────────────────────────────────────────────────────
 
+@track_metrics
 def evaluate(text: str, char_limit: int | None = None, question: str = "") -> dict:
     if len(text.strip()) < 100:
         raise ValueError("자소서를 100자 이상 입력해주세요.")
