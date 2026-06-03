@@ -1,6 +1,7 @@
 """rag.py 공유 내부 유틸리티 — cover_letter / portfolio 서비스에서 공통 사용."""
 from __future__ import annotations
 
+import logging
 import os
 import pickle
 import re
@@ -18,6 +19,8 @@ from rank_bm25 import BM25Okapi
 
 from app.core.config import get_settings
 from app.core.metrics import track_metrics
+
+logger = logging.getLogger(__name__)
 
 # ───────────────────────────────────────────────────────────────
 # 상수

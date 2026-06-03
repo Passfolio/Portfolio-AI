@@ -300,12 +300,14 @@ def run_portfolio_from_pdf(
             futures = [executor.submit(_process_chunk, (i + 1, c)) for i, c in enumerate(text_chunks)]
             results = [f.result() for f in futures]
 
-        # 포트폴리오에 없는 코드분석 프로젝트 → 신규 섹션 생성
-        for ca in code_analyses:
-            if ca.get("service_name", "") not in matched_service_names:
-                sn = ca.get("service_name", "")
-                logger.info("[RAG-4] 코드분석 프로젝트 '%s'가 포트폴리오에 없음 → 신규 섹션 생성", sn)
-                results.append(_generate_portfolio_from_code_analysis(ca, top_k=top_k))
+        # 포트폴리오에 없는 코드분석 프로젝트 → 신규 섹션 병렬 생성
+        new_cas = [ca for ca in code_analyses if ca.get("service_name", "") not in matched_service_names]
+        if new_cas:
+            for ca in new_cas:
+                logger.info("[RAG-4] 코드분석 프로젝트 '%s'가 포트폴리오에 없음 → 신규 섹션 생성", ca.get("service_name", ""))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(new_cas)) as executor:
+                new_futures = [executor.submit(_generate_portfolio_from_code_analysis, ca, top_k) for ca in new_cas]
+                results.extend(f.result() for f in new_futures)
 
         for ic in img_chunks:
             results.append({
