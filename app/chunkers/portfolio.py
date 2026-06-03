@@ -68,11 +68,13 @@ def _call_with_retry(fn, retries: int, label: str):
         except Exception as e:
             err = str(e)
             is_rate_limit = "429" in err or "quota" in err.lower()
+            is_server_err = "503" in err or "500" in err
             is_last = attempt == retries - 1
-            if is_last or not is_rate_limit:
+            if is_last or (not is_rate_limit and not is_server_err):
                 raise
-            wait = (60 if is_rate_limit else 5) * (attempt + 1)
-            print(f"  [WARN] {label} 실패 ({err[:60]}). {wait}초 후 재시도...")
+            wait = (60 if is_rate_limit else 10) * (attempt + 1)
+            err_type = "429 Rate Limit" if is_rate_limit else "503 서버오류"
+            print(f"  [WARN] {label} {err_type} (attempt={attempt+1}/{retries}) → {wait}초 대기")
             time.sleep(wait)
 
 
@@ -578,16 +580,21 @@ def chunk(pdf_path: str) -> list[dict]:
         print(f"  → 개별 청크별 메타데이터 병렬 주입 시작... ({len(intermediate_chunks)}개)")
         t1 = time.time()
 
-        def _analyze(inter_chunk: dict) -> dict | None:
+        total = len(intermediate_chunks)
+
+        def _analyze(args: tuple) -> dict | None:
+            idx, inter_chunk = args
+            print(f"  [LLM {idx}/{total}] p.{inter_chunk['page']} 「{inter_chunk['suggested_title'][:30]}」 분석 중...")
             analyzed = _analyze_chunk_meta(inter_chunk, client)
             if analyzed:
                 analyzed["source"] = source
                 analyzed["doc_type"] = "portfolio"
+                print(f"  [LLM {idx}/{total}] 완료 → section={analyzed['section']} project={analyzed['project'][:20] or '-'}")
             return analyzed
 
         max_workers = min(3, len(intermediate_chunks))
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(_analyze, c) for c in intermediate_chunks]
+            futures = [executor.submit(_analyze, (i, c)) for i, c in enumerate(intermediate_chunks, 1)]
             results = [f.result() for f in futures]
 
         for analyzed in results:

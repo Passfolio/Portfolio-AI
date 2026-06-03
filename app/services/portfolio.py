@@ -1,9 +1,11 @@
 """포트폴리오 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 
 from google.genai import types as _genai_types
+from app.core.metrics import track_metrics
 
 from app.services.pdf_pipeline import (
     download_pdf_to_temp, make_output_path,
@@ -34,6 +36,7 @@ logger = logging.getLogger(__name__)
 # 내부 helper: 포트폴리오 텍스트 개선
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def _improve_portfolio_text(
     query: str,
     top_k: int = TOP_K_FINAL,
@@ -147,6 +150,7 @@ def _match_project(portfolio_project: str, service_name: str) -> bool:
     return a_clean == b_clean or a_clean in b_clean or b_clean in a_clean
 
 
+@track_metrics
 def _generate_portfolio_from_code_analysis(
     code_analysis: dict,
     top_k: int = TOP_K_FINAL,
@@ -219,6 +223,7 @@ def _generate_portfolio_from_code_analysis(
 # RAG-4: 포트폴리오 PDF → 섹션별 개선
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def run_portfolio_from_pdf(
     pdf_s3_url: str,
     user_id: int | None = None,
@@ -234,7 +239,7 @@ def run_portfolio_from_pdf(
     try:
         logger.info("[RAG-4] PDF 청킹 중...")
         all_chunks = chunk(tmp_path)
-        logger.info("[RAG-4] 청킹 완료: %d개 청크 (코드분석: %s)", len(all_chunks), "있음" if code_analysis else "없음")
+        logger.info("[RAG-4] 청킹 완료: %d개 청크 (코드분석: %s)", len(all_chunks), "있음" if code_analyses else "없음")
 
         img_chunks  = [c for c in all_chunks if c.get("sub_section") == "이미지"]
         text_chunks = [c for c in all_chunks if c.get("sub_section") != "이미지"]
@@ -247,16 +252,16 @@ def run_portfolio_from_pdf(
                 img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
             )
 
-        results: list[dict] = []
-        matched_service_names: set[str] = set()  # 매칭된 코드분석 service_name 추적
+        total_chunks = len(text_chunks)
+        matched_service_names: set[str] = set()
 
-        for idx, c in enumerate(text_chunks):
+        def _process_chunk(args: tuple) -> dict:
+            idx, c = args
             section     = c.get("section", "")
             project     = c.get("project", "")
             sub_section = c.get("sub_section", "")
             meta        = c.get("meta") or None
 
-            # 이 섹션 프로젝트와 매칭되는 코드분석 찾기 (리스트에서 첫 번째 매칭)
             matched_ca = next(
                 (ca for ca in code_analyses if _match_project(project, ca.get("service_name", ""))),
                 None,
@@ -265,9 +270,9 @@ def run_portfolio_from_pdf(
                 matched_service_names.add(matched_ca.get("service_name", ""))
 
             logger.info(
-                "[RAG-4] [%d/%d] 텍스트 개선: %s / %s (코드분석 적용: %s)",
-                idx + 1, len(text_chunks), project, sub_section,
-                matched_ca.get("service_name", "Y") if matched_ca else "N",
+                "[RAG-4] [%d/%d] 텍스트 개선: %s / %s (코드분석: %s)",
+                idx, total_chunks, project, sub_section,
+                matched_ca.get("service_name", "") if matched_ca else "N",
             )
             img_context = img_ctx_by_project.get(project, "")
             result      = _improve_portfolio_text(
@@ -275,8 +280,8 @@ def run_portfolio_from_pdf(
                 code_analyses=[matched_ca] if matched_ca else [],
             )
             eval_result = pf_evaluate_comparison(c["text"], result["improved"], meta=meta)
-
-            results.append({
+            logger.info("[RAG-4] [%d/%d] 완료: %s / %s", idx, total_chunks, project, sub_section)
+            return {
                 "section":     section,
                 "project":     project,
                 "sub_section": sub_section,
@@ -288,7 +293,12 @@ def run_portfolio_from_pdf(
                 "eval_after":  eval_result["after"]["weighted"],
                 "eval_delta":  eval_result["delta"],
                 "eval_detail": eval_result["per_category"],
-            })
+            }
+
+        max_workers = min(5, total_chunks)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_process_chunk, (i + 1, c)) for i, c in enumerate(text_chunks)]
+            results = [f.result() for f in futures]
 
         # 포트폴리오에 없는 코드분석 프로젝트 → 신규 섹션 생성
         for ca in code_analyses:
