@@ -159,6 +159,7 @@ def llm_evaluate(text: str, char_limit: int | None = None, question: str = "") -
                 response_mime_type="application/json",
                 response_schema=_EvalResult,
                 temperature=0,
+                max_output_tokens=4096,
             ),
         )
         try:
