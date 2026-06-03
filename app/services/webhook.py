@@ -29,3 +29,25 @@ async def notify_be(
         resp = await client.post(be_url, json=payload, headers=headers)
         resp.raise_for_status()
     logger.info("[Webhook] 전송 완료: %s", ai_job_id)
+
+
+async def notify_be_roadmap(
+    ai_job_id: str,
+    result: list | None = None,
+    error_message: str | None = None,
+) -> None:
+    settings = get_settings()
+    status = "DONE" if result is not None else "ERROR"
+    payload = {
+        "ai_job_id":     ai_job_id,
+        "status":        status,
+        "result":        result,
+        "error_message": error_message,
+    }
+    be_url  = f"{settings.be_base_url}/api/v1/ai/roadmap/complete"
+    headers = {"X-INTERNAL-API-KEY": settings.passfolio_internal_api_key}
+    logger.info("[Webhook] POST %s | status=%s | job=%s", be_url, status, ai_job_id)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(be_url, json=payload, headers=headers)
+        resp.raise_for_status()
+    logger.info("[Webhook] 로드맵 콜백 완료: %s", ai_job_id)

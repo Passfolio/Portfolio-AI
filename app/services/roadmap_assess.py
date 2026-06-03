@@ -10,7 +10,7 @@ from app.services.roadmap import rule_filter, llm_analyzer, market_tier, market_
 from app.services.roadmap_merger import run_merged
 from app.services._rag_utils import _fetch_code_analysis as _fetch_project
 from app.jobs.store import update_job
-from app.services.webhook import notify_be
+from app.services.webhook import notify_be_roadmap
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ def _assess_one(
     }
 
 
-def run_assess_task(
+async def run_assess_task(
     job_id: str,
     ai_job_id: str,
     code_analysis_urls: list[str],
@@ -185,7 +185,7 @@ def run_assess_task(
 
         update_job(job_id, status="done", result=results)
         try:
-            notify_be(ai_job_id=ai_job_id, result=results)
+            await notify_be_roadmap(ai_job_id=ai_job_id, result=results)
         except Exception as webhook_err:
             logger.warning("[Webhook] 콜백 실패 (결과는 저장됨): %s", webhook_err)
 
@@ -193,6 +193,6 @@ def run_assess_task(
         update_job(job_id, status="failed", message=str(e))
         logger.error("[로드맵] 평가 태스크 실패: %s", e)
         try:
-            notify_be(ai_job_id=ai_job_id, error_message=str(e))
+            await notify_be_roadmap(ai_job_id=ai_job_id, error_message=str(e))
         except Exception as webhook_err:
             logger.warning("[Webhook] 콜백 실패: %s", webhook_err)
