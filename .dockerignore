@@ -18,3 +18,5 @@ output/*
 !output/bm25_portfolios.pkl
 *.log
 server.log
+pdfsample/
+portfoliosample/

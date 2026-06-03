@@ -333,7 +333,7 @@ async def run_portfolio_from_pdf_task(
     top_k: int = TOP_K_FINAL,
     code_analysis_urls: list[str] = [],
 ) -> None:
-    from app.services._rag_utils import _fetch_code_analysis
+    from app.services._rag_utils import _fetch_code_analyses
     code_analyses = _fetch_code_analyses(code_analysis_urls)
     await run_job_pipeline(
         job_id,
