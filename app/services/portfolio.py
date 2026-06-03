@@ -334,7 +334,7 @@ async def run_portfolio_from_pdf_task(
     code_analysis_urls: list[str] = [],
 ) -> None:
     from app.services._rag_utils import _fetch_code_analysis
-    code_analyses = _fetch_code_analyses(code_analysis_urls)
+    code_analyses = _fetch_code_analysis(code_analysis_urls)
     await run_job_pipeline(
         job_id,
         lambda: run_portfolio_from_pdf(pdf_s3_url, user_id=user_id, top_k=top_k, code_analyses=code_analyses),
