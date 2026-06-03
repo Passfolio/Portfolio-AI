@@ -262,6 +262,7 @@ def run_cover_letter_from_pdf(
     career: str | None = None,
 ) -> dict:
     from docling.document_converter import DocumentConverter
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
     from app.chunkers import cover_letter as cl_chunker
     from app.evaluators.cover_letter import evaluate_comparison, parse_char_limit
     from app.exporters.cover_letter_pdf import save_cl_improvement_pdf
@@ -269,27 +270,33 @@ def run_cover_letter_from_pdf(
     tmp_path = download_pdf_to_temp(pdf_s3_url)
     out_pdf  = make_output_path("cl_improvement")
     try:
-        converter = DocumentConverter()
+        from docling.document_converter import PdfFormatOption
+        from docling.datamodel.base_models import InputFormat
+        converter = DocumentConverter(
+            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=PdfPipelineOptions(do_ocr=False))}
+        )
         text      = converter.convert(tmp_path).document.export_to_text()
 
         logger.info("[RAG-1] 자소서 청킹 중...")
         chunks = cl_chunker.chunk(text, source="cover_letter")
         logger.info("[RAG-1] 청킹 완료: %d개 청크", len(chunks))
 
-        results = []
-        for idx, c in enumerate(chunks):
+        total_chunks = len(chunks)
+
+        def _process_chunk(args: tuple) -> dict:
+            idx, c = args
             section    = c.get("section", "")
             category   = c.get("category", "")
             char_limit = parse_char_limit(section)
 
-            logger.info("[RAG-1] [%d/%d] 텍스트 개선: %s / %s", idx + 1, len(chunks), section, category)
+            logger.info("[RAG-1] [%d/%d] 텍스트 개선: %s / %s", idx, total_chunks, section, category)
             result      = _improve_cover_letter_text(
                 c["text"], top_k=top_k, char_limit=char_limit, section=section,
                 job=job, career=career, use_rag=use_rag,
             )
             eval_result = evaluate_comparison(c["text"], result["improved"], char_limit=char_limit, question=section)
-
-            results.append({
+            logger.info("[RAG-1] [%d/%d] 완료: %s / %s", idx, total_chunks, section, category)
+            return {
                 "section":     section,
                 "category":    category,
                 "original":    c["text"],
@@ -300,7 +307,12 @@ def run_cover_letter_from_pdf(
                 "eval_after":  eval_result["after"]["weighted"],
                 "eval_delta":  eval_result["delta"],
                 "eval_detail": eval_result["per_category"],
-            })
+            }
+
+        max_workers = min(5, total_chunks)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_process_chunk, (i + 1, c)) for i, c in enumerate(chunks)]
+            results = [f.result() for f in futures]
 
         logger.info("[RAG-1] PDF 생성 중...")
         save_cl_improvement_pdf(results, out_pdf)
@@ -501,13 +513,18 @@ def run_cover_letter_to_portfolio(
     code_analyses: list[dict] = [],
 ) -> dict:
     from docling.document_converter import DocumentConverter
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
     from app.chunkers import cover_letter as cl_chunker
     from app.exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
 
     tmp_path = download_pdf_to_temp(pdf_s3_url)
     out_pdf  = make_output_path("cl_to_portfolio")
     try:
-        converter = DocumentConverter()
+        from docling.document_converter import PdfFormatOption
+        from docling.datamodel.base_models import InputFormat
+        converter = DocumentConverter(
+            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=PdfPipelineOptions(do_ocr=False))}
+        )
         text      = converter.convert(tmp_path).document.export_to_text()
 
         logger.info("[RAG-2] 자소서 청킹 중...")
@@ -520,13 +537,15 @@ def run_cover_letter_to_portfolio(
         chunks = [c for c in chunks if c.get("category", "") not in _EXCLUDE_CATEGORIES]
         logger.info("[RAG-2] 필터 후 %d개 청크 처리 예정", len(chunks))
 
-        client  = _get_gemini_client()
-        results = []
+        client       = _get_gemini_client()
+        total_chunks = len(chunks)
 
-        for idx, chunk in enumerate(chunks):
-            logger.info("[RAG-2] [%d/%d] 포트폴리오 섹션 생성: %s / %s", idx + 1, len(chunks), chunk.get("section", ""), chunk.get("category", ""))
-            refs = _search_portfolio_refs(chunk, top_k=top_k)
-            gen  = _generate_portfolio_section(chunk, refs, client, job=job, career=career, code_analyses=code_analyses)
+        def _process_chunk(args: tuple) -> dict:
+            from app.evaluators.portfolio import evaluate as pf_evaluate
+            idx, c = args
+            logger.info("[RAG-2] [%d/%d] 포트폴리오 섹션 생성: %s / %s", idx, total_chunks, c.get("section", ""), c.get("category", ""))
+            refs = _search_portfolio_refs(c, top_k=top_k)
+            gen  = _generate_portfolio_section(c, refs, client, job=job, career=career, code_analyses=code_analyses)
 
             full_text = "\n\n".join(filter(None, [
                 gen.sections.overview,
@@ -536,7 +555,6 @@ def run_cover_letter_to_portfolio(
             ]))
             eval_result = None
             if len(full_text.strip()) >= 50:
-                from app.evaluators.portfolio import evaluate as pf_evaluate
                 try:
                     eval_result = pf_evaluate(full_text, meta={
                         "period":     gen.period,
@@ -547,9 +565,10 @@ def run_cover_letter_to_portfolio(
                 except Exception:
                     pass
 
-            results.append({
-                "section":          chunk["section"],
-                "category":         chunk["category"],
+            logger.info("[RAG-2] [%d/%d] 완료: %s / %s", idx, total_chunks, c.get("section", ""), c.get("category", ""))
+            return {
+                "section":          c["section"],
+                "category":         c["category"],
                 "project":          gen.project,
                 "period":           gen.period,
                 "role":             gen.role,
@@ -565,7 +584,12 @@ def run_cover_letter_to_portfolio(
                     for g in gen.gaps
                 ],
                 "eval": eval_result,
-            })
+            }
+
+        max_workers = min(5, total_chunks)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_process_chunk, (i + 1, c)) for i, c in enumerate(chunks)]
+            results = [f.result() for f in futures]
 
         logger.info("[RAG-2] PDF 생성 중...")
         save_generated_portfolio_pdf(results, out_pdf)
