@@ -6,15 +6,19 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
+import anyio
+
 from app.services.roadmap import rule_filter, llm_analyzer, market_tier, market_loader
 from app.services.roadmap_merger import run_merged
 from app.services._rag_utils import _fetch_code_analysis as _fetch_project
-from app.jobs.store import update_job
 from app.services.webhook import notify_be
+from app.jobs.store import JobStatus, update_job
 
 logger = logging.getLogger(__name__)
 
 ROADMAP_CSV = Path(__file__).resolve().parents[2] / "DATASET" / "roadmap.csv"
+
+
 
 _COVERAGE_TO_NUM = {
     "입문 단계": 1, "초중급 단계": 2, "중급 (실무 가능) 단계": 3, "시니어 진입 단계": 4,
@@ -135,64 +139,65 @@ def _assess_one(
     }
 
 
-def run_assess_task(
+async def run_assess_task(
     job_id: str,
     ai_job_id: str,
     code_analysis_urls: list[str],
     merge: bool,
 ) -> None:
-    update_job(job_id, status="running")
+    update_job(job_id, JobStatus.RUNNING)
+    results: list[dict[str, Any]] | None = None
+    error_message: str | None = None
     try:
-        projects: list[dict[str, Any]] = []
-        with ThreadPoolExecutor(max_workers=min(len(code_analysis_urls), 4)) as pool:
-            futures = {pool.submit(_fetch_project, url): url for url in code_analysis_urls}
-            for future in as_completed(futures):
-                url = futures[future]
-                exc = future.exception()
-                if not exc:
-                    p = future.result()
-                    p["_source_url"] = url
-                    projects.append(p)
-                else:
-                    logger.warning("[로드맵] URL fetch 실패: %s — %s", url, exc)
-
-        if not projects:
-            update_job(job_id, status="failed", message="모든 URL fetch 실패")
-            return
-
-        if merge:
-            merged_project, filter_result = run_merged(projects)
-            filter_dict = {
-                "primary_roles":   filter_result.primary_roles,
-                "secondary_roles": filter_result.secondary_roles,
-                "per_role":        filter_result.per_role,
-            }
-            result = _assess_one(merged_project, filter_result, filter_dict)
-            result["source_urls"] = [p["_source_url"] for p in projects]
-            results = [result]
-        else:
-            results = []
-            with ThreadPoolExecutor(max_workers=min(len(projects), 4)) as pool:
-                futures = {pool.submit(_assess_one, p): p for p in projects}
+        def _run() -> list[dict[str, Any]]:
+            projects: list[dict[str, Any]] = []
+            with ThreadPoolExecutor(max_workers=min(len(code_analysis_urls), 4)) as pool:
+                futures = {pool.submit(_fetch_project, url): url for url in code_analysis_urls}
                 for future in as_completed(futures):
-                    p = futures[future]
-                    if not future.exception():
-                        r = future.result()
-                        r["source_url"] = p.get("_source_url", "")
-                        results.append(r)
+                    url = futures[future]
+                    exc = future.exception()
+                    if not exc:
+                        p = future.result()
+                        p["_source_url"] = url
+                        projects.append(p)
                     else:
-                        logger.warning("[로드맵] 평가 실패: %s", future.exception())
+                        logger.warning("[로드맵] URL fetch 실패: %s — %s", url, exc)
 
-        update_job(job_id, status="done", result=results)
+            if not projects:
+                raise RuntimeError("모든 URL fetch 실패")
+
+            if merge:
+                merged_project, filter_result = run_merged(projects)
+                filter_dict = {
+                    "primary_roles":   filter_result.primary_roles,
+                    "secondary_roles": filter_result.secondary_roles,
+                    "per_role":        filter_result.per_role,
+                }
+                r = _assess_one(merged_project, filter_result, filter_dict)
+                r["source_urls"] = [p["_source_url"] for p in projects]
+                return [r]
+            else:
+                out = []
+                with ThreadPoolExecutor(max_workers=min(len(projects), 4)) as pool:
+                    futures = {pool.submit(_assess_one, p): p for p in projects}
+                    for future in as_completed(futures):
+                        p = futures[future]
+                        if not future.exception():
+                            r = future.result()
+                            r["source_url"] = p.get("_source_url", "")
+                            out.append(r)
+                        else:
+                            logger.warning("[로드맵] 평가 실패: %s", future.exception())
+                return out
+
+        results = await anyio.to_thread.run_sync(_run)
+        update_job(job_id, JobStatus.DONE, result=results)
+    except Exception as e:
+        error_message = str(e)
+        logger.error("[로드맵] 평가 태스크 실패: %s", e)
+        update_job(job_id, JobStatus.ERROR, message=error_message)
+    finally:
         try:
-            notify_be(ai_job_id=ai_job_id, result=results)
+            await notify_be(ai_job_id=ai_job_id, output_pdf_url=None, error_message=error_message)
         except Exception as webhook_err:
             logger.warning("[Webhook] 콜백 실패 (결과는 저장됨): %s", webhook_err)
-
-    except Exception as e:
-        update_job(job_id, status="failed", message=str(e))
-        logger.error("[로드맵] 평가 태스크 실패: %s", e)
-        try:
-            notify_be(ai_job_id=ai_job_id, error_message=str(e))
-        except Exception as webhook_err:
-            logger.warning("[Webhook] 콜백 실패: %s", webhook_err)
