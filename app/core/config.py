@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     postgres_db: str = "postgres"
     postgres_host: str = "localhost"
     postgres_port: int = 5432
+    postgres_ssl: bool = True
     gemini_api_key: str = ""
     openai_api_key: str = ""
     aws_access_key_id: str = ""
@@ -23,18 +24,20 @@ class Settings(BaseSettings):
 
     @property
     def db_config(self) -> dict:
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        return {
-            "host":        self.postgres_host,
-            "port":        self.postgres_port,
-            "database":    self.postgres_db,
-            "user":        self.postgres_user,
-            "password":    self.postgres_password,
-            "timeout":     10,
-            "ssl_context": ctx,
+        cfg: dict = {
+            "host":     self.postgres_host,
+            "port":     self.postgres_port,
+            "database": self.postgres_db,
+            "user":     self.postgres_user,
+            "password": self.postgres_password,
+            "timeout":  10,
         }
+        if self.postgres_ssl:
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            cfg["ssl_context"] = ctx
+        return cfg
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

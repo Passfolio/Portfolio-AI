@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import pickle
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 from rank_bm25 import BM25Okapi
 
 from app.core.config import get_settings
+from app.core.metrics import track_metrics
 
 # ───────────────────────────────────────────────────────────────
 # 상수
@@ -25,11 +27,14 @@ TOP_K_VECTOR = 10
 TOP_K_BM25   = 10
 TOP_K_FINAL  = 5
 
-_LLM_MODEL = "gemini-3-flash-preview"
+_LLM_MODEL = "gemini-3.1-flash-lite"
 
 OUTPUT_DIR          = Path(__file__).parent.parent.parent / "output"
 CL_BM25_PATH        = OUTPUT_DIR / "bm25_cover_letters.pkl"
 PORTFOLIO_BM25_PATH = OUTPUT_DIR / "bm25_portfolios.pkl"
+
+# BM25 인덱스 모듈 레벨 캐시 (첫 로드 후 재사용)
+_bm25_cache: dict = {}
 
 # ───────────────────────────────────────────────────────────────
 # 구조화 출력 Pydantic 스키마 (rag.py 원본)
@@ -183,6 +188,7 @@ def _cl_id_matches(id_: str, job: str | None, career: str | None) -> bool:
 # 임베딩
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def _embed_query(text: str) -> list[float]:
     """포트폴리오 쿼리 임베딩 — Gemini embedding-2 (1024차원)."""
     client = _get_gemini_client()
@@ -202,6 +208,30 @@ def _embed_query(text: str) -> list[float]:
 # BM25 검색
 # ───────────────────────────────────────────────────────────────
 
+_bm25_cache: dict[Path, dict] = {}
+
+_db_local = threading.local()
+
+
+def _get_conn() -> pg8000.Connection:
+    conn = getattr(_db_local, "conn", None)
+    if conn is None:
+        _db_local.conn = pg8000.connect(**get_settings().db_config)
+        return _db_local.conn
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        _db_local.conn = pg8000.connect(**get_settings().db_config)
+    return _db_local.conn
+
+
+@track_metrics
 def _bm25_search(
     query: str,
     bm25_path: Path,
@@ -210,8 +240,12 @@ def _bm25_search(
     job: str | None = None,
     career: str | None = None,
 ) -> list[tuple[str, float]]:
-    with open(bm25_path, "rb") as f:
-        data = pickle.load(f)
+    if bm25_path not in _bm25_cache:
+        if not Path(bm25_path).exists():
+            return []
+        with open(bm25_path, "rb") as f:
+            _bm25_cache[bm25_path] = pickle.load(f)
+    data = _bm25_cache[bm25_path]
     tokens = _tokenize_ko(query)
 
     sub_sections = data.get("sub_sections")
@@ -237,6 +271,7 @@ def _bm25_search(
 # 벡터 검색 (pgvector)
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def _vector_search(
     query_emb: list[float],
     table: str,
@@ -246,7 +281,7 @@ def _vector_search(
     career: str | None = None,
 ) -> list[tuple[str, float]]:
     emb_str = "[" + ",".join(str(x) for x in query_emb) + "]"
-    conn = pg8000.connect(**get_settings().db_config)
+    conn = _get_conn()
     cur  = conn.cursor()
 
     fetch_k = top_k * 3 if (job or career) and table == "cover_letter_chunks" else top_k
@@ -267,7 +302,6 @@ def _vector_search(
     cur.close()
     if (job or career) and table == "cover_letter_chunks":
         rows = [(id_, s) for id_, s in rows if _cl_id_matches(id_, job, career)]
-    conn.close()
     return rows
 
 
@@ -275,6 +309,7 @@ def _vector_search(
 # RRF 융합
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def _rrf_fusion(
     bm25_res:   list[tuple[str, float]],
     vector_res: list[tuple[str, float]],
@@ -292,17 +327,17 @@ def _rrf_fusion(
 # DB 청크 조회
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def _fetch_chunks(ids: list[str], table: str, cols: list[str]) -> list[dict]:
     if not ids:
         return []
     placeholders = ",".join(["%s"] * len(ids))
     col_str      = ", ".join(cols)
-    conn = pg8000.connect(**get_settings().db_config)
+    conn = _get_conn()
     cur  = conn.cursor()
     cur.execute(f"SELECT {col_str} FROM {table} WHERE id IN ({placeholders})", ids)
     rows       = [dict(zip(cols, row)) for row in cur.fetchall()]
     cur.close()
-    conn.close()
     id_to_row = {r["id"]: r for r in rows}
     return [id_to_row[id_] for id_ in ids if id_ in id_to_row]
 
@@ -333,6 +368,7 @@ def _get_gemini_client() -> _genai.Client:
     raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
 
 
+@track_metrics
 def _generate_with_retry(
     client: _genai.Client,
     model: str,
@@ -352,11 +388,11 @@ def _generate_with_retry(
             err = str(e)
             if attempt < max_attempts - 1 and ("429" in err or "quota" in err.lower()):
                 wait = 30 * (attempt + 1)
-                print(f"  [Gemini rate limit] {wait}초 대기 후 재시도 ({attempt + 1}/{max_attempts - 1})...")
+                print(f"  [Gemini 429 Rate Limit] model={model} attempt={attempt+1}/{max_attempts} → {wait}초 대기")
                 time.sleep(wait)
             elif attempt < max_attempts - 1 and ("503" in err or "500" in err):
                 wait = 10 * (attempt + 1)
-                print(f"  [Gemini 서버 오류] {wait}초 대기 후 재시도 ({attempt + 1}/{max_attempts - 1})...")
+                print(f"  [Gemini 503 서버오류] model={model} attempt={attempt+1}/{max_attempts} → {wait}초 대기")
                 time.sleep(wait)
             else:
                 raise
@@ -572,6 +608,7 @@ E. 직무연관성(10%): 직무 역량과 연결되는 경험임을 명시
 """
 
 
+@track_metrics
 def _generate_portfolio_section(
     cl_chunk: dict,
     refs: list[dict],

@@ -1,27 +1,21 @@
 """
 portfolio_chunker.py
 ────────────────────────────────────────────────────────────
-포트폴리오 PDF → 프로젝트 단위 청킹
+포트폴리오 PDF → 프로젝트 단위 청킹 (규칙 기반 1차 분할 + LLM 2차 메타 주입)
 
 파이프라인:
   PDF
-   └─ Upstage Document Parse API → 마크다운 + figure 요소(base64)
-       ├─ 텍스트 요소 → Gemini LLM (1-pass) → 섹션 분리 + 메타 추출
-       └─ figure 요소 → Gemini Vision → 이미지 유형 분류 + 캡션 생성
+   └─ Upstage Document Parse API → elements (구조화된 요소 배열) + figure 요소
+       ├─ 텍스트 요소 → 규칙 기반 알고리즘 (heading1 & page 전환점 기준 1차 청킹)
+       ├─ 1차 청크 리스트 → Gemini LLM (각 청크별 병렬/순차 분석) → 메타데이터 & 섹션 확정
+       └─ figure 요소 → Gemini Vision → 이미지 유형 분류 + 캡션 생성 (기존 유지)
            └─ 전체 청크 리스트 반환
-
-필요 환경변수:
-  UPSTAGE_API_KEY  — Document Parse (텍스트 추출)
-  GCP_PROJECT_ID   — Vertex AI (Gemini)
-  GCP_LOCATION     — Vertex AI 리전 (기본값: global)
-
-설치:
-  pip install requests google-genai pydantic python-dotenv
 """
 
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import html
 import json
 import os
@@ -74,24 +68,27 @@ def _call_with_retry(fn, retries: int, label: str):
         except Exception as e:
             err = str(e)
             is_rate_limit = "429" in err or "quota" in err.lower()
+            is_server_err = "503" in err or "500" in err
             is_last = attempt == retries - 1
-            if is_last or not is_rate_limit:
+            if is_last or (not is_rate_limit and not is_server_err):
                 raise
-            wait = (60 if is_rate_limit else 5) * (attempt + 1)
-            print(f"  [WARN] {label} 실패 ({err[:60]}). {wait}초 후 재시도...")
+            wait = (60 if is_rate_limit else 10) * (attempt + 1)
+            err_type = "429 Rate Limit" if is_rate_limit else "503 서버오류"
+            print(f"  [WARN] {label} {err_type} (attempt={attempt+1}/{retries}) → {wait}초 대기")
             time.sleep(wait)
 
 
 # ═══════════════════════════════════════════════════════════════
-# 1. Upstage Document Parse
+# 1. Upstage Document Parse & 규칙 기반 1차 청킹
 # ═══════════════════════════════════════════════════════════════
 
-def _parse_with_upstage(pdf_path: str) -> tuple[str, int, list[dict], dict[int, int]]:
-    """Upstage Document Parse API → (마크다운, 총 페이지 수, figure 목록, line_to_page).
+def _parse_and_rule_chunk_with_upstage(pdf_path: str) -> tuple[list[dict], int, list[dict]]:
+    """Upstage Document Parse API를 호출하고, elements 배열을 바탕으로 규칙 기반 1차 청킹을 수행합니다.
 
-    line_to_page: {줄 번호 → 페이지 번호} — 텍스트 청크의 page 필드 채우는 데 사용.
-    figure 목록: [{"id": str, "page": int, "image_b64": str}, ...]
-    elements 없으면 전체 markdown으로 폴백, figure/line_to_page는 빈값.
+    Returns:
+        intermediate_chunks: [{"suggested_title": str, "page": int, "raw_text": str}, ...]
+        total_pages: 총 페이지 수
+        figures: 이미지 요소 리스트
     """
     api_key = os.getenv("UPSTAGE_API_KEY")
     if not api_key:
@@ -117,61 +114,95 @@ def _parse_with_upstage(pdf_path: str) -> tuple[str, int, list[dict], dict[int, 
     elements = data.get("elements", [])
 
     if not elements:
+        # elements가 없을 경우의 Fallback 처리
         content  = data.get("content", {})
-        markdown = (
-            content.get("markdown")
-            or content.get("html")
-            or content.get("text")
-            or str(content)
-        )
-        return markdown, 0, [], {}
+        markdown = content.get("markdown") or content.get("html") or content.get("text") or str(content)
+        fallback_chunk = [{
+            "suggested_title": "전체 본문 (Fallback)",
+            "page": 1,
+            "raw_text": markdown
+        }]
+        return fallback_chunk, 0, []
 
     total_pages = max((el.get("page", 0) for el in elements), default=0)
-    parts: list[str]    = []
+    
+    intermediate_chunks: list[dict] = []
     figures: list[dict] = []
-    fig_count  = 0
-    cur_line   = 1
-    line_to_page: dict[int, int] = {}
+    
+    current_title = "시작"
+    current_page = 1
+    current_parts = []
+    fig_count = 0
 
     for el in elements:
-        if el.get("category") not in _UPSTAGE_FIGURE_CATEGORIES:
-            md = el.get("content", {}).get("markdown", "").strip()
-            if md:
-                page       = el.get("page", 0)
-                el_lines   = md.count("\n") + 1
-                for ln in range(cur_line, cur_line + el_lines):
-                    line_to_page[ln] = page
-                cur_line += el_lines + 1  # +1: \n\n 구분자로 생기는 빈 줄
-                parts.append(md)
-        else:
+        category = el.get("category")
+        page = el.get("page", 1)
+        
+        # 이미지 요소 분리
+        if category in _UPSTAGE_FIGURE_CATEGORIES:
             fig_count += 1
             image_b64 = el.get("base64_encoding")
             if image_b64:
                 figures.append({
                     "id":        el.get("id", f"fig_{fig_count}"),
-                    "page":      el.get("page", 0),
+                    "page":      page,
                     "image_b64": image_b64,
                 })
+            continue
+
+        md = el.get("content", {}).get("markdown", "").strip()
+        if not md:
+            continue
+
+        # [규칙 기반 분할 트리거]
+        # 1. heading1(대제목)을 만나거나 
+        # 2. PPT 슬라이드가 바뀔 때 (포트폴리오는 페이지 전환이 문맥 전환인 경우가 많음)
+        is_new_heading = category in ("heading1", "heading2") and len(md) < 100
+        is_page_changed = page != current_page
+
+        if (is_new_heading or is_page_changed) and current_parts:
+            # 기존까지 모인 텍스트를 하나의 중간 청크로 빌드
+            combined_text = "\n\n".join(current_parts).strip()
+            if len(combined_text) >= MIN_CHUNK_CHARS:
+                intermediate_chunks.append({
+                    "suggested_title": current_title,
+                    "page": current_page,
+                    "raw_text": combined_text
+                })
+            current_parts = []
+            if is_new_heading:
+                current_title = md
+
+        current_page = page
+        current_parts.append(md)
+
+    # 마지막 잔여 블록 처리
+    if current_parts:
+        combined_text = "\n\n".join(current_parts).strip()
+        if len(combined_text) >= MIN_CHUNK_CHARS:
+            intermediate_chunks.append({
+                "suggested_title": current_title,
+                "page": current_page,
+                "raw_text": combined_text
+            })
 
     if fig_count:
         print(f"  [Upstage] figure {fig_count}개 감지 → base64 확보 {len(figures)}개")
 
-    return "\n\n".join(parts), total_pages, figures, line_to_page
+    return intermediate_chunks, total_pages, figures
 
 
 # ═══════════════════════════════════════════════════════════════
 # 2. 텍스트 후처리
 # ═══════════════════════════════════════════════════════════════
 
-_RE_IMAGE_TAG    = re.compile(r"<!--\s*image\s*-->", re.I)
+_RE_IMAGE_TAG    = re.compile(r"", re.I)
 _RE_BLANK_LINES  = re.compile(r"\n{3,}")
 _RE_MD_IMAGE     = re.compile(r'!\[.*?\]\([^)]*\)')
 _RE_HTML_IMG     = re.compile(r'<img\b[^>]*/?>', re.I)
 _RE_FIGURE_TAG   = re.compile(r'<figure\b[^>]*>.*?</figure>', re.I | re.S)
 _RE_CTRL_CHARS   = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
-# Upstage가 차트 이미지를 텍스트로 변환할 때 생기는 노이즈
 _RE_CHART_META   = re.compile(r'^(Chart Type|Chart Title|X-Axis|Y-Axis)\s*:.*$', re.M)
-# OCR 레이아웃 노이즈: 글자 사이 과도한 공백 (예: "P A R K")
 _RE_SPACED_CHARS = re.compile(r'(?<=[A-Za-z가-힣])\s{2,}(?=[A-Za-z가-힣])')
 
 
@@ -195,7 +226,6 @@ def _clean_text(text: str) -> str:
 def _split_oversized(chunk: dict) -> list[dict]:
     """MAX_CHUNK_CHARS 초과 청크를 단락 단위로 재분할.
 
-    \\n\\n → \\n → 문장 끝 순으로 경계를 찾고 MAX_CHUNK_CHARS 이하로 묶는다.
     분할 시 sub_section에 _0, _1, ... 접미사를 붙인다.
     """
     text = chunk["text"]
@@ -244,7 +274,7 @@ def _split_oversized(chunk: dict) -> list[dict]:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 4. Gemini Vision — figure 분류 + 캡션 (1-pass)
+# 4. Gemini Vision — figure 분류 + 캡션 (기존 유지)
 # ═══════════════════════════════════════════════════════════════
 
 _FIGURE_PROMPT = """\
@@ -273,7 +303,6 @@ CAPTION: {캡션}
 
 
 def _detect_mime_type(image_b64: str) -> str:
-    """base64 앞 4자로 이미지 포맷 판별 (magic bytes)."""
     if image_b64.startswith("/9j/"):   return "image/jpeg"
     if image_b64.startswith("iVBOR"): return "image/png"
     if image_b64.startswith("R0lG"):  return "image/gif"
@@ -282,9 +311,8 @@ def _detect_mime_type(image_b64: str) -> str:
 
 
 def _parse_figure_response(raw: str) -> tuple[str, str]:
-    """Gemini Vision 응답 텍스트 → (img_type, caption) 파싱."""
     img_type = "other"
-    caption  = raw  # 파싱 실패 시 전체를 캡션으로
+    caption  = raw
     for line in raw.splitlines():
         if line.startswith("TYPE:"):
             img_type = line.split(":", 1)[1].strip().lower()
@@ -294,12 +322,6 @@ def _parse_figure_response(raw: str) -> tuple[str, str]:
 
 
 def _caption_figure(image_b64: str, client: _genai.Client) -> tuple[str, str]:
-    """Gemini Vision으로 이미지 유형 분류 + 캡션 생성.
-
-    Returns:
-        (image_type, caption)
-        image_type: architecture | erd | ui | chart | code_image | other
-    """
     mime_type = _detect_mime_type(image_b64)
 
     def _call():
@@ -319,7 +341,6 @@ def _caption_figure(image_b64: str, client: _genai.Client) -> tuple[str, str]:
 
 
 def _resolve_figure_project(fig_page: int, text_chunks: list[dict]) -> str:
-    """figure의 페이지 번호로 가장 가까운 텍스트 청크의 project 값을 매핑."""
     best_project = ""
     best_dist    = float("inf")
     for c in text_chunks:
@@ -340,7 +361,6 @@ def _cache_path(source: str) -> Path:
 
 
 def _load_caption_cache(source: str) -> dict[str, dict] | None:
-    """캐시 파일이 있으면 {fig_id: {img_type, caption, page, project, image_path}} 반환."""
     path = _cache_path(source)
     if path.exists():
         with open(path, encoding="utf-8") as f:
@@ -360,11 +380,6 @@ def _build_figure_chunks(
     client: _genai.Client,
     text_chunks: list[dict],
 ) -> list[dict]:
-    """figure 요소 리스트 → 이미지 저장 + Gemini Vision 캡션 생성 → 청크 리스트 반환.
-
-    캡션은 output/caption_cache/{source}_image_captions.json에 캐싱되며,
-    재실행 시 캐시가 있는 figure는 Vision API 호출을 건너뜁니다.
-    """
     img_dir = Path(__file__).parent.parent / "output" / "images" / source
     img_dir.mkdir(parents=True, exist_ok=True)
 
@@ -375,7 +390,7 @@ def _build_figure_chunks(
 
     chunks: list[dict] = []
     total    = len(figures)
-    modified = False  # 새 캡션이 생성됐을 때만 캐시 저장
+    modified = False
 
     for i, fig in enumerate(figures, 1):
         try:
@@ -402,7 +417,6 @@ def _build_figure_chunks(
                 print(f"  [figure {i}/{total}] page={fig['page']} type={img_type} project={project or '?'} → {len(caption)}자")
 
             if len(caption) < MIN_CHUNK_CHARS:
-                print(f"  [figure {i}/{total}] page={fig['page']} → 캡션 너무 짧음, 스킵")
                 continue
 
             base_chunk = {
@@ -428,13 +442,12 @@ def _build_figure_chunks(
 
     if modified:
         _save_caption_cache(source, cache)
-        print(f"  [캡션 캐시] 저장 완료 → {_cache_path(source)}")
 
     return chunks
 
 
 # ═══════════════════════════════════════════════════════════════
-# 5. Gemini LLM — 섹션 분리 + 메타 추출 (1-pass)
+# 5. Gemini LLM — 1차 청크에 대한 메타데이터 주입 (Sequential Map)
 # ═══════════════════════════════════════════════════════════════
 
 class _Meta(BaseModel):
@@ -447,86 +460,57 @@ class _Meta(BaseModel):
     keywords:      list[str]
 
 
-class _Section(BaseModel):
-    section:     str
-    project:     str
-    sub_section: str  # 프로젝트경험: "개요"/"개발"/"이슈"/"성과" / 나머지: ""
-    start_line:  int
-    end_line:    int
+class _ChunkAnalysis(BaseModel):
+    section:     str  # 프로젝트경험, 기술스택, 자기소개, 경력, 기타
+    project:     str  # 프로젝트 이름 (없으면 "")
+    sub_section: str  # 프로젝트경험일 때: 개요, 개발, 이슈, 성과 / 나머지: ""
     meta:        _Meta
 
 
-class _SectionList(BaseModel):
-    sections: list[_Section]
+_CHUNK_ANALYSIS_PROMPT = """\
+주어진 텍스트 청크를 분석하여 문서 구조 정보와 핵심 메타데이터를 추출해주세요.
 
-
-_SECTION_SPLIT_PROMPT = """\
-다음은 포트폴리오 PDF에서 추출한 마크다운입니다. 각 줄 앞에 줄 번호가 붙어 있습니다.
-이 텍스트를 읽고 섹션/서브섹션 단위로 분리하고, 각 섹션의 메타데이터도 함께 추출해주세요.
+[분석 대상 청크 정보]
+- 추정 제목: {suggested_title}
+- 해당 페이지: {page}
+- 본문 내용:
+{text}
 
 [section 선택 기준]
-- 프로젝트경험: 개발/기획/디자인 등 프로젝트 경험
-- 기술스택: 보유 기술, 언어, 프레임워크 목록
-- 자기소개: 프로필, 소개, 목표
-- 경력: 인턴, 직장, 대외활동, 수상
-- 기타: 위에 해당하지 않는 내용
+- 프로젝트경험, 기술스택, 자기소개, 경력, 기타 중 하나 선택
 
-[분리 기준]
-- section이 프로젝트경험이면 각 프로젝트를 sub_section 단위로 세분화 (아래 참고)
-- 요약 슬라이드와 상세 슬라이드가 같은 프로젝트면 상세 내용을 기준으로 sub_section 분리
-- start_line과 end_line은 실제 줄 번호(1~{total_lines})여야 하며 누락 없이 커버
-- 모든 줄은 정확히 하나의 섹션에 속해야 합니다
-
-[프로젝트경험 sub_section 분리 기준]
+[프로젝트경험 sub_section 분류 기준]
 - "개요": 프로젝트 개요, 기술스택, 아키텍처, 핵심 요구사항
 - "개발": 핵심 개발사항, 주요 구현 내용
 - "이슈": 주요 이슈 & 해결, 트러블슈팅 경험
 - "성과": 성과, 설계 원칙, 배운 점
-- 위 내용이 없는 sub_section은 생략
-- 프로젝트경험 외 section은 sub_section을 빈 문자열("")로 설정
+- 프로젝트경험 외 section은 반드시 빈 문자열("")로 설정
 
-[meta 추출 기준] — 프로젝트경험일 때 모든 sub_section에 동일 값, 나머지는 str→"" / list→[]
+[meta 추출 기준] — 프로젝트경험일 때 기술하고, 나머지는 str->"" / list->[] 처리
 - period:        "YYYY.MM ~ YYYY.MM" 형식으로 정제. 없으면 ""
 - role:          역할/담당 설명을 간결하게. 없으면 ""
-- team:          명시된 경우만 기재 (예: "4인 팀"). 없으면 반드시 ""
-- tech_stack:    언어·프레임워크·라이브러리·인프라·툴. 없으면 []
-- contributions: 수치 없이 본인 역할·구현·설계 내용을 "~구현", "~개발" 형태로. 없으면 []
-- achievements:  수치 포함 성과 또는 명확한 결과. contributions와 중복 금지. 없으면 []
-- keywords:      기술·직무·도메인 키워드 중복 없이. 없으면 []
-
-마크다운:
-{numbered_md}
+- team:          명시된 경우만 기재 (예: "4인 팀"). 없으면 ""
+- tech_stack:    언어·프레임워크·라이브러리·툴 목록. 없으면 []
+- contributions: 본인의 구현·설계 내용을 "~구현", "~개발" 형태로. 없으면 []
+- achievements:  수치 포함 성과 또는 명확한 결과물. 없으면 []
+- keywords:      핵심 기술/도메인 키워드. 없으면 []
 """
 
-_SECTION_SPLIT_SYSTEM = (
-    "당신은 포트폴리오 문서 구조 분석 전문가입니다. "
-    "줄 번호가 붙은 마크다운을 읽고 섹션 경계(start_line, end_line)와 "
-    "메타데이터를 정확히 추출합니다. "
-    "텍스트를 복사하지 말고 줄 번호와 정제된 메타값만 반환하세요."
+_CHUNK_ANALYSIS_SYSTEM = (
+    "당신은 IT 포트폴리오 구조화 전문가입니다. "
+    "주어진 단일 청크의 텍스트를 파악해 올바른 섹션 분류와 JSON 메타데이터를 채워 반환해야 합니다. "
+    "본문에 명시되지 않은 정보는 지어내지 말고 공백이나 빈 배열로 두십시오."
 )
 
 
-def _number_lines(markdown: str) -> tuple[str, list[str]]:
-    lines    = markdown.split("\n")
-    numbered = "\n".join(f"{i + 1:04d} | {line}" for i, line in enumerate(lines))
-    return numbered, lines
-
-
-def _slice_lines(lines: list[str], start: int, end: int) -> str:
-    return "\n".join(lines[max(0, start - 1):min(len(lines), end)]).strip()
-
-
-def _gemini_split_sections(
-    markdown: str,
-    source: str,
-    client: _genai.Client,
-    line_to_page: dict[int, int],
-) -> list[dict]:
-    """Gemini로 포트폴리오 마크다운을 섹션 단위로 분리하고 메타 추출 (1-pass)."""
-    numbered_md, raw_lines = _number_lines(markdown)
-    prompt = _SECTION_SPLIT_PROMPT.format(
-        total_lines=len(raw_lines),
-        numbered_md=numbered_md,
+def _analyze_chunk_meta(chunk_info: dict, client: _genai.Client) -> dict | None:
+    """규칙 파싱된 단일 청크를 LLM에 전달하여 고도로 구조화된 메타데이터를 동적으로 주입합니다."""
+    text_content = chunk_info["raw_text"]
+    
+    prompt = _CHUNK_ANALYSIS_PROMPT.format(
+        suggested_title=chunk_info["suggested_title"],
+        page=chunk_info["page"],
+        text=text_content
     )
 
     def _call():
@@ -534,47 +518,41 @@ def _gemini_split_sections(
             model=LLM_MODEL,
             contents=prompt,
             config=_types.GenerateContentConfig(
-                system_instruction=_SECTION_SPLIT_SYSTEM,
+                system_instruction=_CHUNK_ANALYSIS_SYSTEM,
                 response_mime_type="application/json",
-                response_schema=_SectionList,
+                response_schema=_ChunkAnalysis,
                 temperature=0,
             ),
         )
         return json.loads(response.text)
 
-    data = _call_with_retry(_call, retries=LLM_RETRIES, label="LLM 섹션 분리")
+    try:
+        analysis = _call_with_retry(_call, retries=LLM_RETRIES, label=f"청크 분석(p.{chunk_info['page']})")
+    except Exception as e:
+        print(f"  [ERROR] 청크 메타 주입 실패 (p.{chunk_info['page']}): {e}")
+        return None
 
-    chunks: list[dict] = []
-    for item in data["sections"]:
-        start = int(item["start_line"])
-        raw   = _slice_lines(raw_lines, start, int(item["end_line"]))
-        text  = _clean_text(raw)
+    cleaned_text = _clean_text(text_content)
+    if len(cleaned_text) < MIN_CHUNK_CHARS:
+        return None
 
-        if len(text) < MIN_CHUNK_CHARS:
-            continue
+    meta_raw: dict = analysis.get("meta", {})
+    meta = {
+        k: v for k, v in meta_raw.items()
+        if (isinstance(v, str) and v.strip()) or (isinstance(v, list) and v)
+    }
 
-        meta_raw: dict = item.get("meta", {})
-        meta = {
-            k: v for k, v in meta_raw.items()
-            if (isinstance(v, str) and v.strip()) or (isinstance(v, list) and v)
-        }
-
-        base_chunk = {
-            "source":            source,
-            "doc_type":          "portfolio",
-            "section":           item["section"],
-            "project":           item["project"],
-            "sub_section":       item.get("sub_section", ""),
-            "page":              line_to_page.get(start, 0),
-            "text":              text,
-            "context":           "",
-            "text_with_context": "",
-            "meta":              meta,
-            "char_count":        len(text),
-        }
-        chunks.extend(_split_oversized(base_chunk))
-
-    return chunks
+    return {
+        "section":           analysis.get("section", "기타"),
+        "project":           analysis.get("project", ""),
+        "sub_section":       analysis.get("sub_section", ""),
+        "page":              chunk_info["page"],
+        "text":              cleaned_text,
+        "context":           "",
+        "text_with_context": "",
+        "meta":              meta,
+        "char_count":        len(cleaned_text),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -582,58 +560,84 @@ def _gemini_split_sections(
 # ═══════════════════════════════════════════════════════════════
 
 def chunk(pdf_path: str) -> list[dict]:
-    """PDF → Upstage Document Parse → 텍스트 청크 + figure 캡션 청크 반환."""
+    """PDF → Upstage 규칙 기반 1차 분할 → 개별 청크 LLM 메타 주입 → Figure 결합 파이프라인."""
     source = Path(pdf_path).stem
-    print(f"[Upstage] Document Parse: {Path(pdf_path).name}")
+    print(f"[시작] 하이브리드 파이프라인 프로세싱: {Path(pdf_path).name}")
 
-    markdown, total_pages, figures, line_to_page = _parse_with_upstage(pdf_path)
+    # 1. 규칙 기반 1차 분할 수행
+    t0 = time.time()
+    intermediate_chunks, total_pages, figures = _parse_and_rule_chunk_with_upstage(pdf_path)
+    print(f"  [완료] 1차 규칙 분할 ({time.time() - t0:.1f}s) -> 생성된 중간 블록: {len(intermediate_chunks)}개")
 
-    if not markdown.strip() and not figures:
+    if not intermediate_chunks and not figures:
         return []
 
-    page_info = f"총 {total_pages}페이지 / " if total_pages else ""
-    print(f"  마크다운 추출 완료 ({page_info}{len(markdown)}자)")
-
     client = _get_gemini_client()
-
-    # ── 텍스트 청크
     text_chunks: list[dict] = []
-    if markdown.strip():
-        print("  → Gemini LLM 섹션 분리 중...")
-        text_chunks = _gemini_split_sections(markdown, source, client, line_to_page)
-        print(f"  텍스트 청크 {len(text_chunks)}개 생성")
 
-    # ── figure 캡션 청크
+    # 2. 중간 청크마다 2차 병렬 LLM 메타 주입
+    if intermediate_chunks:
+        print(f"  → 개별 청크별 메타데이터 병렬 주입 시작... ({len(intermediate_chunks)}개)")
+        t1 = time.time()
+
+        total = len(intermediate_chunks)
+
+        def _analyze(args: tuple) -> dict | None:
+            idx, inter_chunk = args
+            print(f"  [LLM {idx}/{total}] p.{inter_chunk['page']} 「{inter_chunk['suggested_title'][:30]}」 분석 중...")
+            analyzed = _analyze_chunk_meta(inter_chunk, client)
+            if analyzed:
+                analyzed["source"] = source
+                analyzed["doc_type"] = "portfolio"
+                print(f"  [LLM {idx}/{total}] 완료 → section={analyzed['section']} project={analyzed['project'][:20] or '-'}")
+            return analyzed
+
+        max_workers = min(3, len(intermediate_chunks))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_analyze, (i, c)) for i, c in enumerate(intermediate_chunks, 1)]
+            results = [f.result() for f in futures]
+
+        for analyzed in results:
+            if analyzed:
+                text_chunks.extend(_split_oversized(analyzed))
+
+        print(f"  [완료] LLM 메타 주입 완료 ({time.time() - t1:.1f}s) -> 텍스트 청크 {len(text_chunks)}개 확정")
+
+    # 4. 이미지 캡션 및 인접 프로젝트 바인딩 (기존 메커니즘 유지)
     img_chunks: list[dict] = []
     if figures:
-        print(f"  → Gemini Vision figure 캡션 생성 중... ({len(figures)}개)")
+        print(f"  → Gemini Vision figure 캡션 프로세싱 ({len(figures)}개)...")
+        t2 = time.time()
         img_chunks = _build_figure_chunks(figures, source, client, text_chunks)
-        print(f"  이미지 청크 {len(img_chunks)}개 생성")
+        print(f"  [완료] Vision 처리 완료 ({time.time() - t2:.1f}s) -> 이미지 청크 {len(img_chunks)}개 생성")
 
+    # 최종 병합 및 고유 ID 부여
     total = text_chunks + img_chunks
     for i, c in enumerate(total):
         c["id"] = f"{source}_{i:03d}"
 
-    print(f"  최종 청크 합계: {len(total)}개 (텍스트 {len(text_chunks)} + 이미지 {len(img_chunks)})")
+    print(f"  [최종] 파이프라인 종료: 총 {len(total)}개 청크 (텍스트 {len(text_chunks)} + 이미지 {len(img_chunks)})")
     return total
 
 
 def get_markdown(pdf_path: str) -> str:
-    """PDF를 마크다운 문자열로 변환 (디버깅용)."""
-    markdown, total_pages, figures, _ = _parse_with_upstage(pdf_path)
-    if total_pages:
-        print(f"총 {total_pages}페이지")
-    if figures:
-        print(f"figure {len(figures)}개 감지 (캡션 생성 안 함 — raw 모드)")
-    return markdown
+    """기존 raw 디버깅 호환성 유지용"""
+    api_key = os.getenv("UPSTAGE_API_KEY")
+    with open(pdf_path, "rb") as f:
+        resp = requests.post(
+            "https://api.upstage.ai/v1/document-digitization",
+            headers={"Authorization": f"Bearer {api_key}"},
+            files={"document": (Path(pdf_path).name, f, "application/pdf")},
+            data={"model": "document-parse", "output_formats": '["markdown"]'},
+        )
+    return resp.json().get("content", {}).get("markdown", "")
 
 
 # ═══════════════════════════════════════════════════════════════
-# 7. CLI
+# 7. CLI Output 뷰어 (기존 유지)
 # ═══════════════════════════════════════════════════════════════
 
 def _write_chunks_md(results: list[dict], pdf_stem: str) -> Path:
-    """청크 결과를 마크다운 파일로 저장하고 경로 반환."""
     output_dir = Path(__file__).parent.parent / "output"
     output_dir.mkdir(exist_ok=True)
     md_path = output_dir / f"{pdf_stem}_chunks.md"

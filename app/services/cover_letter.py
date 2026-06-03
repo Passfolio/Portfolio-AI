@@ -1,6 +1,7 @@
 """자소서 관련 RAG 서비스 함수 + BackgroundTask 래퍼."""
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 from typing import TYPE_CHECKING
 
@@ -8,6 +9,8 @@ from google.genai import types as _genai_types
 
 if TYPE_CHECKING:
     from google import genai as _genai
+
+from app.core.metrics import track_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +140,7 @@ _CL_GEN_WRITING_METHOD = """\
 # 내부 helper: 자소서 텍스트 개선
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def _improve_cover_letter_text(
     query: str,
     top_k: int = TOP_K_FINAL,
@@ -248,6 +252,7 @@ def _improve_cover_letter_text(
 # RAG-1: 자소서 PDF → 섹션별 개선 (코드 분석 선택적)
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def run_cover_letter_from_pdf(
     pdf_s3_url: str,
     user_id: int | None = None,
@@ -324,6 +329,7 @@ def _select_portfolio_chunks(
     return [text_chunks[i] for i in top_idx if scores[i] > 0]
 
 
+@track_metrics
 def generate_cl_section(
     section_def: dict,
     portfolio_chunks: list[dict],
@@ -417,6 +423,7 @@ def generate_cl_section(
 # RAG-3: 포트폴리오 PDF → 자소서 생성
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, top_k: int = TOP_K_FINAL, job: str | None = None, career: str | None = None) -> dict:
     from app.chunkers.portfolio import chunk
     from app.evaluators.cover_letter import evaluate
@@ -439,27 +446,24 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
                 img_ctx_by_project[proj] + f"\n{entry}" if proj in img_ctx_by_project else entry
             )
 
-        client        = _get_gemini_client()
-        results       = []
-        used_projects: list[str] = []
+        client  = _get_gemini_client()
+        total_sec = len(_CL_GEN_SECTIONS)
 
-        for idx, sec_def in enumerate(_CL_GEN_SECTIONS):
-            logger.info("[RAG-3] [%d/%d] 섹션 생성: %s", idx + 1, len(_CL_GEN_SECTIONS), sec_def["label"])
+        def _process_section(args: tuple) -> dict:
+            idx, sec_def = args
+            logger.info("[RAG-3] [%d/%d] 섹션 생성: %s", idx, total_sec, sec_def["label"])
             generated = generate_cl_section(
                 sec_def, text_chunks, client, top_k=top_k,
-                used_projects=used_projects or None,
                 img_ctx_by_project=img_ctx_by_project or None,
                 job=job, career=career,
             )
-            if generated.get("top_project"):
-                used_projects.append(generated["top_project"])
-
             eval_result = evaluate(
                 generated["text"],
                 char_limit=sec_def["char_limit"],
                 question=sec_def["question"],
             )
-            results.append({
+            logger.info("[RAG-3] [%d/%d] 섹션 완료: %s (%d자)", idx, total_sec, sec_def["label"], len(generated["text"]))
+            return {
                 "label":      generated["label"],
                 "question":   generated["question"],
                 "text":       generated["text"],
@@ -468,7 +472,12 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
                     "weighted": eval_result["weighted"],
                     "llm":      eval_result["llm"],
                 },
-            })
+            }
+
+        max_workers = min(4, total_sec)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(_process_section, (i + 1, sec)) for i, sec in enumerate(_CL_GEN_SECTIONS)]
+            results = [f.result() for f in futures]
 
         logger.info("[RAG-3] PDF 생성 중...")
         save_pdf(results, out_pdf)
@@ -482,6 +491,7 @@ def run_portfolio_to_cover_letter(pdf_s3_url: str, user_id: int | None = None, t
 # RAG-2: 자소서 PDF → 포트폴리오 생성
 # ───────────────────────────────────────────────────────────────
 
+@track_metrics
 def run_cover_letter_to_portfolio(
     pdf_s3_url: str,
     user_id: int | None = None,
@@ -502,7 +512,7 @@ def run_cover_letter_to_portfolio(
 
         logger.info("[RAG-2] 자소서 청킹 중...")
         chunks = cl_chunker.chunk(text, "cover_letter")
-        logger.info("[RAG-2] 청킹 완료: %d개 청크 (코드분석: %s)", len(chunks), "있음" if code_analysis else "없음")
+        logger.info("[RAG-2] 청킹 완료: %d개 청크 (코드분석: %s)", len(chunks), "있음" if code_analyses else "없음")
 
         _EXCLUDE_CATEGORIES = {"지원동기", "입사포부", "취미", "사회이슈"}
         cats_found = [c.get("category", "") for c in chunks]
