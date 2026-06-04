@@ -11,7 +11,7 @@ import anyio
 from app.services.roadmap import rule_filter, llm_analyzer, market_tier, market_loader
 from app.services.roadmap_merger import run_merged
 from app.services._rag_utils import _fetch_code_analysis as _fetch_project
-from app.services.webhook import notify_be
+from app.services.webhook import notify_be_roadmap
 from app.jobs.store import JobStatus, update_job
 
 logger = logging.getLogger(__name__)
@@ -197,7 +197,9 @@ async def run_assess_task(
         logger.error("[로드맵] 평가 태스크 실패: %s", e)
         update_job(job_id, JobStatus.ERROR, message=error_message)
     finally:
+        # 로드맵은 PDF가 없으므로 공용 notify_be(/jobs/complete) 대신 result를 싣는
+        # notify_be_roadmap(/roadmap/complete)으로 콜백한다(성공 시 result, 실패 시 None→ERROR).
         try:
-            await notify_be(ai_job_id=ai_job_id, output_pdf_url=None, error_message=error_message)
+            await notify_be_roadmap(ai_job_id=ai_job_id, result=results, error_message=error_message)
         except Exception as webhook_err:
-            logger.warning("[Webhook] 콜백 실패 (결과는 저장됨): %s", webhook_err)
+            logger.warning("[Webhook] 로드맵 콜백 실패 (결과는 저장됨): %s", webhook_err)
