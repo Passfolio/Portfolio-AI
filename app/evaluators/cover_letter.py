@@ -20,7 +20,7 @@ from app.core.metrics import track_metrics
 
 
 # ─── 설정 ─────────────────────────────────────────────────────────────────────
-MODEL   = "gemini-3-flash-preview"
+MODEL   = "gemini-3.1-flash-lite"
 WEIGHTS = {"A": 0.20, "B": 0.40, "C": 0.25, "D": 0.15}
 LABELS  = {"A": "지원동기", "B": "직무역량", "C": "인재상", "D": "작성품질"}
 

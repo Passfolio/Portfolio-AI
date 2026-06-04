@@ -22,7 +22,7 @@ from app.core.metrics import track_metrics
 # 설정
 # ═══════════════════════════════════════════════════════════════
 
-MODEL   = "gemini-3-flash-preview"
+MODEL   = "gemini-3.1-flash-lite"
 WEIGHTS = {"A": 0.35, "B": 0.25, "C": 0.20, "D": 0.10, "E": 0.10}
 LABELS  = {
     "A": "과정/판단력",

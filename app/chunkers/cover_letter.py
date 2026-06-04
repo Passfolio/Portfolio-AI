@@ -40,7 +40,7 @@ def _get_gemini_client() -> _genai.Client:
 # ═══════════════════════════════════════════════════════════════
 
 MIN_CHUNK_CHARS  = 50
-_LLM_MODEL       = "gemini-3-flash-preview"
+_LLM_MODEL       = "gemini-3.1-flash-lite"
 _LLM_RETRIES     = 3
 _VALIDATE_RETRIES = 2          # 경계 검증 실패 시 재시도 횟수
 
