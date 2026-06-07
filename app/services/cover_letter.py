@@ -27,6 +27,8 @@ from app.services._rag_utils import (
     _ImprovedResult,
     _LLM_MODEL,
     _bm25_search,
+    _code_analyses_to_cl_chunks,
+    _code_analyses_to_portfolio_chunks,
     _embed_query,
     _fetch_chunks,
     _fetch_code_analyses,
@@ -605,52 +607,236 @@ def run_cover_letter_to_portfolio(
 
 async def run_cover_letter_from_pdf_task(
     job_id: str,
-    pdf_s3_url: str,
+    pdf_s3_url: str | None = None,
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
     use_rag: bool = True,
     job: str | None = None,
     career: str | None = None,
+    code_analysis_urls: list[str] = [],
 ) -> None:
-    await run_job_pipeline(
-        job_id,
-        lambda: run_cover_letter_from_pdf(
-            pdf_s3_url, user_id=user_id, top_k=top_k, use_rag=use_rag,
-            job=job, career=career,
-        ),
-        tag="RAG-1",
-    )
+    if not pdf_s3_url and code_analysis_urls:
+        code_analyses = _fetch_code_analyses(code_analysis_urls)
+        await run_job_pipeline(
+            job_id,
+            lambda: run_code_analysis_to_cover_letter(
+                code_analyses, job=job, career=career, top_k=top_k,
+            ),
+            tag="RAG-4",
+        )
+    else:
+        await run_job_pipeline(
+            job_id,
+            lambda: run_cover_letter_from_pdf(
+                pdf_s3_url, user_id=user_id, top_k=top_k, use_rag=use_rag,
+                job=job, career=career,
+            ),
+            tag="RAG-1",
+        )
 
 
 async def run_cover_letter_to_portfolio_task(
     job_id: str,
-    pdf_s3_url: str,
+    pdf_s3_url: str | None = None,
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
     job: str | None = None,
     career: str | None = None,
     code_analysis_urls: list[str] = [],
 ) -> None:
-    await run_job_pipeline(
-        job_id,
-        lambda: run_cover_letter_to_portfolio(
-            pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career,
-            code_analyses=_fetch_code_analyses(code_analysis_urls),
-        ),
-        tag="RAG-2",
-    )
+    code_analyses = _fetch_code_analyses(code_analysis_urls)
+    if not pdf_s3_url and code_analyses:
+        await run_job_pipeline(
+            job_id,
+            lambda: run_code_analysis_to_portfolio(
+                code_analyses, job=job, career=career, top_k=top_k,
+            ),
+            tag="RAG-5",
+        )
+    else:
+        await run_job_pipeline(
+            job_id,
+            lambda: run_cover_letter_to_portfolio(
+                pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career,
+                code_analyses=code_analyses,
+            ),
+            tag="RAG-2",
+        )
+
+
+# ───────────────────────────────────────────────────────────────
+# RAG-4: 코드분석 → 자소서 생성 (직무역량 + 문제해결경험)
+# ───────────────────────────────────────────────────────────────
+
+_CODE_BASED_SECTION_LABELS = {"직무역량", "문제해결경험"}
+_CODE_BASED_CL_SECTIONS    = [s for s in _CL_GEN_SECTIONS if s["label"] in _CODE_BASED_SECTION_LABELS]
+
+
+@track_metrics
+def run_code_analysis_to_cover_letter(
+    code_analyses: list[dict],
+    job: str | None = None,
+    career: str | None = None,
+    top_k: int = TOP_K_FINAL,
+    out_pdf: str | None = None,
+) -> dict:
+    """코드분석 JSON list → 직무역량 + 문제해결경험 자소서 섹션 생성.
+
+    job: 백엔드 / 프론트엔드 / 풀스택 — cover_letter_chunks DB 필터링에 사용
+    career: 미드레벨(3~5년) 등 — 동일 목적
+    out_pdf: 지정 시 해당 경로에 PDF 저장
+    """
+    from app.evaluators.cover_letter import evaluate
+    from app.exporters.cover_letter_pdf import save_pdf
+
+    portfolio_chunks = _code_analyses_to_portfolio_chunks(code_analyses)
+    if not portfolio_chunks:
+        raise ValueError("코드분석에서 변환된 청크가 없습니다. code_analyses를 확인하세요.")
+
+    logger.info("[RAG-4] 코드분석 %d개 → %d개 portfolio_chunks 변환 완료", len(code_analyses), len(portfolio_chunks))
+    logger.info("[RAG-4] 섹션 생성 시작: %s", [s["label"] for s in _CODE_BASED_CL_SECTIONS])
+
+    client        = _get_gemini_client()
+    total_sec     = len(_CODE_BASED_CL_SECTIONS)
+    results: list[dict] = []
+    used_projects: list[str] = []
+
+    for idx, sec_def in enumerate(_CODE_BASED_CL_SECTIONS, 1):
+        logger.info("[RAG-4] [%d/%d] 섹션 생성: %s", idx, total_sec, sec_def["label"])
+        generated = generate_cl_section(
+            sec_def, portfolio_chunks, client,
+            top_k=top_k, job=job, career=career,
+            used_projects=used_projects or None,
+        )
+        top_proj = generated.get("top_project", "")
+        if top_proj and top_proj not in used_projects:
+            used_projects.append(top_proj)
+        eval_result = evaluate(
+            generated["text"],
+            char_limit=sec_def["char_limit"],
+            question=sec_def["question"],
+        )
+        logger.info("[RAG-4] [%d/%d] 완료: %s (%d자)", idx, total_sec, sec_def["label"], len(generated["text"]))
+        results.append({
+            "label":      generated["label"],
+            "question":   generated["question"],
+            "text":       generated["text"],
+            "char_count": len(generated["text"]),
+            "eval": {
+                "weighted": eval_result["weighted"],
+                "llm":      eval_result["llm"],
+            },
+        })
+
+    if out_pdf:
+        save_pdf(results, out_pdf)
+        logger.info("[RAG-4] PDF 저장 완료 → %s", out_pdf)
+
+    return {"sections": results, "outputPdfS3Url": out_pdf or ""}
+
+
+# ───────────────────────────────────────────────────────────────
+# RAG-5: 코드분석 → 포트폴리오 생성
+# ───────────────────────────────────────────────────────────────
+
+@track_metrics
+def run_code_analysis_to_portfolio(
+    code_analyses: list[dict],
+    job: str | None = None,
+    career: str | None = None,
+    top_k: int = TOP_K_FINAL,
+    out_pdf: str | None = None,
+) -> dict:
+    """코드분석 JSON list → 포트폴리오 섹션 생성 (RAG-5).
+
+    contribute_titles 기준으로 기능별 섹션을 생성하며,
+    코드분석 내용을 직접 LLM 프롬프트에 주입해 기술 깊이를 보강한다.
+    """
+    from app.evaluators.portfolio import evaluate as pf_evaluate
+    from app.exporters.portfolio_gen_pdf import save_generated_portfolio_pdf
+
+    cl_chunks = _code_analyses_to_cl_chunks(code_analyses)
+    if not cl_chunks:
+        raise ValueError("코드분석에서 변환된 CL 청크가 없습니다. code_analyses를 확인하세요.")
+
+    logger.info("[RAG-5] 코드분석 %d개 → %d개 섹션 생성 예정", len(code_analyses), len(cl_chunks))
+
+    client       = _get_gemini_client()
+    total_chunks = len(cl_chunks)
+
+    def _process_chunk(args: tuple) -> dict:
+        idx, c = args
+        logger.info("[RAG-5] [%d/%d] 포트폴리오 섹션 생성: %s", idx, total_chunks, c.get("section", ""))
+        refs = _search_portfolio_refs(c, top_k=top_k)
+        gen  = _generate_portfolio_section(c, refs, client, job=job, career=career, code_analyses=code_analyses)
+
+        full_text = "\n\n".join(filter(None, [
+            gen.sections.overview,
+            gen.sections.development,
+            gen.sections.issue,
+            gen.sections.result,
+        ]))
+        eval_result = None
+        if len(full_text.strip()) >= 50:
+            try:
+                eval_result = pf_evaluate(full_text)
+            except Exception:
+                pass
+
+        logger.info("[RAG-5] [%d/%d] 완료: %s", idx, total_chunks, c.get("section", ""))
+        return {
+            "section":          c["section"],
+            "category":         c["category"],
+            "project":          gen.project,
+            "period":           gen.period,
+            "role":             gen.role,
+            "team":             gen.team,
+            "tech_stack":       gen.tech_stack,
+            "overview":         gen.sections.overview,
+            "development":      gen.sections.development,
+            "issue":            gen.sections.issue,
+            "result":           gen.sections.result,
+            "image_suggestion": gen.image_suggestion,
+            "gaps": [
+                {"field": g.field, "reason": g.reason, "user_action": g.user_action, "example": g.example}
+                for g in gen.gaps
+            ],
+            "eval": eval_result,
+        }
+
+    max_workers = min(5, total_chunks)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_process_chunk, (i + 1, c)) for i, c in enumerate(cl_chunks)]
+        results = [f.result() for f in futures]
+
+    if out_pdf:
+        save_generated_portfolio_pdf(results, out_pdf)
+        logger.info("[RAG-5] PDF 저장 완료 → %s", out_pdf)
+
+    return {"sections": results, "outputPdfS3Url": out_pdf or ""}
 
 
 async def run_portfolio_to_cover_letter_task(
     job_id: str,
-    pdf_s3_url: str,
+    pdf_s3_url: str | None = None,
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
     job: str | None = None,
     career: str | None = None,
+    code_analysis_urls: list[str] = [],
 ) -> None:
-    await run_job_pipeline(
-        job_id,
-        lambda: run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career),
-        tag="RAG-3",
-    )
+    if not pdf_s3_url and code_analysis_urls:
+        code_analyses = _fetch_code_analyses(code_analysis_urls)
+        await run_job_pipeline(
+            job_id,
+            lambda: run_code_analysis_to_cover_letter(
+                code_analyses, job=job, career=career, top_k=top_k,
+            ),
+            tag="RAG-4",
+        )
+    else:
+        await run_job_pipeline(
+            job_id,
+            lambda: run_portfolio_to_cover_letter(pdf_s3_url, user_id=user_id, top_k=top_k, job=job, career=career),
+            tag="RAG-3",
+        )

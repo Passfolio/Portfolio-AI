@@ -130,34 +130,37 @@ class _PDF(FPDF):
 
         llm = eval_result.get("llm", {})
         for key in ("A", "B", "C", "E"):
-            item = llm.get(key, {})
+            item   = llm.get(key, {})
             score  = item.get("score", 0)
             reason = item.get("reason", "")
+            fix    = item.get("fix", "")
             self._set(8, bold=True, color=(50, 65, 130))
             self.multi_cell(0, 4.5, f"  [{key}] {_LABELS[key]} ({_WEIGHTS[key]}%)  {score}/100",
                             new_x="LMARGIN", new_y="NEXT")
+            self._set(8, color=(70, 80, 140))
             if reason:
-                self._set(8, color=(70, 80, 140))
-                self.multi_cell(0, 4.5, f"      {reason}", new_x="LMARGIN", new_y="NEXT")
+                self.multi_cell(0, 4.5, f"      근거: {reason}", new_x="LMARGIN", new_y="NEXT")
+            if fix:
+                self.multi_cell(0, 4.5, f"      개선: {fix}", new_x="LMARGIN", new_y="NEXT")
             self._gap(1)
 
-        d_info   = eval_result.get("D", {})
-        d_score  = d_info.get("score", 0)
-        d_detail = d_info.get("detail", {})
+        d_info    = llm.get("D", {})
+        d_score   = max(0, d_info.get("d1_volume", 0) + d_info.get("d2_quant", 0) + d_info.get("d3_penalty", 0))
+        d_reason  = d_info.get("reason", "")
+        d_fix     = d_info.get("fix", "")
+        d1        = d_info.get("d1_volume", 0)
+        d2        = d_info.get("d2_quant", 0)
+        d3        = d_info.get("d3_penalty", 0)
         self._set(8, bold=True, color=(50, 65, 130))
-        self.multi_cell(0, 4.5, f"  [D] {_LABELS['D']} ({_WEIGHTS['D']}%)  {d_score * 10}/100",
+        self.multi_cell(0, 4.5, f"  [D] {_LABELS['D']} ({_WEIGHTS['D']}%)  {d_score}/80",
                         new_x="LMARGIN", new_y="NEXT")
-        if d_detail:
-            vol = d_detail.get("d1_volume", {}).get("msg", "")
-            qnt = d_detail.get("d2_quant",  {}).get("msg", "")
-            pen = d_detail.get("d7_penalty", {})
-            self._set(8, color=(70, 80, 140))
-            if vol: self.multi_cell(0, 4.5, f"      분량: {vol}", new_x="LMARGIN", new_y="NEXT")
-            if qnt: self.multi_cell(0, 4.5, f"      수치: {qnt}", new_x="LMARGIN", new_y="NEXT")
-            if pen.get("penalty", 0) > 0:
-                self.multi_cell(0, 4.5,
-                    f"      감점: -{pen['penalty']}점  {', '.join(pen.get('reasons', []))}",
-                    new_x="LMARGIN", new_y="NEXT")
+        self._set(8, color=(70, 80, 140))
+        self.multi_cell(0, 4.5, f"      D1 분량: {d1}/40  |  D2 수치성과: {d2}/40  |  D3 감점: {d3}",
+                        new_x="LMARGIN", new_y="NEXT")
+        if d_reason:
+            self.multi_cell(0, 4.5, f"      근거: {d_reason}", new_x="LMARGIN", new_y="NEXT")
+        if d_fix:
+            self.multi_cell(0, 4.5, f"      개선: {d_fix}", new_x="LMARGIN", new_y="NEXT")
         self._gap(3)
 
     def gaps_block(self, gaps: list[dict]):
