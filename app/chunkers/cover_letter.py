@@ -1,7 +1,7 @@
 """
 cover_letter_chunker.py
 ────────────────────────────────────────────────────────────
-Gemini 1-pass: 자소서 텍스트 → 문항 단위 청킹 + 메타 추출 동시
+2-phase 전략: 대제목(1. 2. 3.) 기준 섹션 분리 → 섹션별 병렬 LLM 청킹 + 메타 추출
 
 개선 사항:
   1. 경계 검증 + 재시도 루프 (누락/중복 줄 탐지 → DB 무결성 보장)
@@ -17,6 +17,7 @@ import json
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Iterator
 
@@ -26,12 +27,9 @@ from google.genai import types as _types
 
 
 def _get_gemini_client() -> _genai.Client:
-    project = os.getenv("GCP_PROJECT_ID")
-    if project:
-        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "us-central1"))
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
+        raise ValueError("GEMINI_API_KEY 환경변수를 설정하세요.")
     return _genai.Client(api_key=api_key)
 
 
@@ -150,6 +148,21 @@ class _ValidationResult:
     errors:  list[str] = field(default_factory=list)
 
 
+def _split_by_numbered_headings(raw_lines: list[str]) -> list[tuple[int, int]]:
+    """1. 2. 3. 대제목 기준으로 섹션 경계 반환 (1-indexed start, end)."""
+    starts = [
+        i for i, line in enumerate(raw_lines)
+        if re.match(r"^\s*\d+[\.\)]\s", line)
+    ]
+    if not starts:
+        return [(1, len(raw_lines))]
+    bounds = []
+    for idx, s in enumerate(starts):
+        e = starts[idx + 1] - 1 if idx + 1 < len(starts) else len(raw_lines)
+        bounds.append((s + 1, e))  # 1-indexed
+    return bounds
+
+
 def _validate_coverage(sections: list[dict], total_lines: int) -> _ValidationResult:
     """섹션 경계가 전체 줄을 빠짐없이 1회 커버하는지 검증."""
     covered: dict[int, str] = {}   # line_no → section title
@@ -171,6 +184,24 @@ def _validate_coverage(sections: list[dict], total_lines: int) -> _ValidationRes
     return _ValidationResult(ok=not errors, errors=errors)
 
 
+def _validate_section_coverage(sections: list[dict], sec_start: int, sec_end: int) -> _ValidationResult:
+    """섹션 구간(sec_start~sec_end)이 빠짐없이 1회 커버하는지 검증."""
+    covered: dict[int, str] = {}
+    errors: list[str] = []
+    for sec in sections:
+        title = sec.get("title", "?")
+        for ln in range(int(sec["start_line"]), int(sec["end_line"]) + 1):
+            if ln in covered:
+                errors.append(f"줄 {ln} 중복: '{covered[ln]}' vs '{title}'")
+            covered[ln] = title
+    missing = sorted(set(range(sec_start, sec_end + 1)) - covered.keys())
+    if missing:
+        sample = missing[:10]
+        suffix = f" 외 {len(missing) - 10}줄" if len(missing) > 10 else ""
+        errors.append(f"누락 줄: {sample}{suffix}")
+    return _ValidationResult(ok=not errors, errors=errors)
+
+
 def _validate_categories(sections: list[dict]) -> list[str]:
     """존재하지 않는 category 값 탐지."""
     errors = []
@@ -188,7 +219,8 @@ def _validate_categories(sections: list[dict]) -> list[str]:
 # 프롬프트 빌더
 # ═══════════════════════════════════════════════════════════════
 
-def _build_prompt(numbered: str, total: int, format_hint: str) -> str:
+def _build_prompt(numbered: str, total: int, format_hint: str, line_range: tuple[int, int] | None = None) -> str:
+    start, end = line_range if line_range else (1, total)
     return (
         "다음은 자기소개서 텍스트입니다. 각 줄 앞에 줄 번호가 붙어 있습니다.\n"
         "문항(질문) 단위로 분리하고, 각 문항의 메타데이터도 함께 추출해주세요.\n\n"
@@ -196,7 +228,7 @@ def _build_prompt(numbered: str, total: int, format_hint: str) -> str:
         "[분리 기준]\n"
         "- 각 자소서 문항(질문)은 독립적인 섹션으로 분리\n"
         "- 질문 제목과 답변을 같은 섹션에 포함\n"
-        f"- start_line과 end_line은 실제 줄 번호(1~{total})여야 하며 누락 없이 커버\n"
+        f"- start_line과 end_line은 실제 줄 번호({start}~{end})여야 하며 누락 없이 커버\n"
         "- 모든 줄은 정확히 하나의 섹션에만 속해야 합니다\n\n"
         "[category / sub_categories 선택 기준]\n"
         "- category: 섹션 내용을 가장 잘 나타내는 주 카테고리 1개\n"
@@ -251,7 +283,7 @@ def _call_gemini(client: _genai.Client, prompt: str) -> list[dict]:
             err = str(exc)
             if attempt < _LLM_RETRIES - 1:
                 wait = 30 if "429" in err else 5
-                print(f"  [WARN] LLM 호출 실패 ({err[:60]}). {wait}초 후 재시도...")
+                print(f"  [WARN] LLM 호출 실패 ({err}). {wait}초 후 재시도...")
                 time.sleep(wait)
             else:
                 raise
@@ -302,20 +334,24 @@ def _sections_to_chunks(
 # 핵심 파이프라인
 # ═══════════════════════════════════════════════════════════════
 
-def _gemini_split(text: str, source: str) -> list[dict]:
-    client = _get_gemini_client()
-    numbered, raw_lines = _number_lines(text)
-    total        = len(raw_lines)
-    format_hint  = _detect_format_hint(text)
-    prompt       = _build_prompt(numbered, total, format_hint)
+def _process_section(
+    client: _genai.Client,
+    raw_lines: list[str],
+    sec_start: int,
+    sec_end: int,
+    total: int,
+    format_hint: str,
+) -> list[dict]:
+    """단일 섹션(sec_start~sec_end)을 LLM에 투입해 청크 목록 반환."""
+    section_lines = raw_lines[sec_start - 1:sec_end]
+    numbered = "\n".join(
+        f"{sec_start + i:04d} | {line}" for i, line in enumerate(section_lines)
+    )
+    prompt = _build_prompt(numbered, total, format_hint, line_range=(sec_start, sec_end))
 
-    sections: list[dict] = []
-
-    # ── 경계 검증 루프 ──────────────────────────────────────────
     for v_attempt in range(_VALIDATE_RETRIES + 1):
         sections = _call_gemini(client, prompt)
-
-        coverage = _validate_coverage(sections, total)
+        coverage = _validate_section_coverage(sections, sec_start, sec_end)
         cat_errs = _validate_categories(sections)
         all_errors = coverage.errors + cat_errs
 
@@ -324,22 +360,41 @@ def _gemini_split(text: str, source: str) -> list[dict]:
 
         if v_attempt < _VALIDATE_RETRIES:
             err_summary = "\n".join(f"  - {e}" for e in all_errors[:5])
-            print(
-                f"  [WARN] 검증 실패 (시도 {v_attempt + 1}/{_VALIDATE_RETRIES}):\n"
-                f"{err_summary}\n  → 재시도..."
-            )
-            # 오류 내용을 프롬프트에 추가해 재시도
+            print(f"  [WARN] 섹션 {sec_start}~{sec_end} 검증 실패 (시도 {v_attempt + 1}):\n{err_summary}\n  → 재시도...")
             prompt = (
-                _build_prompt(numbered, total, format_hint)
+                _build_prompt(numbered, total, format_hint, line_range=(sec_start, sec_end))
                 + f"\n\n[이전 응답의 오류 — 반드시 수정]\n{err_summary}"
             )
         else:
-            print(
-                f"  [ERROR] {_VALIDATE_RETRIES}회 재시도 후에도 검증 실패. "
-                "현재 결과로 진행합니다."
-            )
+            print(f"  [ERROR] 섹션 {sec_start}~{sec_end} {_VALIDATE_RETRIES}회 재시도 후 검증 실패. 현재 결과로 진행.")
 
-    return list(_sections_to_chunks(sections, raw_lines, source))
+    return sections
+
+
+def _gemini_split(text: str, source: str) -> list[dict]:
+    client = _get_gemini_client()
+    _, raw_lines = _number_lines(text)
+    total       = len(raw_lines)
+    format_hint = _detect_format_hint(text)
+
+    # Phase 1: 대제목(1. 2. 3.) 기준 섹션 분리
+    bounds = _split_by_numbered_headings(raw_lines)
+    print(f"  [청킹] {len(bounds)}개 섹션 감지 → 병렬 LLM 투입")
+
+    # Phase 2: 섹션별 병렬 LLM 호출
+    all_sections: list[dict] = []
+    if len(bounds) == 1:
+        all_sections = _process_section(client, raw_lines, *bounds[0], total, format_hint)
+    else:
+        with ThreadPoolExecutor(max_workers=len(bounds)) as executor:
+            futures = {
+                executor.submit(_process_section, client, raw_lines, s, e, total, format_hint): (s, e)
+                for s, e in bounds
+            }
+            for future in as_completed(futures):
+                all_sections.extend(future.result())
+
+    return list(_sections_to_chunks(all_sections, raw_lines, source))
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -340,17 +340,30 @@ def run_portfolio_from_pdf(
 
 async def run_portfolio_from_pdf_task(
     job_id: str,
-    pdf_s3_url: str,
+    pdf_s3_url: str | None = None,
     user_id: int | None = None,
     top_k: int = TOP_K_FINAL,
+    job: str | None = None,
+    career: str | None = None,
     code_analysis_urls: list[str] = [],
 ) -> None:
     from app.services._rag_utils import _fetch_code_analyses
-    await run_job_pipeline(
-        job_id,
-        lambda: run_portfolio_from_pdf(
-            pdf_s3_url, user_id=user_id, top_k=top_k,
-            code_analyses=_fetch_code_analyses(code_analysis_urls),
-        ),
-        tag="RAG-4",
-    )
+    code_analyses = _fetch_code_analyses(code_analysis_urls)
+    if not pdf_s3_url and code_analyses:
+        from app.services.cover_letter import run_code_analysis_to_portfolio
+        await run_job_pipeline(
+            job_id,
+            lambda: run_code_analysis_to_portfolio(
+                code_analyses, job=job, career=career, top_k=top_k,
+            ),
+            tag="RAG-5",
+        )
+    else:
+        await run_job_pipeline(
+            job_id,
+            lambda: run_portfolio_from_pdf(
+                pdf_s3_url, user_id=user_id, top_k=top_k,
+                code_analyses=code_analyses,
+            ),
+            tag="RAG-4",
+        )

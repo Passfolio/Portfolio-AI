@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import pickle
 import re
 import threading
@@ -365,13 +364,10 @@ def _search_portfolio_refs(cl_chunk: dict, top_k: int) -> list[dict]:
 # ───────────────────────────────────────────────────────────────
 
 def _get_gemini_client() -> _genai.Client:
-    project = os.getenv("GCP_PROJECT_ID")
-    if project:
-        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "global"))
     api_key = get_settings().gemini_api_key
-    if api_key:
-        return _genai.Client(api_key=api_key)
-    raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY 환경변수를 설정하세요.")
+    return _genai.Client(api_key=api_key)
 
 
 @track_metrics
@@ -510,6 +506,143 @@ def _fetch_code_analyses(urls: list[str]) -> list[dict]:
             f.result()
 
     return [r for r in results if r is not None]
+
+
+def _code_analyses_to_portfolio_chunks(code_analyses: list[dict]) -> list[dict]:
+    """코드분석 list[dict] → generate_cl_section이 소비할 portfolio_chunks 형식으로 변환.
+
+    섹션별 BM25 랭킹이 동작하도록 세 유형의 청크로 분리:
+      - development: 기술구현 (직무역량 쿼리에 매칭)
+      - issue:       피드백/문제해결 (문제해결경험 쿼리에 매칭)
+      - overview:    프로젝트 개요 (일반 컨텍스트)
+    """
+    chunks = []
+    for ca in code_analyses:
+        service  = ca.get("service_name", "")
+        analysis = ca.get("analysis", {})
+        user_role = ca.get("user_role", "")
+
+        # ── development 청크: 기술구현 (직무역량용) ─────────────────────────
+        tech_lines = []
+        frameworks = [f["name"] for f in ca.get("frameworks", [])]
+        if frameworks:
+            tech_lines.append(f"기술스택: {', '.join(frameworks)}")
+        for s in ca.get("skills", []):
+            tech_lines.append(f"{s.get('category', '기타')}: {s['name']}")
+        for p in analysis.get("core_perf", []):
+            tech_lines.append(f"{p['perf_title']}: {p['description']}")
+        contrib_titles = analysis.get("contribute", {}).get("contribute_titles", [])
+        if contrib_titles:
+            tech_lines.append(f"기여 기능: {', '.join(contrib_titles)}")
+        if user_role:
+            tech_lines.append(f"담당 역할: {user_role}")
+        if tech_lines:
+            chunks.append({
+                "section":     "기술구현",
+                "sub_section": "development",
+                "project":     service,
+                "text":        "\n".join(tech_lines),
+            })
+
+        # ── issue 청크: 피드백/문제해결 (문제해결경험용) ─────────────────────
+        issue_lines = []
+        for fb in analysis.get("feedback", []):
+            issue_lines.append(f"{fb['feedback_title']}: {fb['feedback']}")
+        for f in analysis.get("core_feat", []):
+            issue_lines.append(f"{f['feat_title']}: {f['description']}")
+        if issue_lines:
+            chunks.append({
+                "section":     "문제해결",
+                "sub_section": "issue",
+                "project":     service,
+                "text":        "\n".join(issue_lines),
+            })
+
+        # ── overview 청크: 전반 컨텍스트 ────────────────────────────────────
+        overview_lines = [
+            f"프로젝트: {service}",
+            f"설명: {ca.get('service_description', '')}",
+        ]
+        dev_type = ca.get("dev_type", [])
+        if dev_type:
+            overview_lines.append(f"개발 유형: {', '.join(dev_type)}")
+        breakdown = ca.get("contribute_breakdown", [])
+        if breakdown:
+            team_size = len(breakdown)
+            top = max(breakdown, key=lambda x: x.get("percent", 0))
+            overview_lines.append(
+                f"팀 규모: {team_size}인 팀, 본인 기여 {top.get('percent', '')}% ({top.get('added', '')}줄 추가)"
+            )
+        elif ca.get("contribute_share_percent") is not None:
+            overview_lines.append(f"기여 비율: {ca['contribute_share_percent']}%")
+        period = ca.get("analysis_period", {})
+        if period:
+            overview_lines.append(
+                f"개발 기간: {period.get('start', '')} ~ {period.get('end', '')} ({period.get('days', '')}일)"
+            )
+        if user_role:
+            overview_lines.append(f"역할: {user_role}")
+        chunks.append({
+            "section":     "프로젝트개요",
+            "sub_section": "overview",
+            "project":     service,
+            "text":        "\n".join(overview_lines),
+        })
+
+    return chunks
+
+
+def _code_analyses_to_cl_chunks(code_analyses: list[dict]) -> list[dict]:
+    """코드분석 list[dict] → _generate_portfolio_section이 소비할 cl_chunk 형식으로 변환.
+
+    contribute_titles 기준으로 기능을 선택하고,
+    core_perf 항목을 about_feat_title로 그룹핑하여 기능 1개당 cl_chunk 1개 생성.
+    """
+    from collections import defaultdict
+
+    chunks = []
+    for ca in code_analyses:
+        service          = ca.get("service_name", "")
+        analysis         = ca.get("analysis", {})
+        contribute_titles = set(analysis.get("contribute", {}).get("contribute_titles", []))
+        skill_names      = [s["name"] for s in ca.get("skills", [])][:6]
+
+        # core_perf를 about_feat_title로 그룹핑
+        perf_by_feat: dict[str, list[dict]] = defaultdict(list)
+        for p in analysis.get("core_perf", []):
+            perf_by_feat[p.get("about_feat_title", "기타")].append(p)
+
+        # 본인이 기여한 기능만 우선, 없으면 전체
+        target_feats = [ft for ft in perf_by_feat if ft in contribute_titles] if contribute_titles else list(perf_by_feat.keys())
+        if not target_feats:
+            target_feats = list(perf_by_feat.keys())
+
+        for feat_title in target_feats:
+            perfs = perf_by_feat[feat_title]
+
+            lines = [
+                f"[프로젝트] {service}",
+                f"[기능] {feat_title}",
+            ]
+            for p in perfs:
+                lines.append(f"[구현] {p['perf_title']}: {p['description']}")
+
+            # 해당 기능과 연관된 feedback (수치화 힌트)
+            perf_titles = {p["perf_title"] for p in perfs}
+            for fb in analysis.get("feedback", []):
+                if fb.get("about_perf_title", "") in perf_titles:
+                    lines.append(f"[성과입증힌트] {fb['feedback_title']}: {fb['feedback']}")
+
+            chunks.append({
+                "text":        "\n".join(lines),
+                "section":     feat_title,
+                "category":    "직무역량",
+                "key_points":  [p["perf_title"] for p in perfs],
+                "achievements": [],
+                "keywords":    skill_names,
+            })
+
+    return chunks
 
 
 def _build_code_analyses_block(code_analyses: list[dict]) -> str:

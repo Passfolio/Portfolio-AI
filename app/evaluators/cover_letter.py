@@ -128,13 +128,10 @@ def is_competency_question(question: str) -> bool:
 # ─── Gemini 클라이언트 ─────────────────────────────────────────────────────────
 
 def _get_gemini_client() -> _genai.Client:
-    project = os.getenv("GCP_PROJECT_ID")
-    if project:
-        return _genai.Client(vertexai=True, project=project, location=os.getenv("GCP_LOCATION", "global"))
     api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        return _genai.Client(api_key=api_key)
-    raise ValueError("GCP_PROJECT_ID 또는 GEMINI_API_KEY 환경변수를 설정하세요.")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY 환경변수를 설정하세요.")
+    return _genai.Client(api_key=api_key)
 
 
 # ─── LLM 평가 ─────────────────────────────────────────────────────────────────
@@ -162,7 +159,11 @@ def llm_evaluate(text: str, char_limit: int | None = None, question: str = "") -
             ),
         )
         try:
-            return _EvalResult.model_validate_json(resp.text)
+            result = _EvalResult.model_validate_json(resp.text)
+            result.D.score = max(0, result.D.d1_volume + result.D.d2_quant + result.D.d3_penalty)
+            if result.D.score == 0 and result.D.d1_volume == 0 and attempt < 2:
+                continue
+            return result
         except Exception:
             if attempt == 2:
                 raise
@@ -172,11 +173,12 @@ def llm_evaluate(text: str, char_limit: int | None = None, question: str = "") -
 # ─── 가중 합산 ─────────────────────────────────────────────────────────────────
 
 def compute_weighted(llm: _EvalResult) -> float:
+    d_score = max(0, llm.D.d1_volume + llm.D.d2_quant + llm.D.d3_penalty)
     total = (
         llm.A.score * WEIGHTS["A"] +
         llm.B.score * WEIGHTS["B"] +
         llm.C.score * WEIGHTS["C"] +
-        llm.D.score * WEIGHTS["D"]
+        d_score     * WEIGHTS["D"]
     )
     return round(total, 2)
 
